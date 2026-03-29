@@ -1,0 +1,253 @@
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { deleteCard, getCard, previewCard, updateCard } from "../api";
+
+const cardUpdateSchema = z.object({
+  title: z.string().min(1, "Title is required."),
+  subtitle: z.string().min(1, "Subtitle is required."),
+  flavorText: z.string().min(1, "Flavor text is required."),
+  backgroundImageUrl: z.string().url("Must be a valid URL.").or(z.literal("")),
+  foregroundImageUrl: z.string().url("Must be a valid URL.").or(z.literal("")),
+});
+
+type CardUpdateValues = z.infer<typeof cardUpdateSchema>;
+
+export default function CardDetailPage() {
+  const { cardId } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    getValues,
+    formState: { errors },
+  } = useForm<CardUpdateValues>({
+    resolver: zodResolver(cardUpdateSchema),
+    defaultValues: {
+      title: "",
+      subtitle: "",
+      flavorText: "",
+      backgroundImageUrl: "",
+      foregroundImageUrl: "",
+    },
+  });
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["card", cardId],
+    queryFn: () => getCard(cardId as string),
+    enabled: Boolean(cardId),
+  });
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    reset({
+      title: data.data.title,
+      subtitle: data.data.subtitle,
+      flavorText: data.data.flavorText,
+      backgroundImageUrl: data.data.backgroundImageUrl || "",
+      foregroundImageUrl: data.data.foregroundImageUrl || "",
+    });
+  }, [data, reset]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const updateMutation = useMutation({
+    mutationFn: updateCard,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["card", cardId] });
+      await queryClient.invalidateQueries({ queryKey: ["cards"] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteCard,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["cards"] });
+      navigate("/app/cards", { replace: true });
+    },
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: previewCard,
+    onSuccess: (imageBlob) => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      const nextUrl = URL.createObjectURL(imageBlob);
+      setPreviewUrl(nextUrl);
+    },
+  });
+
+  return (
+    <section className="content-card">
+      <div className="row-between">
+        <h2>Card Detail</h2>
+        <Link className="btn-secondary" to="/app/cards">
+          Back to Cards
+        </Link>
+      </div>
+
+      {isLoading ? <p>Loading card...</p> : null}
+      {isError ? <p>Failed to load card.</p> : null}
+
+      {data ? (
+        <>
+          <div className="stack detail-meta">
+            <div>
+              <strong>ID:</strong> {data.id}
+            </div>
+            <div>
+              <strong>Template:</strong> {data.template_id || "N/A"}
+            </div>
+          </div>
+
+          <form
+            className="stack"
+            onSubmit={handleSubmit((values) => {
+              updateMutation.mutate({
+                id: data.id,
+                title: values.title,
+                subtitle: values.subtitle,
+                flavorText: values.flavorText,
+                backgroundImageUrl: values.backgroundImageUrl || undefined,
+                foregroundImageUrl: values.foregroundImageUrl || undefined,
+              });
+            })}
+          >
+            <label>
+              Title
+              <input {...register("title")} />
+              {errors.title ? (
+                <small className="field-error">{errors.title.message}</small>
+              ) : null}
+            </label>
+
+            <label>
+              Subtitle
+              <input {...register("subtitle")} />
+              {errors.subtitle ? (
+                <small className="field-error">{errors.subtitle.message}</small>
+              ) : null}
+            </label>
+
+            <label>
+              Flavor Text
+              <textarea rows={5} {...register("flavorText")} />
+              {errors.flavorText ? (
+                <small className="field-error">
+                  {errors.flavorText.message}
+                </small>
+              ) : null}
+            </label>
+
+            <label>
+              Background Image URL
+              <input
+                {...register("backgroundImageUrl")}
+                placeholder="https://..."
+              />
+              {errors.backgroundImageUrl ? (
+                <small className="field-error">
+                  {errors.backgroundImageUrl.message}
+                </small>
+              ) : null}
+            </label>
+
+            <label>
+              Foreground Image URL
+              <input
+                {...register("foregroundImageUrl")}
+                placeholder="https://..."
+              />
+              {errors.foregroundImageUrl ? (
+                <small className="field-error">
+                  {errors.foregroundImageUrl.message}
+                </small>
+              ) : null}
+            </label>
+
+            {updateMutation.isError ? (
+              <div className="alert-error">Update failed.</div>
+            ) : null}
+            {updateMutation.isSuccess ? (
+              <div className="alert-success">Card updated.</div>
+            ) : null}
+            {previewMutation.isError ? (
+              <div className="alert-error">Preview generation failed.</div>
+            ) : null}
+            {deleteMutation.isError ? (
+              <div className="alert-error">Delete failed.</div>
+            ) : null}
+
+            <div className="button-row">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  const values = getValues();
+                  previewMutation.mutate({
+                    templateId: data.template_id,
+                    title: values.title,
+                    subtitle: values.subtitle,
+                    flavorText: values.flavorText,
+                    backgroundImageUrl: values.backgroundImageUrl || undefined,
+                    foregroundImageUrl: values.foregroundImageUrl || undefined,
+                  });
+                }}
+                disabled={previewMutation.isPending}
+              >
+                {previewMutation.isPending ? "Rendering..." : "Preview"}
+              </button>
+
+              <button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </button>
+
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => {
+                  if (!window.confirm("Delete this card permanently?")) {
+                    return;
+                  }
+
+                  deleteMutation.mutate(data.id);
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete Card"}
+              </button>
+            </div>
+          </form>
+
+          {previewUrl ? (
+            <section className="preview-panel">
+              <h3>Live Preview</h3>
+              <img
+                src={previewUrl}
+                alt="Card preview"
+                className="preview-image"
+              />
+            </section>
+          ) : null}
+        </>
+      ) : null}
+    </section>
+  );
+}
