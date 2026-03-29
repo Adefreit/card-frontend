@@ -67,123 +67,143 @@ export default function CardCreatePage() {
   });
 
   return (
-    <section className="content-card">
-      <h2>Create Card</h2>
-      <form
-        className="stack"
-        onSubmit={handleSubmit((values) => {
-          mutation.mutate({
-            templateId: values.templateId,
-            title: values.title,
-            subtitle: values.subtitle,
-            flavorText: values.flavorText,
-            backgroundImageUrl: values.backgroundImageUrl || undefined,
-            foregroundImageUrl: values.foregroundImageUrl || undefined,
-          });
-        })}
-      >
-        <label>
-          Template ID
-          <input {...register("templateId")} />
-          {errors.templateId ? (
-            <small className="field-error">{errors.templateId.message}</small>
-          ) : null}
-        </label>
-
-        <label>
-          Title
-          <input {...register("title")} />
-          {errors.title ? (
-            <small className="field-error">{errors.title.message}</small>
-          ) : null}
-        </label>
-
-        <label>
-          Subtitle
-          <input {...register("subtitle")} />
-          {errors.subtitle ? (
-            <small className="field-error">{errors.subtitle.message}</small>
-          ) : null}
-        </label>
-
-        <label>
-          Flavor Text
-          <textarea rows={5} {...register("flavorText")} />
-          {errors.flavorText ? (
-            <small className="field-error">{errors.flavorText.message}</small>
-          ) : null}
-        </label>
-
-        <label>
-          Background Image URL
-          <input
-            {...register("backgroundImageUrl")}
-            placeholder="https://..."
-          />
-          {errors.backgroundImageUrl ? (
-            <small className="field-error">
-              {errors.backgroundImageUrl.message}
-            </small>
-          ) : null}
-        </label>
-
-        <label>
-          Foreground Image URL
-          <input
-            {...register("foregroundImageUrl")}
-            placeholder="https://..."
-          />
-          {errors.foregroundImageUrl ? (
-            <small className="field-error">
-              {errors.foregroundImageUrl.message}
-            </small>
-          ) : null}
-        </label>
-
-        {mutation.isError ? (
-          <div className="alert-error">Failed to create card.</div>
-        ) : null}
-
-        {mutation.isSuccess ? (
-          <div className="alert-success">Card created.</div>
-        ) : null}
-
-        {previewMutation.isError ? (
-          <div className="alert-error">Preview generation failed.</div>
-        ) : null}
-
-        <div className="button-row">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              const values = getValues();
-              previewMutation.mutate({
-                templateId: values.templateId,
-                title: values.title,
-                subtitle: values.subtitle,
-                flavorText: values.flavorText,
-                backgroundImageUrl: values.backgroundImageUrl || undefined,
-                foregroundImageUrl: values.foregroundImageUrl || undefined,
-              });
-            }}
-            disabled={previewMutation.isPending}
-          >
-            {previewMutation.isPending ? "Rendering..." : "Preview"}
-          </button>
-
-          <button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "Creating..." : "Create Card"}
-          </button>
+    <div className="page-stack">
+      <section className="content-hero">
+        <div>
+          <p className="section-kicker">Create</p>
+          <h1>Build a new profile card</h1>
+          <p className="content-hero-copy">
+            Start with the core card data, preview the design, and publish a
+            polished profile experience.
+          </p>
         </div>
-      </form>
+      </section>
 
-      {previewUrl ? (
-        <section className="preview-panel">
-          <h3>Live Preview</h3>
-          <img src={previewUrl} alt="Card preview" className="preview-image" />
-        </section>
-      ) : null}
-    </section>
+      <section className="content-card content-card-wide">
+        <div className="content-card-header">
+          <h2>Card details</h2>
+          <p>Complete the fields below, then preview before you create.</p>
+        </div>
+        <form
+          className="stack"
+          onSubmit={handleSubmit((values) => {
+            mutation.mutate({
+              templateId: values.templateId,
+              title: values.title,
+              subtitle: values.subtitle,
+              flavorText: values.flavorText,
+              backgroundImageUrl: values.backgroundImageUrl || undefined,
+              foregroundImageUrl: values.foregroundImageUrl || undefined,
+            });
+          })}
+        >
+          <label>
+            Template ID
+            <input {...register("templateId")} />
+            {errors.templateId ? (
+              <small className="field-error">{errors.templateId.message}</small>
+            ) : null}
+          </label>
+
+          <label>
+            Title
+            <input {...register("title")} />
+            {errors.title ? (
+              <small className="field-error">{errors.title.message}</small>
+            ) : null}
+          </label>
+
+          <label>
+            Subtitle
+            <input {...register("subtitle")} />
+            {errors.subtitle ? (
+              <small className="field-error">{errors.subtitle.message}</small>
+            ) : null}
+          </label>
+
+          <label>
+            Flavor Text
+            <textarea rows={5} {...register("flavorText")} />
+            {errors.flavorText ? (
+              <small className="field-error">{errors.flavorText.message}</small>
+            ) : null}
+          </label>
+
+          <label>
+            Background Image URL
+            <input
+              {...register("backgroundImageUrl")}
+              placeholder="https://..."
+            />
+            {errors.backgroundImageUrl ? (
+              <small className="field-error">
+                {errors.backgroundImageUrl.message}
+              </small>
+            ) : null}
+          </label>
+
+          <label>
+            Foreground Image URL
+            <input
+              {...register("foregroundImageUrl")}
+              placeholder="https://..."
+            />
+            {errors.foregroundImageUrl ? (
+              <small className="field-error">
+                {errors.foregroundImageUrl.message}
+              </small>
+            ) : null}
+          </label>
+
+          {mutation.isError ? (
+            <div className="alert-error">Failed to create card.</div>
+          ) : null}
+
+          {mutation.isSuccess ? (
+            <div className="alert-success">Card created.</div>
+          ) : null}
+
+          {previewMutation.isError ? (
+            <div className="alert-error">Preview generation failed.</div>
+          ) : null}
+
+          <div className="button-row">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const values = getValues();
+                previewMutation.mutate({
+                  templateId: values.templateId,
+                  title: values.title,
+                  subtitle: values.subtitle,
+                  flavorText: values.flavorText,
+                  backgroundImageUrl: values.backgroundImageUrl || undefined,
+                  foregroundImageUrl: values.foregroundImageUrl || undefined,
+                });
+              }}
+              disabled={previewMutation.isPending}
+            >
+              {previewMutation.isPending ? "Rendering..." : "Preview"}
+            </button>
+
+            <button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? "Creating..." : "Create Card"}
+            </button>
+          </div>
+        </form>
+
+        {previewUrl ? (
+          <section className="preview-panel">
+            <h3>Live preview</h3>
+            <img
+              src={previewUrl}
+              alt="Card preview"
+              className="preview-image"
+            />
+          </section>
+        ) : null}
+      </section>
+    </div>
   );
 }

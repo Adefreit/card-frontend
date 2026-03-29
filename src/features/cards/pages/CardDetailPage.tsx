@@ -95,159 +95,182 @@ export default function CardDetailPage() {
   });
 
   return (
-    <section className="content-card">
-      <div className="row-between">
-        <h2>Card Detail</h2>
+    <div className="page-stack">
+      <section className="content-hero">
+        <div>
+          <p className="section-kicker">Edit</p>
+          <h1>Card detail</h1>
+          <p className="content-hero-copy">
+            Refine your profile content, regenerate previews, and keep the card
+            aligned with the Legendary Profiles brand.
+          </p>
+        </div>
         <Link className="btn-secondary" to="/app/cards">
-          Back to Cards
+          Back to cards
         </Link>
-      </div>
+      </section>
 
-      {isLoading ? <p>Loading card...</p> : null}
-      {isError ? <p>Failed to load card.</p> : null}
+      <section className="content-card content-card-wide">
+        {isLoading ? <p>Loading card...</p> : null}
+        {isError ? <p className="alert-error">Failed to load card.</p> : null}
 
-      {data ? (
-        <>
-          <div className="stack detail-meta">
-            <div>
-              <strong>ID:</strong> {data.id}
+        {data ? (
+          <>
+            <div className="content-card-header row-between">
+              <div>
+                <h2>{data.data.title}</h2>
+                <p>Edit content, images, and descriptive copy for this card.</p>
+              </div>
+              <span className="meta-pill">ID {data.id.slice(0, 8)}</span>
             </div>
-            <div>
-              <strong>Template:</strong> {data.template_id || "N/A"}
+
+            <div className="detail-meta-grid detail-meta">
+              <div className="detail-meta-item">
+                <span>Card ID</span>
+                <strong>{data.id}</strong>
+              </div>
+              <div className="detail-meta-item">
+                <span>Template ID</span>
+                <strong>{data.template_id || "N/A"}</strong>
+              </div>
             </div>
-          </div>
 
-          <form
-            className="stack"
-            onSubmit={handleSubmit((values) => {
-              updateMutation.mutate({
-                id: data.id,
-                title: values.title,
-                subtitle: values.subtitle,
-                flavorText: values.flavorText,
-                backgroundImageUrl: values.backgroundImageUrl || undefined,
-                foregroundImageUrl: values.foregroundImageUrl || undefined,
-              });
-            })}
-          >
-            <label>
-              Title
-              <input {...register("title")} />
-              {errors.title ? (
-                <small className="field-error">{errors.title.message}</small>
+            <form
+              className="stack"
+              onSubmit={handleSubmit((values) => {
+                updateMutation.mutate({
+                  id: data.id,
+                  title: values.title,
+                  subtitle: values.subtitle,
+                  flavorText: values.flavorText,
+                  backgroundImageUrl: values.backgroundImageUrl || undefined,
+                  foregroundImageUrl: values.foregroundImageUrl || undefined,
+                });
+              })}
+            >
+              <label>
+                Title
+                <input {...register("title")} />
+                {errors.title ? (
+                  <small className="field-error">{errors.title.message}</small>
+                ) : null}
+              </label>
+
+              <label>
+                Subtitle
+                <input {...register("subtitle")} />
+                {errors.subtitle ? (
+                  <small className="field-error">
+                    {errors.subtitle.message}
+                  </small>
+                ) : null}
+              </label>
+
+              <label>
+                Flavor Text
+                <textarea rows={5} {...register("flavorText")} />
+                {errors.flavorText ? (
+                  <small className="field-error">
+                    {errors.flavorText.message}
+                  </small>
+                ) : null}
+              </label>
+
+              <label>
+                Background Image URL
+                <input
+                  {...register("backgroundImageUrl")}
+                  placeholder="https://..."
+                />
+                {errors.backgroundImageUrl ? (
+                  <small className="field-error">
+                    {errors.backgroundImageUrl.message}
+                  </small>
+                ) : null}
+              </label>
+
+              <label>
+                Foreground Image URL
+                <input
+                  {...register("foregroundImageUrl")}
+                  placeholder="https://..."
+                />
+                {errors.foregroundImageUrl ? (
+                  <small className="field-error">
+                    {errors.foregroundImageUrl.message}
+                  </small>
+                ) : null}
+              </label>
+
+              {updateMutation.isError ? (
+                <div className="alert-error">Update failed.</div>
               ) : null}
-            </label>
-
-            <label>
-              Subtitle
-              <input {...register("subtitle")} />
-              {errors.subtitle ? (
-                <small className="field-error">{errors.subtitle.message}</small>
+              {updateMutation.isSuccess ? (
+                <div className="alert-success">Card updated.</div>
               ) : null}
-            </label>
-
-            <label>
-              Flavor Text
-              <textarea rows={5} {...register("flavorText")} />
-              {errors.flavorText ? (
-                <small className="field-error">
-                  {errors.flavorText.message}
-                </small>
+              {previewMutation.isError ? (
+                <div className="alert-error">Preview generation failed.</div>
               ) : null}
-            </label>
-
-            <label>
-              Background Image URL
-              <input
-                {...register("backgroundImageUrl")}
-                placeholder="https://..."
-              />
-              {errors.backgroundImageUrl ? (
-                <small className="field-error">
-                  {errors.backgroundImageUrl.message}
-                </small>
+              {deleteMutation.isError ? (
+                <div className="alert-error">Delete failed.</div>
               ) : null}
-            </label>
 
-            <label>
-              Foreground Image URL
-              <input
-                {...register("foregroundImageUrl")}
-                placeholder="https://..."
-              />
-              {errors.foregroundImageUrl ? (
-                <small className="field-error">
-                  {errors.foregroundImageUrl.message}
-                </small>
-              ) : null}
-            </label>
+              <div className="button-row">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    const values = getValues();
+                    previewMutation.mutate({
+                      templateId: data.template_id,
+                      title: values.title,
+                      subtitle: values.subtitle,
+                      flavorText: values.flavorText,
+                      backgroundImageUrl:
+                        values.backgroundImageUrl || undefined,
+                      foregroundImageUrl:
+                        values.foregroundImageUrl || undefined,
+                    });
+                  }}
+                  disabled={previewMutation.isPending}
+                >
+                  {previewMutation.isPending ? "Rendering..." : "Preview"}
+                </button>
 
-            {updateMutation.isError ? (
-              <div className="alert-error">Update failed.</div>
+                <button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-danger"
+                  onClick={() => {
+                    if (!window.confirm("Delete this card permanently?")) {
+                      return;
+                    }
+
+                    deleteMutation.mutate(data.id);
+                  }}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? "Deleting..." : "Delete Card"}
+                </button>
+              </div>
+            </form>
+
+            {previewUrl ? (
+              <section className="preview-panel">
+                <h3>Live preview</h3>
+                <img
+                  src={previewUrl}
+                  alt="Card preview"
+                  className="preview-image"
+                />
+              </section>
             ) : null}
-            {updateMutation.isSuccess ? (
-              <div className="alert-success">Card updated.</div>
-            ) : null}
-            {previewMutation.isError ? (
-              <div className="alert-error">Preview generation failed.</div>
-            ) : null}
-            {deleteMutation.isError ? (
-              <div className="alert-error">Delete failed.</div>
-            ) : null}
-
-            <div className="button-row">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  const values = getValues();
-                  previewMutation.mutate({
-                    templateId: data.template_id,
-                    title: values.title,
-                    subtitle: values.subtitle,
-                    flavorText: values.flavorText,
-                    backgroundImageUrl: values.backgroundImageUrl || undefined,
-                    foregroundImageUrl: values.foregroundImageUrl || undefined,
-                  });
-                }}
-                disabled={previewMutation.isPending}
-              >
-                {previewMutation.isPending ? "Rendering..." : "Preview"}
-              </button>
-
-              <button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? "Saving..." : "Save Changes"}
-              </button>
-
-              <button
-                type="button"
-                className="btn-danger"
-                onClick={() => {
-                  if (!window.confirm("Delete this card permanently?")) {
-                    return;
-                  }
-
-                  deleteMutation.mutate(data.id);
-                }}
-                disabled={deleteMutation.isPending}
-              >
-                {deleteMutation.isPending ? "Deleting..." : "Delete Card"}
-              </button>
-            </div>
-          </form>
-
-          {previewUrl ? (
-            <section className="preview-panel">
-              <h3>Live Preview</h3>
-              <img
-                src={previewUrl}
-                alt="Card preview"
-                className="preview-image"
-              />
-            </section>
-          ) : null}
-        </>
-      ) : null}
-    </section>
+          </>
+        ) : null}
+      </section>
+    </div>
   );
 }

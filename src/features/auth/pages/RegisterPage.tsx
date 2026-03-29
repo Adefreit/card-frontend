@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "react-router-dom";
+import AuthPageFrame from "../AuthPageFrame";
 import { registerUser } from "../api";
 
 const registerSchema = z
@@ -54,50 +55,57 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="auth-shell">
-      <section className="auth-card">
-        <h1>Create Account</h1>
-        <p>Register a new account, then activate it with your email code.</p>
-
-        <form className="stack" onSubmit={handleSubmit(onSubmit)}>
-          <label>
-            Email
-            <input type="email" {...register("email")} />
-            {errors.email ? (
-              <small className="field-error">{errors.email.message}</small>
-            ) : null}
-          </label>
-
-          <label>
-            Password
-            <input type="password" {...register("password")} />
-            {errors.password ? (
-              <small className="field-error">{errors.password.message}</small>
-            ) : null}
-          </label>
-
-          <label>
-            Confirm Password
-            <input type="password" {...register("confirmPassword")} />
-            {errors.confirmPassword ? (
-              <small className="field-error">
-                {errors.confirmPassword.message}
-              </small>
-            ) : null}
-          </label>
-
-          {message ? <div className="alert-success">{message}</div> : null}
-          {error ? <div className="alert-error">{error}</div> : null}
-
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating account..." : "Create Account"}
-          </button>
-        </form>
-
-        <p className="muted-copy">
-          Already registered? <Link to="/activate">Activate account</Link>
+    <AuthPageFrame
+      eyebrow="Start free"
+      title="Create your Legendary Profiles account"
+      description="Set up your account, activate it from email, and start building memorable profile cards."
+    >
+      <div className="auth-card-copy">
+        <h2>Create account</h2>
+        <p>
+          Register a new account, then activate it with the code sent to your
+          inbox.
         </p>
-      </section>
-    </main>
+      </div>
+
+      <form className="stack" onSubmit={handleSubmit(onSubmit)}>
+        <label>
+          Email
+          <input type="email" {...register("email")} />
+          {errors.email ? (
+            <small className="field-error">{errors.email.message}</small>
+          ) : null}
+        </label>
+
+        <label>
+          Password
+          <input type="password" {...register("password")} />
+          {errors.password ? (
+            <small className="field-error">{errors.password.message}</small>
+          ) : null}
+        </label>
+
+        <label>
+          Confirm Password
+          <input type="password" {...register("confirmPassword")} />
+          {errors.confirmPassword ? (
+            <small className="field-error">
+              {errors.confirmPassword.message}
+            </small>
+          ) : null}
+        </label>
+
+        {message ? <div className="alert-success">{message}</div> : null}
+        {error ? <div className="alert-error">{error}</div> : null}
+
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Creating account..." : "Create Account"}
+        </button>
+      </form>
+
+      <p className="muted-copy">
+        Already registered? <Link to="/activate">Activate account</Link>
+      </p>
+    </AuthPageFrame>
   );
 }

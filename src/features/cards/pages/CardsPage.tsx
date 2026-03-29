@@ -9,29 +9,56 @@ export default function CardsPage() {
   });
 
   return (
-    <section className="content-card">
-      <div className="row-between">
-        <h2>Your Cards</h2>
-        <Link className="btn-secondary" to="/app/cards/new">
-          New Card
+    <div className="page-stack">
+      <section className="content-hero">
+        <div>
+          <p className="section-kicker">Your workspace</p>
+          <h1>Profile cards</h1>
+          <p className="content-hero-copy">
+            Organize the profile cards behind Legendary Profiles and keep every
+            update sharp, consistent, and ready to share.
+          </p>
+        </div>
+        <Link className="btn-primary btn-lg" to="/app/cards/new">
+          Create new card
         </Link>
-      </div>
+      </section>
 
-      {isLoading ? <p>Loading cards...</p> : null}
-      {isError ? <p>Failed to load cards.</p> : null}
-      {!isLoading && !isError && data?.length === 0 ? (
-        <p>No cards yet. Create your first one.</p>
-      ) : null}
+      <section className="content-card content-card-wide">
+        <div className="row-between">
+          <h2>Your cards</h2>
+          <span className="meta-pill">{data?.length ?? 0} total</span>
+        </div>
 
-      <div className="cards-grid">
-        {data?.map((card) => (
-          <article key={card.id} className="card-item">
-            <h3>{card.data.title}</h3>
-            <p>{card.data.subtitle || "No subtitle"}</p>
-            <Link to={`/app/cards/${card.id}`}>Open</Link>
-          </article>
-        ))}
-      </div>
-    </section>
+        {isLoading ? <p>Loading cards...</p> : null}
+        {isError ? <p className="alert-error">Failed to load cards.</p> : null}
+        {!isLoading && !isError && data?.length === 0 ? (
+          <div className="empty-state">
+            <h3>No cards yet</h3>
+            <p>
+              Create your first card to start shaping your member experience.
+            </p>
+            <Link className="btn-secondary" to="/app/cards/new">
+              Create your first card
+            </Link>
+          </div>
+        ) : null}
+
+        <div className="cards-grid">
+          {data?.map((card) => (
+            <article key={card.id} className="card-item">
+              <div className="card-item-top">
+                <span className="meta-pill">Profile card</span>
+              </div>
+              <h3>{card.data.title}</h3>
+              <p>{card.data.subtitle || "No subtitle yet"}</p>
+              <Link className="card-link" to={`/app/cards/${card.id}`}>
+                Open details
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }

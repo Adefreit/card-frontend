@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import AuthPageFrame from "../AuthPageFrame";
 import { useAuth } from "../auth-context";
 
 const loginSchema = z.object({
@@ -48,41 +49,45 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="auth-shell">
-      <section className="auth-card">
-        <h1>Card Builder Login</h1>
-        <p>Sign in to manage templates, cards, and transactions.</p>
-        <form className="stack" onSubmit={handleSubmit(onSubmit)}>
-          <label>
-            Email
-            <input type="email" {...register("email")} />
-            {errors.email ? (
-              <small className="field-error">{errors.email.message}</small>
-            ) : null}
-          </label>
-
-          <label>
-            Password
-            <input type="password" {...register("password")} />
-            {errors.password ? (
-              <small className="field-error">{errors.password.message}</small>
-            ) : null}
-          </label>
-
-          {serverError ? (
-            <div className="alert-error">{serverError}</div>
+    <AuthPageFrame
+      eyebrow="Welcome back"
+      title="Sign in and keep your profile looking legendary"
+      description="Access your profiles, polish the details, and keep every digital business card on brand."
+    >
+      <div className="auth-card-copy">
+        <h2>Sign in</h2>
+        <p>
+          Manage your profiles, card styling, and preview updates in one place.
+        </p>
+      </div>
+      <form className="stack" onSubmit={handleSubmit(onSubmit)}>
+        <label>
+          Email
+          <input type="email" {...register("email")} />
+          {errors.email ? (
+            <small className="field-error">{errors.email.message}</small>
           ) : null}
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
+        </label>
 
-        <div className="auth-links">
-          <Link to="/register">Create account</Link>
-          <Link to="/activate">Activate account</Link>
-          <Link to="/request-password-reset">Forgot password?</Link>
-        </div>
-      </section>
-    </main>
+        <label>
+          Password
+          <input type="password" {...register("password")} />
+          {errors.password ? (
+            <small className="field-error">{errors.password.message}</small>
+          ) : null}
+        </label>
+
+        {serverError ? <div className="alert-error">{serverError}</div> : null}
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Signing in..." : "Sign in"}
+        </button>
+      </form>
+
+      <div className="auth-links">
+        <Link to="/register">Create account</Link>
+        <Link to="/activate">Activate account</Link>
+        <Link to="/request-password-reset">Forgot password?</Link>
+      </div>
+    </AuthPageFrame>
   );
 }

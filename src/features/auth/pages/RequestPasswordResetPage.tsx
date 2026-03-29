@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "react-router-dom";
+import AuthPageFrame from "../AuthPageFrame";
 import { requestPasswordReset } from "../api";
 
 const requestResetSchema = z.object({
@@ -39,32 +40,36 @@ export default function RequestPasswordResetPage() {
   };
 
   return (
-    <main className="auth-shell">
-      <section className="auth-card">
-        <h1>Request Password Reset</h1>
+    <AuthPageFrame
+      eyebrow="Need a reset?"
+      title="Request a reset and get back into your profile workspace"
+      description="We will send you the code you need so you can update your password without losing momentum."
+    >
+      <div className="auth-card-copy">
+        <h2>Request password reset</h2>
         <p>We will email you an activation code to reset your password.</p>
+      </div>
 
-        <form className="stack" onSubmit={handleSubmit(onSubmit)}>
-          <label>
-            Email
-            <input type="email" {...register("email")} />
-            {errors.email ? (
-              <small className="field-error">{errors.email.message}</small>
-            ) : null}
-          </label>
+      <form className="stack" onSubmit={handleSubmit(onSubmit)}>
+        <label>
+          Email
+          <input type="email" {...register("email")} />
+          {errors.email ? (
+            <small className="field-error">{errors.email.message}</small>
+          ) : null}
+        </label>
 
-          {message ? <div className="alert-success">{message}</div> : null}
-          {error ? <div className="alert-error">{error}</div> : null}
+        {message ? <div className="alert-success">{message}</div> : null}
+        {error ? <div className="alert-error">{error}</div> : null}
 
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Send Reset Code"}
-          </button>
-        </form>
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Submitting..." : "Send Reset Code"}
+        </button>
+      </form>
 
-        <p className="muted-copy">
-          Have a code already? <Link to="/reset-password">Reset password</Link>
-        </p>
-      </section>
-    </main>
+      <p className="muted-copy">
+        Have a code already? <Link to="/reset-password">Reset password</Link>
+      </p>
+    </AuthPageFrame>
   );
 }
