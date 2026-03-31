@@ -29,7 +29,7 @@ function PlanModal({ onClose }: { onClose: () => void }) {
     <div className="qr-modal-backdrop" onClick={onClose}>
       <div className="qr-modal plan-modal" onClick={(e) => e.stopPropagation()}>
         <div className="qr-modal-header">
-          <h3>Basic vs. Premium</h3>
+          <h3>Draft vs. Premium</h3>
           <button
             type="button"
             className="qr-modal-close"
@@ -43,9 +43,9 @@ function PlanModal({ onClose }: { onClose: () => void }) {
           Choose the tier that fits your legend.
         </p>
         <div className="plan-compare">
-          <div className="plan-col plan-col--basic">
+          <div className="plan-col plan-col--draft">
             <div className="plan-col-header">
-              <span className="plan-name">Basic</span>
+              <span className="plan-name">Draft</span>
               <span className="plan-price">Free</span>
             </div>
             <ul className="plan-features">
@@ -79,9 +79,12 @@ function PlanModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div className="qr-modal-footer">
-          <a className="btn-gold" href="#">
-            Upgrade to Pro ✦
-          </a>
+          <p
+            style={{ margin: 0, fontSize: "0.9rem", color: "var(--ui-muted)" }}
+          >
+            💡 Ordering physical cards will automatically upgrade that card to
+            Premium.
+          </p>
         </div>
       </div>
     </div>
@@ -157,11 +160,44 @@ function QrModal({ cardId, cardTitle, onClose }: QrModalProps) {
   );
 }
 
+function ComingSoonModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="qr-modal-backdrop" onClick={onClose}>
+      <div className="qr-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="qr-modal-header">
+          <h3>Coming Soon</h3>
+          <button
+            type="button"
+            className="qr-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <p className="qr-modal-subtitle">Upgrade Card</p>
+        <div className="qr-modal-body">
+          <p>
+            This feature is coming soon! We're working on making it even easier
+            to upgrade your cards to Premium.
+          </p>
+        </div>
+        <div className="qr-modal-footer">
+          <button className="btn-secondary" onClick={onClose}>
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [qrCard, setQrCard] = useState<{ id: string; title: string } | null>(
     null,
   );
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const {
     data: cards,
@@ -174,7 +210,7 @@ export default function DashboardPage() {
 
   const premiumCount =
     cards?.filter((c) => isPremium(c.premium_expires_at)).length ?? 0;
-  const basicCount = (cards?.length ?? 0) - premiumCount;
+  const draftCount = (cards?.length ?? 0) - premiumCount;
 
   return (
     <div className="page-stack">
@@ -186,6 +222,9 @@ export default function DashboardPage() {
         />
       )}
       {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} />}
+      {showUpgradeModal && (
+        <ComingSoonModal onClose={() => setShowUpgradeModal(false)} />
+      )}
 
       {/* ── Hero Banner ── */}
       <section className="content-hero">
@@ -210,8 +249,8 @@ export default function DashboardPage() {
           <div className="dash-plan-band">
             <div className="dash-plan-stats">
               <div className="dash-plan-stat">
-                <span className="dash-plan-stat-value">{basicCount}</span>
-                <span className="dash-plan-stat-label">Basic</span>
+                <span className="dash-plan-stat-value">{draftCount}</span>
+                <span className="dash-plan-stat-label">Draft</span>
               </div>
               <div className="dash-plan-divider" />
               <div className="dash-plan-stat">
@@ -280,8 +319,8 @@ export default function DashboardPage() {
                             ✦ Premium
                           </span>
                         ) : (
-                          <span className="card-tier-badge card-tier-badge--basic">
-                            Basic
+                          <span className="card-tier-badge card-tier-badge--draft">
+                            Draft
                           </span>
                         )}
                       </div>
@@ -295,6 +334,7 @@ export default function DashboardPage() {
                         <button
                           type="button"
                           className="dash-action-btn dash-action-btn--upgrade"
+                          onClick={() => setShowUpgradeModal(true)}
                         >
                           ✦ Upgrade
                         </button>

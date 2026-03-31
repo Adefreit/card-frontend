@@ -1305,7 +1305,7 @@ button:disabled {
   color: #5a3800;
 }
 
-/* Card premium/basic tier badge */
+/* Card premium/draft tier badge */
 .card-tier-badge {
   position: absolute;
   bottom: 10px;
@@ -1325,10 +1325,10 @@ button:disabled {
   box-shadow: 0 2px 8px rgba(240, 180, 41, 0.45);
 }
 
-.card-tier-badge--basic {
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: rgba(255, 255, 255, 0.9);
+.card-tier-badge--draft {
+  background: #e8e8e8;
+  border: 1px solid #999;
+  color: #333;
 }
 
 /* Orders empty */

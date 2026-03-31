@@ -224,6 +224,38 @@ function formatPremiumExpiration(expiresAt?: string | null): string {
   });
 }
 
+function ComingSoonModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="qr-modal-backdrop" onClick={onClose}>
+      <div className="qr-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="qr-modal-header">
+          <h3>Coming Soon</h3>
+          <button
+            type="button"
+            className="qr-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <p className="qr-modal-subtitle">Upgrade Card</p>
+        <div className="qr-modal-body">
+          <p>
+            This feature is coming soon! We're working on making it even easier
+            to upgrade your cards to Premium.
+          </p>
+        </div>
+        <div className="qr-modal-footer">
+          <button className="btn-secondary" onClick={onClose}>
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CardDetailPage() {
   const { cardId } = useParams();
   const navigate = useNavigate();
@@ -231,6 +263,7 @@ export default function CardDetailPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<"card" | "template" | null>(null);
   const [isManualPreviewing, setIsManualPreviewing] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const autoPreviewedCardIdRef = useRef<string | null>(null);
 
   async function copyId(kind: "card" | "template", value?: string) {
@@ -425,6 +458,10 @@ export default function CardDetailPage() {
 
   return (
     <div className="page-stack">
+      {showUpgradeModal && (
+        <ComingSoonModal onClose={() => setShowUpgradeModal(false)} />
+      )}
+
       <section className="content-hero">
         <div>
           <p className="section-kicker">Edit</p>
@@ -511,9 +548,9 @@ export default function CardDetailPage() {
                   </div>
                 ) : (
                   <div>
-                    <strong>Basic plan card</strong>
+                    <strong>Draft plan card</strong>
                     <p>
-                      Some features are limited on Basic. Upgrade this card to
+                      Some features are limited on Draft. Upgrade this card to
                       unlock premium features.
                     </p>
                   </div>
@@ -526,9 +563,7 @@ export default function CardDetailPage() {
                   <button
                     type="button"
                     className="btn-secondary"
-                    onClick={() => {
-                      // Placeholder for future upgrade flow.
-                    }}
+                    onClick={() => setShowUpgradeModal(true)}
                   >
                     Upgrade Card
                   </button>

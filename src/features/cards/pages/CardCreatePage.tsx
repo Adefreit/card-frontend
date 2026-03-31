@@ -302,11 +302,11 @@ export default function CardCreatePage() {
         </div>
       </section>
 
-      {/* Basic plan notice */}
+      {/* Draft plan notice */}
       <div className="create-basic-notice">
         <span className="create-basic-icon">ℹ</span>
         <span>
-          New cards start on the <strong>Basic plan</strong>. You can upgrade
+          New cards start on the <strong>Draft plan</strong>. You can upgrade
           any card to Premium from your dashboard after it&apos;s been created.
         </span>
       </div>
