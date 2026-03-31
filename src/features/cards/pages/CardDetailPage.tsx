@@ -1,41 +1,263 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteCard, getCard, previewCard, updateCard } from "../api";
+import {
+  deleteCard,
+  getCard,
+  getCardTemplates,
+  previewCard,
+  updateCard,
+} from "../api";
+
+const imageFieldSchema = z
+  .string()
+  .refine(
+    (v) =>
+      v === "" ||
+      v.startsWith("data:") ||
+      v.startsWith("blob:") ||
+      /^https?:\/\/.+/.test(v),
+    "Must be a valid URL or uploaded image.",
+  );
 
 const cardUpdateSchema = z.object({
+  templateId: z.string().min(1, "Please select a template."),
   title: z.string().min(1, "Title is required."),
   subtitle: z.string().min(1, "Subtitle is required."),
   flavorText: z.string().min(1, "Flavor text is required."),
-  backgroundImageUrl: z.string().url("Must be a valid URL.").or(z.literal("")),
-  foregroundImageUrl: z.string().url("Must be a valid URL.").or(z.literal("")),
+  backgroundImage: imageFieldSchema,
+  foregroundImage: imageFieldSchema,
 });
 
 type CardUpdateValues = z.infer<typeof cardUpdateSchema>;
+
+interface ParsedDataUrl {
+  mimeType: string;
+  base64: string;
+}
+
+function parseDataUrl(value: string): ParsedDataUrl | null {
+  const match = /^data:([^;,]+);base64,(.+)$/s.exec(value);
+  if (!match) return null;
+
+  return {
+    mimeType: match[1],
+    base64: match[2],
+  };
+}
+
+function buildImagePayload(value: string, prefix: "background" | "foreground") {
+  if (!value) {
+    return {
+      [`${prefix}ImageUrl`]: "",
+    };
+  }
+
+  const parsed = parseDataUrl(value);
+  if (parsed) {
+    return {
+      [`${prefix}ImageBase64`]: parsed.base64,
+      [`${prefix}ImageMimeType`]: parsed.mimeType,
+    };
+  }
+
+  return {
+    [`${prefix}Image`]: value,
+  };
+}
+
+function buildPreviewImagePayload(
+  value: string,
+  prefix: "background" | "foreground",
+) {
+  if (!value) return {};
+
+  const parsed = parseDataUrl(value);
+  if (parsed) {
+    return {
+      [`${prefix}ImageBase64`]: parsed.base64,
+      [`${prefix}ImageMimeType`]: parsed.mimeType,
+    };
+  }
+
+  return {
+    [`${prefix}ImageUrl`]: value,
+  };
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+interface ImageInputProps {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  onClear: () => void;
+  error?: string;
+}
+
+function getImageDisplayName(value: string): string {
+  if (!value) {
+    return "No file uploaded";
+  }
+
+  if (value.startsWith("data:")) {
+    const parsed = parseDataUrl(value);
+    if (!parsed) {
+      return "Uploaded image";
+    }
+
+    const extension = parsed.mimeType.split("/")[1]?.toLowerCase() || "file";
+    return `uploaded-image.${extension}`;
+  }
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    try {
+      const url = new URL(value);
+      const name = url.pathname.split("/").filter(Boolean).pop();
+      return name ? decodeURIComponent(name) : "remote-image";
+    } catch {
+      return "remote-image";
+    }
+  }
+
+  return "Uploaded image";
+}
+
+function ImageInput({
+  label,
+  value,
+  onChange,
+  onClear,
+  error,
+}: ImageInputProps) {
+  const [fileName, setFileName] = useState<string>("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const dataUrl = await readFileAsDataUrl(file);
+    onChange(dataUrl);
+  }
+
+  const currentDisplayName = fileName || getImageDisplayName(value);
+
+  return (
+    <div className="image-input-group">
+      <div className="image-input-label-row">
+        <span className="image-input-label">{label}</span>
+        <span className="image-current-file">
+          Current: {currentDisplayName}
+        </span>
+      </div>
+
+      <div
+        className="file-drop-zone file-drop-zone--compact"
+        onClick={() => fileRef.current?.click()}
+      >
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="file-drop-hidden"
+          onChange={handleFileChange}
+        />
+        {fileName ? (
+          <span className="file-drop-name">Selected: {fileName}</span>
+        ) : (
+          <>
+            <span className="file-drop-text">Click to upload an image</span>
+            <span className="file-drop-hint">PNG, JPG, WEBP</span>
+          </>
+        )}
+      </div>
+
+      <div className="image-input-actions">
+        <button
+          type="button"
+          className="btn-secondary btn-xs"
+          onClick={onClear}
+          disabled={!value}
+        >
+          Clear Image
+        </button>
+      </div>
+
+      {error ? <small className="field-error">{error}</small> : null}
+    </div>
+  );
+}
+
+function formatId(id: string): string {
+  if (id.length <= 16) {
+    return id;
+  }
+
+  return `${id.slice(0, 8)}...${id.slice(-4)}`;
+}
+
+function isPremiumCard(expiresAt?: string | null): boolean {
+  if (!expiresAt) {
+    return false;
+  }
+
+  return new Date(expiresAt) > new Date();
+}
 
 export default function CardDetailPage() {
   const { cardId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<"card" | "template" | null>(null);
+  const [isManualPreviewing, setIsManualPreviewing] = useState(false);
+  const autoPreviewedCardIdRef = useRef<string | null>(null);
+
+  async function copyId(kind: "card" | "template", value?: string) {
+    if (!value) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedId(kind);
+      window.setTimeout(
+        () => setCopiedId((prev) => (prev === kind ? null : prev)),
+        1200,
+      );
+    } catch {
+      // Ignore clipboard failures silently to avoid interrupting editing.
+    }
+  }
 
   const {
     register,
     handleSubmit,
     reset,
     getValues,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<CardUpdateValues>({
     resolver: zodResolver(cardUpdateSchema),
     defaultValues: {
+      templateId: "",
       title: "",
       subtitle: "",
       flavorText: "",
-      backgroundImageUrl: "",
-      foregroundImageUrl: "",
+      backgroundImage: "",
+      foregroundImage: "",
     },
   });
 
@@ -45,19 +267,40 @@ export default function CardDetailPage() {
     enabled: Boolean(cardId),
   });
 
+  const { data: templates, isLoading: templatesLoading } = useQuery({
+    queryKey: ["card-templates"],
+    queryFn: getCardTemplates,
+  });
+
   useEffect(() => {
     if (!data) {
       return;
     }
 
     reset({
+      templateId: data.template_id || "",
       title: data.data.title,
       subtitle: data.data.subtitle,
       flavorText: data.data.flavorText,
-      backgroundImageUrl: data.data.backgroundImageUrl || "",
-      foregroundImageUrl: data.data.foregroundImageUrl || "",
+      backgroundImage:
+        data.data.backgroundImage || data.data.backgroundImageUrl || "",
+      foregroundImage:
+        data.data.foregroundImage || data.data.foregroundImageUrl || "",
     });
   }, [data, reset]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    if (autoPreviewedCardIdRef.current === data.id) {
+      return;
+    }
+
+    autoPreviewedCardIdRef.current = data.id;
+    triggerPreview(false);
+  }, [data]);
 
   useEffect(() => {
     return () => {
@@ -72,6 +315,7 @@ export default function CardDetailPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["card", cardId] });
       await queryClient.invalidateQueries({ queryKey: ["cards"] });
+      navigate("/app/dashboard", { replace: true });
     },
   });
 
@@ -79,7 +323,7 @@ export default function CardDetailPage() {
     mutationFn: deleteCard,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["cards"] });
-      navigate("/app/cards", { replace: true });
+      navigate("/app/dashboard", { replace: true });
     },
   });
 
@@ -92,7 +336,66 @@ export default function CardDetailPage() {
       const nextUrl = URL.createObjectURL(imageBlob);
       setPreviewUrl(nextUrl);
     },
+    onSettled: () => {
+      setIsManualPreviewing(false);
+    },
   });
+
+  function triggerPreview(isManual = true) {
+    if (!data) {
+      return;
+    }
+
+    if (isManual) {
+      setIsManualPreviewing(true);
+    }
+
+    const values = getValues();
+    const backgroundImagePayload = buildPreviewImagePayload(
+      values.backgroundImage,
+      "background",
+    );
+    const foregroundImagePayload = buildPreviewImagePayload(
+      values.foregroundImage,
+      "foreground",
+    );
+
+    previewMutation.mutate({
+      templateId: values.templateId,
+      title: values.title,
+      subtitle: values.subtitle,
+      flavorText: values.flavorText,
+      ...backgroundImagePayload,
+      ...foregroundImagePayload,
+    });
+  }
+
+  const bgValue = watch("backgroundImage");
+  const fgValue = watch("foregroundImage");
+  const selectedTemplateId = watch("templateId");
+  const titleValue = watch("title");
+  const subtitleValue = watch("subtitle");
+  const flavorTextValue = watch("flavorText");
+  const selectedTemplateName =
+    templates?.find((t) => t.id === selectedTemplateId)?.name || "Template";
+  const canRunActions =
+    selectedTemplateId.trim().length > 0 &&
+    titleValue.trim().length > 0 &&
+    subtitleValue.trim().length > 0 &&
+    flavorTextValue.trim().length > 0;
+  const isPremium = data ? isPremiumCard(data.premium_expires_at) : false;
+
+  function triggerDelete() {
+    if (!data) {
+      return;
+    }
+
+    if (!window.confirm("Delete this card permanently?")) {
+      return;
+    }
+
+    deleteMutation.mutate(data.id);
+  }
 
   return (
     <div className="page-stack">
@@ -105,51 +408,136 @@ export default function CardDetailPage() {
             aligned with the Legendary Profiles brand.
           </p>
         </div>
-        <Link className="btn-secondary" to="/app/cards">
-          Back to cards
+        <Link className="btn-secondary" to="/app/dashboard">
+          Back to Dashboard
         </Link>
       </section>
 
-      <section className="content-card content-card-wide">
-        {isLoading ? <p>Loading card...</p> : null}
-        {isError ? <p className="alert-error">Failed to load card.</p> : null}
+      {isLoading ? <p>Loading card...</p> : null}
+      {isError ? <p className="alert-error">Failed to load card.</p> : null}
 
-        {data ? (
-          <>
+      {data ? (
+        <div className="create-layout">
+          <section className="content-card create-form-panel">
             <div className="content-card-header row-between">
               <div>
-                <h2>{data.data.title}</h2>
+                <div className="detail-title-row">
+                  <h2>{data.data.title}</h2>
+                  <button
+                    type="button"
+                    className="meta-pill meta-pill-copy"
+                    onClick={() => copyId("card", data.id)}
+                    title="Copy Card ID"
+                  >
+                    {copiedId === "card" ? "Copied" : `ID ${formatId(data.id)}`}
+                  </button>
+                </div>
                 <p>Edit content, images, and descriptive copy for this card.</p>
               </div>
-              <span className="meta-pill">ID {data.id.slice(0, 8)}</span>
-            </div>
-
-            <div className="detail-meta-grid detail-meta">
-              <div className="detail-meta-item">
-                <span>Card ID</span>
-                <strong>{data.id}</strong>
-              </div>
-              <div className="detail-meta-item">
-                <span>Template ID</span>
-                <strong>{data.template_id || "N/A"}</strong>
+              <div className="detail-header-actions">
+                <button
+                  type="button"
+                  className="btn-danger btn-xs"
+                  onClick={triggerDelete}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? "Deleting..." : "Delete Card"}
+                </button>
               </div>
             </div>
 
             <form
               className="stack"
               onSubmit={handleSubmit((values) => {
+                const backgroundImagePayload = buildImagePayload(
+                  values.backgroundImage,
+                  "background",
+                );
+                const foregroundImagePayload = buildImagePayload(
+                  values.foregroundImage,
+                  "foreground",
+                );
+
                 updateMutation.mutate({
                   id: data.id,
+                  templateId: values.templateId,
                   title: values.title,
                   subtitle: values.subtitle,
                   flavorText: values.flavorText,
-                  backgroundImageUrl: values.backgroundImageUrl || undefined,
-                  foregroundImageUrl: values.foregroundImageUrl || undefined,
+                  ...backgroundImagePayload,
+                  ...foregroundImagePayload,
                 });
               })}
             >
+              <div
+                className={`detail-basic-banner${isPremium ? " detail-basic-banner--premium" : ""}`}
+              >
+                {isPremium ? (
+                  <div>
+                    <strong>Premium plan card</strong>
+                    <p>
+                      Premium features are enabled for this card. Enjoy the
+                      unlocked experience.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <strong>Basic plan card</strong>
+                    <p>
+                      Some features are limited on Basic. Upgrade this card to
+                      unlock premium features.
+                    </p>
+                  </div>
+                )}
+                {isPremium ? (
+                  <button type="button" className="btn-gold" disabled>
+                    Premium Active
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      // Placeholder for future upgrade flow.
+                    }}
+                  >
+                    Upgrade Card
+                  </button>
+                )}
+              </div>
+
               <label>
-                Title
+                <span className="label-required">
+                  Template <span className="required-asterisk">*</span>
+                </span>
+                <select {...register("templateId")} disabled={templatesLoading}>
+                  <option value="">
+                    {templatesLoading
+                      ? "Loading templates..."
+                      : "Select a template"}
+                  </option>
+                  {templates?.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.templateId ? (
+                  <small className="field-error">
+                    {errors.templateId.message}
+                  </small>
+                ) : null}
+                {selectedTemplateId ? (
+                  <small className="id-copy-note">
+                    Selected: {selectedTemplateName}
+                  </small>
+                ) : null}
+              </label>
+
+              <label>
+                <span className="label-required">
+                  Title <span className="required-asterisk">*</span>
+                </span>
                 <input {...register("title")} />
                 {errors.title ? (
                   <small className="field-error">{errors.title.message}</small>
@@ -157,7 +545,9 @@ export default function CardDetailPage() {
               </label>
 
               <label>
-                Subtitle
+                <span className="label-required">
+                  Subtitle <span className="required-asterisk">*</span>
+                </span>
                 <input {...register("subtitle")} />
                 {errors.subtitle ? (
                   <small className="field-error">
@@ -167,7 +557,9 @@ export default function CardDetailPage() {
               </label>
 
               <label>
-                Flavor Text
+                <span className="label-required">
+                  Flavor Text <span className="required-asterisk">*</span>
+                </span>
                 <textarea rows={5} {...register("flavorText")} />
                 {errors.flavorText ? (
                   <small className="field-error">
@@ -176,31 +568,29 @@ export default function CardDetailPage() {
                 ) : null}
               </label>
 
-              <label>
-                Background Image URL
-                <input
-                  {...register("backgroundImageUrl")}
-                  placeholder="https://..."
-                />
-                {errors.backgroundImageUrl ? (
-                  <small className="field-error">
-                    {errors.backgroundImageUrl.message}
-                  </small>
-                ) : null}
-              </label>
+              <ImageInput
+                label="Background Image"
+                value={bgValue}
+                onChange={(url) =>
+                  setValue("backgroundImage", url, { shouldValidate: true })
+                }
+                onClear={() =>
+                  setValue("backgroundImage", "", { shouldValidate: true })
+                }
+                error={errors.backgroundImage?.message}
+              />
 
-              <label>
-                Foreground Image URL
-                <input
-                  {...register("foregroundImageUrl")}
-                  placeholder="https://..."
-                />
-                {errors.foregroundImageUrl ? (
-                  <small className="field-error">
-                    {errors.foregroundImageUrl.message}
-                  </small>
-                ) : null}
-              </label>
+              <ImageInput
+                label="Foreground Image"
+                value={fgValue}
+                onChange={(url) =>
+                  setValue("foregroundImage", url, { shouldValidate: true })
+                }
+                onClear={() =>
+                  setValue("foregroundImage", "", { shouldValidate: true })
+                }
+                error={errors.foregroundImage?.message}
+              />
 
               {updateMutation.isError ? (
                 <div className="alert-error">Update failed.</div>
@@ -217,60 +607,48 @@ export default function CardDetailPage() {
 
               <div className="button-row">
                 <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => {
-                    const values = getValues();
-                    previewMutation.mutate({
-                      templateId: data.template_id,
-                      title: values.title,
-                      subtitle: values.subtitle,
-                      flavorText: values.flavorText,
-                      backgroundImageUrl:
-                        values.backgroundImageUrl || undefined,
-                      foregroundImageUrl:
-                        values.foregroundImageUrl || undefined,
-                    });
-                  }}
-                  disabled={previewMutation.isPending}
+                  type="submit"
+                  disabled={updateMutation.isPending || !canRunActions}
                 >
-                  {previewMutation.isPending ? "Rendering..." : "Preview"}
-                </button>
-
-                <button type="submit" disabled={updateMutation.isPending}>
                   {updateMutation.isPending ? "Saving..." : "Save Changes"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-danger"
-                  onClick={() => {
-                    if (!window.confirm("Delete this card permanently?")) {
-                      return;
-                    }
-
-                    deleteMutation.mutate(data.id);
-                  }}
-                  disabled={deleteMutation.isPending}
-                >
-                  {deleteMutation.isPending ? "Deleting..." : "Delete Card"}
                 </button>
               </div>
             </form>
+          </section>
+
+          <aside className="create-preview-panel">
+            <div className="create-preview-header">
+              <h3>Card Front</h3>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => triggerPreview(true)}
+                disabled={isManualPreviewing || !canRunActions}
+              >
+                {isManualPreviewing ? "Rendering..." : "Refresh"}
+              </button>
+            </div>
+
+            {previewMutation.isError ? (
+              <p className="alert-error" style={{ margin: "12px 0 0" }}>
+                Preview generation failed.
+              </p>
+            ) : null}
 
             {previewUrl ? (
-              <section className="preview-panel">
-                <h3>Live preview</h3>
-                <img
-                  src={previewUrl}
-                  alt="Card preview"
-                  className="preview-image"
-                />
-              </section>
-            ) : null}
-          </>
-        ) : null}
-      </section>
+              <img
+                src={previewUrl}
+                alt="Card preview"
+                className="create-preview-image"
+              />
+            ) : (
+              <div className="create-preview-placeholder">
+                <p>Update fields and click Refresh to render a preview.</p>
+              </div>
+            )}
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }

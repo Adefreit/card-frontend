@@ -32,7 +32,7 @@ export default function LoginPage() {
   });
 
   if (isAuthenticated) {
-    return <Navigate to="/app/cards" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   const onSubmit = async (values: LoginValues) => {
@@ -41,7 +41,7 @@ export default function LoginPage() {
     try {
       await login(values);
       const nextPath =
-        (location.state as { from?: string } | null)?.from ?? "/app/cards";
+        (location.state as { from?: string } | null)?.from ?? "/app/dashboard";
       navigate(nextPath, { replace: true });
     } catch {
       setServerError("Login failed. Verify credentials and API key settings.");

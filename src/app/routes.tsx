@@ -6,7 +6,7 @@ import RegisterPage from "../features/auth/pages/RegisterPage";
 import ActivateAccountPage from "../features/auth/pages/ActivateAccountPage";
 import RequestPasswordResetPage from "../features/auth/pages/RequestPasswordResetPage";
 import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
-import CardsPage from "../features/cards/pages/CardsPage";
+import DashboardPage from "../features/dashboard/DashboardPage";
 import CardDetailPage from "../features/cards/pages/CardDetailPage";
 import CardCreatePage from "../features/cards/pages/CardCreatePage";
 import AppLayout from "../features/layout/AppLayout";
@@ -57,11 +57,11 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="cards" replace />,
+        element: <Navigate to="dashboard" replace />,
       },
       {
-        path: "cards",
-        element: <CardsPage />,
+        path: "dashboard",
+        element: <DashboardPage />,
       },
       {
         path: "cards/new",

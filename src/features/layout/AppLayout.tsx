@@ -17,7 +17,7 @@ export default function AppLayout() {
           <span className="brand-tag">Workspace</span>
         </div>
         <nav>
-          <Link to="/app/cards">Profiles</Link>
+          <Link to="/app/dashboard">Dashboard</Link>
           <Link to="/app/cards/new">Create</Link>
           <button
             type="button"

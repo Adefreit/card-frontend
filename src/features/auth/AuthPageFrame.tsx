@@ -25,8 +25,8 @@ export default function AuthPageFrame({
           <h1>{title}</h1>
           <p className="auth-intro-copy">{description}</p>
           <div className="auth-highlight-list" aria-label="Product highlights">
-            <span>Blue-silver profile styling</span>
-            <span>Professional but playful</span>
+            <span>Colorful profile card energy</span>
+            <span>Professional and playful</span>
             <span>Ready to share in minutes</span>
           </div>
         </section>

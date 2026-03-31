@@ -12,6 +12,8 @@ export interface CardData {
   title: string;
   subtitle: string;
   flavorText: string;
+  backgroundImage?: string;
+  foregroundImage?: string;
   backgroundImageUrl?: string;
   foregroundImageUrl?: string;
   customCss?: Record<string, string>;
@@ -23,6 +25,7 @@ export interface CardRecord {
   user_id: string;
   template_id: string;
   create_time?: string;
+  premium_expires_at?: string | null;
   data: CardData;
 }
 
@@ -31,18 +34,29 @@ export interface CardCreatePayload {
   title: string;
   subtitle: string;
   flavorText: string;
-  backgroundImageUrl?: string;
-  foregroundImageUrl?: string;
+  backgroundImage?: string;
+  backgroundImageBase64?: string;
+  backgroundImageMimeType?: string;
+  foregroundImage?: string;
+  foregroundImageBase64?: string;
+  foregroundImageMimeType?: string;
   customCss?: Record<string, string>;
 }
 
 export interface CardUpdatePayload {
   id: string;
+  templateId?: string;
   title?: string;
   subtitle?: string;
   flavorText?: string;
+  backgroundImage?: string;
   backgroundImageUrl?: string;
+  backgroundImageBase64?: string;
+  backgroundImageMimeType?: string;
+  foregroundImage?: string;
   foregroundImageUrl?: string;
+  foregroundImageBase64?: string;
+  foregroundImageMimeType?: string;
   customCss?: Record<string, string>;
 }
 
@@ -60,9 +74,21 @@ export interface CardPreviewRequest {
   title: string;
   subtitle: string;
   flavorText: string;
+  backgroundImage?: string;
   backgroundImageUrl?: string;
+  backgroundImageBase64?: string;
+  backgroundImageMimeType?: string;
+  foregroundImage?: string;
   foregroundImageUrl?: string;
+  foregroundImageBase64?: string;
+  foregroundImageMimeType?: string;
   customCss?: Record<string, string>;
+}
+
+export interface CardTemplate {
+  id: string;
+  name: string;
+  description?: string;
 }
 
 export async function getCards() {
@@ -107,5 +133,10 @@ export async function previewCard(payload: CardPreviewRequest) {
     },
   );
 
+  return data;
+}
+
+export async function getCardTemplates() {
+  const { data } = await apiClient.get<CardTemplate[]>("/v1/card-templates");
   return data;
 }
