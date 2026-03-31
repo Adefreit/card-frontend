@@ -199,20 +199,29 @@ function ImageInput({
   );
 }
 
-function formatId(id: string): string {
-  if (id.length <= 16) {
-    return id;
-  }
-
-  return `${id.slice(0, 8)}...${id.slice(-4)}`;
-}
-
 function isPremiumCard(expiresAt?: string | null): boolean {
   if (!expiresAt) {
     return false;
   }
 
   return new Date(expiresAt) > new Date();
+}
+
+function formatPremiumExpiration(expiresAt?: string | null): string {
+  if (!expiresAt) {
+    return "N/A";
+  }
+
+  const parsed = new Date(expiresAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return "N/A";
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export default function CardDetailPage() {
@@ -298,8 +307,24 @@ export default function CardDetailPage() {
       return;
     }
 
+    const backgroundImagePayload = buildPreviewImagePayload(
+      data.data.backgroundImage || data.data.backgroundImageUrl || "",
+      "background",
+    );
+    const foregroundImagePayload = buildPreviewImagePayload(
+      data.data.foregroundImage || data.data.foregroundImageUrl || "",
+      "foreground",
+    );
+
     autoPreviewedCardIdRef.current = data.id;
-    triggerPreview(false);
+    previewMutation.mutate({
+      templateId: data.template_id,
+      title: data.data.title,
+      subtitle: data.data.subtitle,
+      flavorText: data.data.flavorText,
+      ...backgroundImagePayload,
+      ...foregroundImagePayload,
+    });
   }, [data]);
 
   useEffect(() => {
@@ -384,6 +409,7 @@ export default function CardDetailPage() {
     subtitleValue.trim().length > 0 &&
     flavorTextValue.trim().length > 0;
   const isPremium = data ? isPremiumCard(data.premium_expires_at) : false;
+  const premiumExpiresOn = formatPremiumExpiration(data?.premium_expires_at);
 
   function triggerDelete() {
     if (!data) {
@@ -429,7 +455,9 @@ export default function CardDetailPage() {
                     onClick={() => copyId("card", data.id)}
                     title="Copy Card ID"
                   >
-                    {copiedId === "card" ? "Copied" : `ID ${formatId(data.id)}`}
+                    {copiedId === "card"
+                      ? "ID Copied to Clipboard"
+                      : `${data.id.slice(0, 8)}`}
                   </button>
                 </div>
                 <p>Edit content, images, and descriptive copy for this card.</p>
@@ -479,6 +507,7 @@ export default function CardDetailPage() {
                       Premium features are enabled for this card. Enjoy the
                       unlocked experience.
                     </p>
+                    <p>Premium Features Expire On: {premiumExpiresOn}</p>
                   </div>
                 ) : (
                   <div>
@@ -643,7 +672,11 @@ export default function CardDetailPage() {
               />
             ) : (
               <div className="create-preview-placeholder">
-                <p>Update fields and click Refresh to render a preview.</p>
+                <p>
+                  {previewMutation.isPending
+                    ? "Generating preview.  This may take a bit..."
+                    : "Update fields and click Refresh to render a preview."}
+                </p>
               </div>
             )}
           </aside>

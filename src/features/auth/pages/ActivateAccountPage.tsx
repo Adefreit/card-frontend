@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import AuthPageFrame from "../AuthPageFrame";
 import { activateUser } from "../api";
 
@@ -16,6 +16,10 @@ type ActivationValues = z.infer<typeof activationSchema>;
 export default function ActivateAccountPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+
+  const emailFromQuery = searchParams.get("email") ?? "";
+  const activationCodeFromQuery = searchParams.get("activationCode") ?? "";
 
   const {
     register,
@@ -24,8 +28,8 @@ export default function ActivateAccountPage() {
   } = useForm<ActivationValues>({
     resolver: zodResolver(activationSchema),
     defaultValues: {
-      email: "",
-      code: "",
+      email: emailFromQuery,
+      code: activationCodeFromQuery,
     },
   });
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import AuthPageFrame from "../AuthPageFrame";
 import { resetPassword } from "../api";
 
@@ -17,6 +17,10 @@ type ResetValues = z.infer<typeof resetSchema>;
 export default function ResetPasswordPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+
+  const emailFromQuery = searchParams.get("email") ?? "";
+  const activationCodeFromQuery = searchParams.get("activationCode") ?? "";
 
   const {
     register,
@@ -25,8 +29,8 @@ export default function ResetPasswordPage() {
   } = useForm<ResetValues>({
     resolver: zodResolver(resetSchema),
     defaultValues: {
-      email: "",
-      activationCode: "",
+      email: emailFromQuery,
+      activationCode: activationCodeFromQuery,
       password: "",
     },
   });
