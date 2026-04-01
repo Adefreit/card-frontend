@@ -26,6 +26,7 @@ export interface CardRecord {
   template_id: string;
   create_time?: string;
   premium_expires_at?: string | null;
+  last_render?: string | null;
   data: CardData;
 }
 
@@ -126,7 +127,7 @@ export async function deleteCard(id: string) {
 
 export async function previewCard(payload: CardPreviewRequest) {
   const { data } = await apiClient.post<Blob>(
-    "/v1/cards/preview?format=png&side=front",
+    "/v1/cards/preview?format=png&side=front&showCutlines=true&showPreviewWatermark=true",
     payload,
     {
       responseType: "blob",

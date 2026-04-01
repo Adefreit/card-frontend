@@ -137,6 +137,14 @@ function ImageInput({
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const MAX_MB = 5;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      alert(
+        `Image is too large. Please upload a file smaller than ${MAX_MB} MB.`,
+      );
+      e.target.value = "";
+      return;
+    }
     setFileName(file.name);
     const dataUrl = await readFileAsDataUrl(file);
     onChange(dataUrl);
@@ -226,6 +234,15 @@ export default function CardCreatePage() {
     };
   }, [previewUrl]);
 
+  useEffect(() => {
+    if (templates && templates.length > 0) {
+      const current = getValues("templateId");
+      if (!current) {
+        setValue("templateId", templates[0].id, { shouldValidate: true });
+      }
+    }
+  }, [templates, getValues, setValue]);
+
   const mutation = useMutation({
     mutationFn: createCard,
     onSuccess: async () => {
@@ -280,8 +297,6 @@ export default function CardCreatePage() {
   const titleValue = watch("title");
   const subtitleValue = watch("subtitle");
   const flavorTextValue = watch("flavorText");
-  const selectedTemplateName =
-    templates?.find((t) => t.id === selectedTemplateId)?.name || "Template";
   const canRunActions =
     selectedTemplateId.trim().length > 0 &&
     titleValue.trim().length > 0 &&
@@ -361,11 +376,6 @@ export default function CardCreatePage() {
               {errors.templateId ? (
                 <small className="field-error">
                   {errors.templateId.message}
-                </small>
-              ) : null}
-              {selectedTemplateId ? (
-                <small className="id-copy-note">
-                  Selected: {selectedTemplateName}
                 </small>
               ) : null}
             </label>
@@ -469,11 +479,17 @@ export default function CardCreatePage() {
           ) : null}
 
           {previewUrl ? (
-            <img
-              src={previewUrl}
-              alt="Card preview"
-              className="create-preview-image"
-            />
+            <>
+              <img
+                src={previewUrl}
+                alt="Card preview"
+                className="create-preview-image"
+              />
+              <p className="create-preview-bleed-note">
+                The red dotted lines indicate where the card will be cut during
+                manufacturing.
+              </p>
+            </>
           ) : (
             <div className="create-preview-placeholder">
               <span className="create-preview-placeholder-icon">🃏</span>

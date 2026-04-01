@@ -146,6 +146,14 @@ function ImageInput({
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const MAX_MB = 5;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      alert(
+        `Image is too large. Please upload a file smaller than ${MAX_MB} MB.`,
+      );
+      e.target.value = "";
+      return;
+    }
     setFileName(file.name);
     const dataUrl = await readFileAsDataUrl(file);
     onChange(dataUrl);
@@ -256,6 +264,57 @@ function ComingSoonModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+function DeleteConfirmModal({
+  onConfirm,
+  onCancel,
+  isPending,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  return (
+    <div className="qr-modal-backdrop" onClick={onCancel}>
+      <div className="qr-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="qr-modal-header">
+          <h3>Delete Card</h3>
+          <button
+            type="button"
+            className="qr-modal-close"
+            onClick={onCancel}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <p className="qr-modal-subtitle">This action cannot be undone</p>
+        <div className="qr-modal-body">
+          <p>
+            Are you sure you want to permanently delete this card? All of its
+            data, images, and settings will be removed and cannot be recovered.
+          </p>
+        </div>
+        <div className="qr-modal-footer">
+          <button
+            className="btn-secondary"
+            onClick={onCancel}
+            disabled={isPending}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn-danger"
+            onClick={onConfirm}
+            disabled={isPending}
+          >
+            {isPending ? "Deleting..." : "Yes, Delete Card"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CardDetailPage() {
   const { cardId } = useParams();
   const navigate = useNavigate();
@@ -264,6 +323,7 @@ export default function CardDetailPage() {
   const [copiedId, setCopiedId] = useState<"card" | "template" | null>(null);
   const [isManualPreviewing, setIsManualPreviewing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const autoPreviewedCardIdRef = useRef<string | null>(null);
 
   async function copyId(kind: "card" | "template", value?: string) {
@@ -445,14 +505,12 @@ export default function CardDetailPage() {
   const premiumExpiresOn = formatPremiumExpiration(data?.premium_expires_at);
 
   function triggerDelete() {
-    if (!data) {
-      return;
-    }
+    if (!data) return;
+    setShowDeleteModal(true);
+  }
 
-    if (!window.confirm("Delete this card permanently?")) {
-      return;
-    }
-
+  function confirmDelete() {
+    if (!data) return;
     deleteMutation.mutate(data.id);
   }
 
@@ -460,6 +518,13 @@ export default function CardDetailPage() {
     <div className="page-stack">
       {showUpgradeModal && (
         <ComingSoonModal onClose={() => setShowUpgradeModal(false)} />
+      )}
+      {showDeleteModal && (
+        <DeleteConfirmModal
+          onConfirm={confirmDelete}
+          onCancel={() => setShowDeleteModal(false)}
+          isPending={deleteMutation.isPending}
+        />
       )}
 
       <section className="content-hero">
@@ -504,9 +569,8 @@ export default function CardDetailPage() {
                   type="button"
                   className="btn-danger btn-xs"
                   onClick={triggerDelete}
-                  disabled={deleteMutation.isPending}
                 >
-                  {deleteMutation.isPending ? "Deleting..." : "Delete Card"}
+                  Delete Card
                 </button>
               </div>
             </div>
@@ -700,11 +764,17 @@ export default function CardDetailPage() {
             ) : null}
 
             {previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="Card preview"
-                className="create-preview-image"
-              />
+              <>
+                <img
+                  src={previewUrl}
+                  alt="Card preview"
+                  className="create-preview-image"
+                />
+                <p className="create-preview-bleed-note">
+                  The red dotted lines indicate where the card will be cut
+                  during manufacturing.
+                </p>
+              </>
             ) : (
               <div className="create-preview-placeholder">
                 <p>

@@ -49,32 +49,34 @@ function PlanModal({ onClose }: { onClose: () => void }) {
               <span className="plan-price">Free</span>
             </div>
             <ul className="plan-features">
-              <li className="plan-feat plan-feat--yes">Profile card page</li>
-              <li className="plan-feat plan-feat--yes">Standard QR code</li>
-              <li className="plan-feat plan-feat--yes">Card sharing link</li>
-              <li className="plan-feat plan-feat--no">Custom QR design</li>
-              <li className="plan-feat plan-feat--no">
-                Analytics &amp; scan tracking
+              <li className="plan-feat plan-feat--yes">
+                Create / Update Cards
               </li>
-              <li className="plan-feat plan-feat--no">Link Hub page</li>
-              <li className="plan-feat plan-feat--no">Priority support</li>
+              <li className="plan-feat plan-feat--no">Downloadable Proof</li>
+              <li className="plan-feat plan-feat--no">Smart QR Codes</li>
+              <li className="plan-feat plan-feat--no">
+                Analytics &amp; Scan Tracking
+              </li>
+              <li className="plan-feat plan-feat--no">Link Hub Page</li>
+              <li className="plan-feat plan-feat--no">Priority Support</li>
             </ul>
           </div>
           <div className="plan-col plan-col--premium">
             <div className="plan-col-header">
               <span className="plan-name">✦ Premium</span>
-              <span className="plan-price">Pro</span>
+              <span className="plan-price">$10.00 / year</span>
             </div>
             <ul className="plan-features">
-              <li className="plan-feat plan-feat--yes">Profile card page</li>
-              <li className="plan-feat plan-feat--yes">Standard QR code</li>
-              <li className="plan-feat plan-feat--yes">Card sharing link</li>
-              <li className="plan-feat plan-feat--yes">Custom QR design</li>
               <li className="plan-feat plan-feat--yes">
-                Analytics &amp; scan tracking
+                Create / Update Cards
               </li>
-              <li className="plan-feat plan-feat--yes">Link Hub page</li>
-              <li className="plan-feat plan-feat--yes">Priority support</li>
+              <li className="plan-feat plan-feat--yes">Downloadable Proof</li>
+              <li className="plan-feat plan-feat--yes">Smart QR Codes</li>
+              <li className="plan-feat plan-feat--yes">
+                Analytics &amp; Scan Tracking
+              </li>
+              <li className="plan-feat plan-feat--yes">Link Hub Page</li>
+              <li className="plan-feat plan-feat--yes">Priority Support</li>
             </ul>
           </div>
         </div>
@@ -229,7 +231,7 @@ export default function DashboardPage() {
       {/* ── Hero Banner ── */}
       <section className="content-hero">
         <div>
-          <p className="dash-kicker">⚔ Command Center</p>
+          <p className="dash-kicker">⚔ Your Deck</p>
           <h1>{getGreeting()}, Legend.</h1>
           <p className="content-hero-copy">
             Your profiles are ready to be unleashed. Forge new cards, track
@@ -291,7 +293,10 @@ export default function DashboardPage() {
                   Your legend hasn't been written yet. Create your first card to
                   begin your adventure.
                 </p>
-                <Link className="btn-primary" to="/app/cards/new">
+                <Link
+                  className="btn-primary dash-empty-cta"
+                  to="/app/cards/new"
+                >
                   Forge Your First Card
                 </Link>
               </div>
@@ -311,7 +316,26 @@ export default function DashboardPage() {
                           background: CARD_GRADIENTS[i % CARD_GRADIENTS.length],
                         }}
                       >
-                        <span className="dash-card-initial">
+                        {card.last_render ? (
+                          <img
+                            className="dash-card-render"
+                            src={card.last_render}
+                            alt={card.data.title}
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              target.style.display = "none";
+                              const sibling =
+                                target.nextElementSibling as HTMLElement | null;
+                              if (sibling) sibling.style.display = "flex";
+                            }}
+                          />
+                        ) : null}
+                        <span
+                          className="dash-card-initial"
+                          style={
+                            card.last_render ? { display: "none" } : undefined
+                          }
+                        >
                           {card.data.title?.[0]?.toUpperCase() ?? "?"}
                         </span>
                         {isPremium(card.premium_expires_at) ? (
