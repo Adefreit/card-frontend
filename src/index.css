@@ -1311,6 +1311,50 @@ button:disabled {
   margin-bottom: 18px;
 }
 
+.dash-panel-heading-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dash-search-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: min(320px, 100%);
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(108, 123, 207, 0.24);
+  background: rgba(248, 250, 255, 0.94);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.dash-search-field:focus-within {
+  border-color: rgba(82, 102, 210, 0.48);
+  box-shadow:
+    0 0 0 4px rgba(108, 123, 207, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.dash-search-icon {
+  color: var(--ui-muted);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.dash-search-field input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 12px 0;
+  min-width: 0;
+}
+
+.dash-search-field input:focus {
+  box-shadow: none;
+}
+
 .dash-panel-title {
   margin: 0;
   font-family: "Fraunces", Georgia, serif;
@@ -1354,39 +1398,75 @@ button:disabled {
 /* Cards grid */
 .dash-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 14px 12px;
 }
 
 /* Fantasy card item */
 .dash-card-item {
-  border: 1px solid var(--ui-border);
-  border-radius: 18px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(63, 75, 155, 0.11);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.dash-card-stack {
+  width: 86%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .dash-card-item:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 18px 40px rgba(63, 75, 155, 0.2);
+  transform: none;
+  box-shadow: none;
+}
+
+.dash-card-stage {
+  aspect-ratio: 5 / 7;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(103, 120, 207, 0.24);
+  background-color: #f5f7ff;
+  background-position: center;
+  background-size: cover;
+  box-shadow:
+    0 18px 42px rgba(55, 67, 145, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -28px 46px rgba(255, 255, 255, 0.22);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.dash-card-link:hover .dash-card-stage {
+  transform: translateY(-6px) rotate(-0.6deg);
+  box-shadow:
+    0 26px 50px rgba(55, 67, 145, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    inset 0 -28px 46px rgba(255, 255, 255, 0.22);
 }
 
 .dash-card-face {
-  height: 200px;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
+  border-radius: inherit;
+  background: transparent;
 }
 
 .dash-card-face::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.28) 100%);
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.1), transparent 16%, transparent 72%, rgba(10, 14, 34, 0.15) 100%),
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 40%);
+  pointer-events: none;
 }
 
 .dash-card-render {
@@ -1395,51 +1475,34 @@ button:disabled {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center top;
   border-radius: inherit;
   z-index: 0;
 }
 
 .dash-card-initial {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  border: 2px solid rgba(255, 255, 255, 0.55);
+  width: 82px;
+  height: 82px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: "Fraunces", Georgia, serif;
-  font-size: 1.55rem;
+  font-size: 2rem;
   font-weight: 700;
   color: #fff;
   position: relative;
   z-index: 1;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-
-.dash-card-body {
-  padding: 14px 16px 16px;
-}
-
-.dash-card-body h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--ui-ink);
-}
-
-.dash-card-body > p {
-  margin: 5px 0 13px;
-  font-size: 0.86rem;
-  color: var(--ui-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.18);
 }
 
 /* Card action buttons */
 .dash-card-link {
   display: block;
+  width: 100%;
   text-decoration: none;
   color: inherit;
   transition: opacity 0.15s ease;
@@ -1451,17 +1514,32 @@ button:disabled {
 }
 
 .dash-card-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 0 16px 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 10px 11px;
+  border: 1px solid rgba(103, 120, 207, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 20px rgba(57, 68, 141, 0.06);
+}
+
+.dash-empty--search {
+  margin-top: 8px;
 }
 
 .dash-action-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 9px;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
   border-radius: 8px;
   border: 1px solid var(--ui-border);
   background: rgba(255, 255, 255, 0.9);
@@ -1495,18 +1573,57 @@ button:disabled {
   color: #5a3800;
 }
 
+.dash-card-actions--draft .dash-action-btn--order {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.dash-card-actions--draft .dash-action-btn--upgrade {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.dash-card-actions--draft .dash-action-btn--proof {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.dash-card-actions--draft .dash-action-btn--qr {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.dash-card-actions--premium .dash-action-btn--order {
+  grid-column: 1 / span 2;
+  grid-row: 1;
+}
+
+.dash-card-actions--premium .dash-action-btn--proof {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.dash-card-actions--premium .dash-action-btn--qr {
+  grid-column: 2;
+  grid-row: 2;
+}
+
 /* Card premium/draft tier badge */
 .card-tier-badge {
   position: absolute;
-  bottom: 10px;
+  top: 10px;
   right: 10px;
   z-index: 2;
-  padding: 3px 9px;
+  flex-shrink: 0;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.03em;
+  line-height: 1.2;
   pointer-events: none;
+  box-shadow: 0 8px 18px rgba(18, 24, 60, 0.18);
+  backdrop-filter: blur(6px);
 }
 
 .card-tier-badge--premium {
@@ -1516,8 +1633,8 @@ button:disabled {
 }
 
 .card-tier-badge--draft {
-  background: #e8e8e8;
-  border: 1px solid #999;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(130, 136, 156, 0.5);
   color: #333;
 }
 
@@ -1618,6 +1735,18 @@ button:disabled {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 
+  .dash-card-stack {
+    width: 88%;
+  }
+
+  .dash-card-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-search-field {
+    min-width: 100%;
+  }
+
   .dash-tier-band {
     flex-direction: column;
     align-items: flex-start;
@@ -1651,6 +1780,10 @@ button:disabled {
 
 .qr-modal.markup-help-modal {
   width: min(960px, calc(100vw - 24px));
+}
+
+.qr-modal.proof-modal {
+  width: min(720px, calc(100vw - 24px));
 }
 
 .qr-modal-header {
@@ -1702,6 +1835,13 @@ button:disabled {
   max-width: 100%;
   border-radius: 12px;
   border: 1px solid var(--ui-border);
+}
+
+.proof-preview {
+  display: block;
+  width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
 }
 
 .qr-modal-footer {

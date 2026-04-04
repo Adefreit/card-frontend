@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,13 @@ import {
   FlavorMarkupInput,
   getFlavorMarkupPlainText,
 } from "../components/flavor-markup";
+import {
+  buildImagePayload,
+  buildPreviewImagePayload,
+  estimateUploadedImageBytes,
+  ImageInput,
+  MAX_TOTAL_UPLOAD_BYTES,
+} from "../components/image-upload";
 
 // Allow regular URLs, data URLs (file uploads), and blob URLs
 const imageFieldSchema = z
@@ -24,225 +31,32 @@ const imageFieldSchema = z
     "Must be a valid URL or uploaded image.",
   );
 
-const cardCreateSchema = z.object({
-  templateId: z.string().min(1, "Please select a template."),
-  title: z.string().min(1, "Title is required."),
-  subtitle: z.string().min(1, "Subtitle is required."),
-  flavorText: z
-    .string()
-    .refine(
-      (value) => getFlavorMarkupPlainText(value).length > 0,
-      "Flavor text is required.",
-    ),
-  backgroundImage: imageFieldSchema,
-  foregroundImage: imageFieldSchema,
-});
+const cardCreateSchema = z
+  .object({
+    templateId: z.string().min(1, "Please select a template."),
+    title: z.string().min(1, "Title is required."),
+    subtitle: z.string().min(1, "Subtitle is required."),
+    flavorText: z
+      .string()
+      .refine(
+        (value) => getFlavorMarkupPlainText(value).length > 0,
+        "Flavor text is required.",
+      ),
+    backgroundImage: imageFieldSchema,
+    foregroundImage: imageFieldSchema,
+  })
+  .refine(
+    (value) =>
+      estimateUploadedImageBytes(value.backgroundImage) +
+        estimateUploadedImageBytes(value.foregroundImage) <=
+      MAX_TOTAL_UPLOAD_BYTES,
+    {
+      message: "Uploaded images must total 3 MB or less.",
+      path: ["foregroundImage"],
+    },
+  );
 
 type CardCreateValues = z.infer<typeof cardCreateSchema>;
-
-interface ParsedDataUrl {
-  mimeType: string;
-  base64: string;
-}
-
-function parseDataUrl(value: string): ParsedDataUrl | null {
-  const match = /^data:([^;,]+);base64,(.+)$/s.exec(value);
-  if (!match) return null;
-
-  return {
-    mimeType: match[1],
-    base64: match[2],
-  };
-}
-
-function buildImagePayload(value: string, prefix: "background" | "foreground") {
-  if (!value) return {};
-
-  const parsed = parseDataUrl(value);
-  if (parsed) {
-    return {
-      [`${prefix}ImageBase64`]: parsed.base64,
-      [`${prefix}ImageMimeType`]: parsed.mimeType,
-    };
-  }
-
-  return {
-    [`${prefix}Image`]: value,
-  };
-}
-
-function buildPreviewImagePayload(
-  value: string,
-  prefix: "background" | "foreground",
-) {
-  if (!value) return {};
-
-  const parsed = parseDataUrl(value);
-  if (parsed) {
-    return {
-      [`${prefix}ImageBase64`]: parsed.base64,
-      [`${prefix}ImageMimeType`]: parsed.mimeType,
-    };
-  }
-
-  return {
-    [`${prefix}ImageUrl`]: value,
-  };
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-interface ImageInputProps {
-  label: string;
-  value: string;
-  onChange: (url: string) => void;
-  onClear: () => void;
-  error?: string;
-}
-
-function getImageDisplayName(value: string): string {
-  if (!value) {
-    return "No file uploaded";
-  }
-
-  if (value.startsWith("data:")) {
-    const parsed = parseDataUrl(value);
-    if (!parsed) {
-      return "Uploaded image";
-    }
-
-    const extension = parsed.mimeType.split("/")[1]?.toLowerCase() || "file";
-    return `uploaded-image.${extension}`;
-  }
-
-  if (value.startsWith("http://") || value.startsWith("https://")) {
-    try {
-      const url = new URL(value);
-      const name = url.pathname.split("/").filter(Boolean).pop();
-      return name ? decodeURIComponent(name) : "remote-image";
-    } catch {
-      return "remote-image";
-    }
-  }
-
-  return "Uploaded image";
-}
-
-function ImageInput({
-  label,
-  value,
-  onChange,
-  onClear,
-  error,
-}: ImageInputProps) {
-  const [fileName, setFileName] = useState<string>("");
-  const [copiedFileName, setCopiedFileName] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const MAX_MB = 5;
-    if (file.size > MAX_MB * 1024 * 1024) {
-      alert(
-        `Image is too large. Please upload a file smaller than ${MAX_MB} MB.`,
-      );
-      e.target.value = "";
-      return;
-    }
-    setFileName(file.name);
-    const dataUrl = await readFileAsDataUrl(file);
-    onChange(dataUrl);
-  }
-
-  const currentDisplayName = fileName || getImageDisplayName(value);
-  const hasFile = Boolean(value);
-
-  async function handleCopyFileName() {
-    if (!hasFile) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(currentDisplayName);
-      setCopiedFileName(true);
-      window.setTimeout(() => setCopiedFileName(false), 1200);
-    } catch {
-      // Ignore clipboard failures to avoid interrupting form usage.
-    }
-  }
-
-  function handleClear() {
-    setFileName("");
-    setCopiedFileName(false);
-    if (fileRef.current) {
-      fileRef.current.value = "";
-    }
-    onClear();
-  }
-
-  return (
-    <div className="image-input-group">
-      <div className="image-input-label-row">
-        <span className="image-input-label">{label}</span>
-        <button
-          type="button"
-          className={`image-status-chip${hasFile ? " image-status-chip--uploaded" : " image-status-chip--empty"}`}
-          onClick={handleCopyFileName}
-          disabled={!hasFile}
-          title={
-            hasFile
-              ? `Click to copy file name: ${currentDisplayName}`
-              : "No file uploaded"
-          }
-        >
-          {hasFile ? (copiedFileName ? "Copied" : "File Uploaded") : "No File"}
-        </button>
-      </div>
-
-      <div
-        className="file-drop-zone file-drop-zone--compact"
-        onClick={() => fileRef.current?.click()}
-      >
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="file-drop-hidden"
-          onChange={handleFileChange}
-        />
-        {fileName ? (
-          <span className="file-drop-name">Selected: {fileName}</span>
-        ) : (
-          <>
-            <span className="file-drop-text">Click to upload an image</span>
-            <span className="file-drop-hint">PNG, JPG, WEBP</span>
-          </>
-        )}
-      </div>
-
-      <div className="image-input-actions">
-        <button
-          type="button"
-          className="btn-secondary btn-xs"
-          onClick={handleClear}
-          disabled={!value}
-        >
-          Clear Image
-        </button>
-      </div>
-
-      {error ? <small className="field-error">{error}</small> : null}
-    </div>
-  );
-}
 
 export default function CardCreatePage() {
   const queryClient = useQueryClient();
@@ -344,11 +158,14 @@ export default function CardCreatePage() {
   const titleValue = watch("title");
   const subtitleValue = watch("subtitle");
   const flavorTextValue = watch("flavorText");
+  const totalUploadedImageBytes =
+    estimateUploadedImageBytes(bgValue) + estimateUploadedImageBytes(fgValue);
   const canRunActions =
     selectedTemplateId.trim().length > 0 &&
     titleValue.trim().length > 0 &&
     subtitleValue.trim().length > 0 &&
-    getFlavorMarkupPlainText(flavorTextValue).length > 0;
+    getFlavorMarkupPlainText(flavorTextValue).length > 0 &&
+    totalUploadedImageBytes <= MAX_TOTAL_UPLOAD_BYTES;
 
   return (
     <div className="page-stack">
@@ -372,8 +189,9 @@ export default function CardCreatePage() {
       <div className="create-basic-notice">
         <span className="create-basic-icon">ℹ</span>
         <span>
-          New cards start on the <strong>Draft plan</strong>. You can upgrade
-          any card to Premium from your dashboard after it&apos;s been created.
+          New cards start out as <strong>Drafts</strong>. Once you have created
+          the card, you can upgrade it to <strong>Premium</strong> from your
+          dashboard.
         </span>
       </div>
 
@@ -472,6 +290,10 @@ export default function CardCreatePage() {
               <ImageInput
                 label="Background Image"
                 value={bgValue}
+                maxUploadBytes={Math.max(
+                  0,
+                  MAX_TOTAL_UPLOAD_BYTES - estimateUploadedImageBytes(fgValue),
+                )}
                 onChange={(url) =>
                   setValue("backgroundImage", url, { shouldValidate: true })
                 }
@@ -482,8 +304,12 @@ export default function CardCreatePage() {
               />
 
               <ImageInput
-                label="Foreground Image"
+                label="Logo / Icon"
                 value={fgValue}
+                maxUploadBytes={Math.max(
+                  0,
+                  MAX_TOTAL_UPLOAD_BYTES - estimateUploadedImageBytes(bgValue),
+                )}
                 onChange={(url) =>
                   setValue("foregroundImage", url, { shouldValidate: true })
                 }

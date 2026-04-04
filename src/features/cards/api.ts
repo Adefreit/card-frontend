@@ -137,6 +137,15 @@ export async function previewCard(payload: CardPreviewRequest) {
   return data;
 }
 
+export async function renderCardProof(id: string) {
+  const { data } = await apiClient.get<Blob>(`/v1/cards/render/${id}`, {
+    params: { format: "png", side: "front", showCutlines: false, dpi: 300 },
+    responseType: "blob",
+  });
+
+  return data;
+}
+
 export async function getCardTemplates() {
   const { data } = await apiClient.get<CardTemplate[]>("/v1/card-templates");
   return data;
