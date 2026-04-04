@@ -1,5 +1,6 @@
 const TOKEN_KEY = "card_frontend_token";
 const USER_ID_KEY = "card_frontend_user_id";
+const AUTH_NOTICE_KEY = "card_frontend_auth_notice";
 
 export const authStorage = {
   getToken: () => localStorage.getItem(TOKEN_KEY),
@@ -8,4 +9,8 @@ export const authStorage = {
   getUserId: () => localStorage.getItem(USER_ID_KEY),
   setUserId: (userId: string) => localStorage.setItem(USER_ID_KEY, userId),
   clearUserId: () => localStorage.removeItem(USER_ID_KEY),
+  getAuthNotice: () => sessionStorage.getItem(AUTH_NOTICE_KEY),
+  setAuthNotice: (message: string) =>
+    sessionStorage.setItem(AUTH_NOTICE_KEY, message),
+  clearAuthNotice: () => sessionStorage.removeItem(AUTH_NOTICE_KEY),
 };

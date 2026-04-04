@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import AuthPageFrame from "../AuthPageFrame";
 import { useAuth } from "../auth-context";
+import { authStorage } from "../../../lib/storage";
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email."),
@@ -18,6 +19,15 @@ export default function LoginPage() {
   const location = useLocation();
   const { login, isAuthenticated } = useAuth();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [authNotice, setAuthNotice] = useState<string | null>(() => {
+    const message = authStorage.getAuthNotice();
+
+    if (message) {
+      authStorage.clearAuthNotice();
+    }
+
+    return message;
+  });
 
   const {
     register,
@@ -37,6 +47,7 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginValues) => {
     setServerError(null);
+    setAuthNotice(null);
 
     try {
       await login(values);
@@ -77,6 +88,7 @@ export default function LoginPage() {
           ) : null}
         </label>
 
+        {authNotice ? <div className="alert-success">{authNotice}</div> : null}
         {serverError ? <div className="alert-error">{serverError}</div> : null}
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Signing in..." : "Sign in"}
