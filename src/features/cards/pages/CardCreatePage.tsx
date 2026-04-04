@@ -5,6 +5,12 @@ import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createCard, previewCard, getCardTemplates } from "../api";
+import {
+  convertFlavorMarkupToHtml,
+  FlavorMarkupHelpModal,
+  FlavorMarkupInput,
+  getFlavorMarkupPlainText,
+} from "../components/flavor-markup";
 
 // Allow regular URLs, data URLs (file uploads), and blob URLs
 const imageFieldSchema = z
@@ -22,7 +28,12 @@ const cardCreateSchema = z.object({
   templateId: z.string().min(1, "Please select a template."),
   title: z.string().min(1, "Title is required."),
   subtitle: z.string().min(1, "Subtitle is required."),
-  flavorText: z.string().min(1, "Flavor text is required."),
+  flavorText: z
+    .string()
+    .refine(
+      (value) => getFlavorMarkupPlainText(value).length > 0,
+      "Flavor text is required.",
+    ),
   backgroundImage: imageFieldSchema,
   foregroundImage: imageFieldSchema,
 });
@@ -132,6 +143,7 @@ function ImageInput({
   error,
 }: ImageInputProps) {
   const [fileName, setFileName] = useState<string>("");
+  const [copiedFileName, setCopiedFileName] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -151,14 +163,48 @@ function ImageInput({
   }
 
   const currentDisplayName = fileName || getImageDisplayName(value);
+  const hasFile = Boolean(value);
+
+  async function handleCopyFileName() {
+    if (!hasFile) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(currentDisplayName);
+      setCopiedFileName(true);
+      window.setTimeout(() => setCopiedFileName(false), 1200);
+    } catch {
+      // Ignore clipboard failures to avoid interrupting form usage.
+    }
+  }
+
+  function handleClear() {
+    setFileName("");
+    setCopiedFileName(false);
+    if (fileRef.current) {
+      fileRef.current.value = "";
+    }
+    onClear();
+  }
 
   return (
     <div className="image-input-group">
       <div className="image-input-label-row">
         <span className="image-input-label">{label}</span>
-        <span className="image-current-file">
-          Current: {currentDisplayName}
-        </span>
+        <button
+          type="button"
+          className={`image-status-chip${hasFile ? " image-status-chip--uploaded" : " image-status-chip--empty"}`}
+          onClick={handleCopyFileName}
+          disabled={!hasFile}
+          title={
+            hasFile
+              ? `Click to copy file name: ${currentDisplayName}`
+              : "No file uploaded"
+          }
+        >
+          {hasFile ? (copiedFileName ? "Copied" : "File Uploaded") : "No File"}
+        </button>
       </div>
 
       <div
@@ -186,7 +232,7 @@ function ImageInput({
         <button
           type="button"
           className="btn-secondary btn-xs"
-          onClick={onClear}
+          onClick={handleClear}
           disabled={!value}
         >
           Clear Image
@@ -202,6 +248,7 @@ export default function CardCreatePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showFlavorMarkupHelp, setShowFlavorMarkupHelp] = useState(false);
 
   const { data: templates, isLoading: templatesLoading } = useQuery({
     queryKey: ["card-templates"],
@@ -285,7 +332,7 @@ export default function CardCreatePage() {
       templateId: values.templateId,
       title: values.title,
       subtitle: values.subtitle,
-      flavorText: values.flavorText,
+      flavorText: convertFlavorMarkupToHtml(values.flavorText),
       ...backgroundImagePayload,
       ...foregroundImagePayload,
     });
@@ -301,10 +348,14 @@ export default function CardCreatePage() {
     selectedTemplateId.trim().length > 0 &&
     titleValue.trim().length > 0 &&
     subtitleValue.trim().length > 0 &&
-    flavorTextValue.trim().length > 0;
+    getFlavorMarkupPlainText(flavorTextValue).length > 0;
 
   return (
     <div className="page-stack">
+      {showFlavorMarkupHelp && (
+        <FlavorMarkupHelpModal onClose={() => setShowFlavorMarkupHelp(false)} />
+      )}
+
       {/* Hero */}
       <section className="content-hero">
         <div>
@@ -350,7 +401,7 @@ export default function CardCreatePage() {
                 templateId: values.templateId,
                 title: values.title,
                 subtitle: values.subtitle,
-                flavorText: values.flavorText,
+                flavorText: convertFlavorMarkupToHtml(values.flavorText),
                 ...backgroundImagePayload,
                 ...foregroundImagePayload,
               });
@@ -407,39 +458,41 @@ export default function CardCreatePage() {
               <span className="label-required">
                 Flavor Text <span className="required-asterisk">*</span>
               </span>
-              <textarea rows={4} {...register("flavorText")} />
-              {errors.flavorText ? (
-                <small className="field-error">
-                  {errors.flavorText.message}
-                </small>
-              ) : null}
+              <FlavorMarkupInput
+                value={flavorTextValue}
+                onChange={(nextValue) =>
+                  setValue("flavorText", nextValue, { shouldValidate: true })
+                }
+                error={errors.flavorText?.message}
+                onHelp={() => setShowFlavorMarkupHelp(true)}
+              />
             </label>
 
-            {/* Background Image */}
-            <ImageInput
-              label="Background Image"
-              value={bgValue}
-              onChange={(url) =>
-                setValue("backgroundImage", url, { shouldValidate: true })
-              }
-              onClear={() =>
-                setValue("backgroundImage", "", { shouldValidate: true })
-              }
-              error={errors.backgroundImage?.message}
-            />
+            <div className="image-input-row">
+              <ImageInput
+                label="Background Image"
+                value={bgValue}
+                onChange={(url) =>
+                  setValue("backgroundImage", url, { shouldValidate: true })
+                }
+                onClear={() =>
+                  setValue("backgroundImage", "", { shouldValidate: true })
+                }
+                error={errors.backgroundImage?.message}
+              />
 
-            {/* Foreground Image */}
-            <ImageInput
-              label="Foreground Image"
-              value={fgValue}
-              onChange={(url) =>
-                setValue("foregroundImage", url, { shouldValidate: true })
-              }
-              onClear={() =>
-                setValue("foregroundImage", "", { shouldValidate: true })
-              }
-              error={errors.foregroundImage?.message}
-            />
+              <ImageInput
+                label="Foreground Image"
+                value={fgValue}
+                onChange={(url) =>
+                  setValue("foregroundImage", url, { shouldValidate: true })
+                }
+                onClear={() =>
+                  setValue("foregroundImage", "", { shouldValidate: true })
+                }
+                error={errors.foregroundImage?.message}
+              />
+            </div>
 
             {mutation.isError ? (
               <div className="alert-error">
@@ -486,8 +539,8 @@ export default function CardCreatePage() {
                 className="create-preview-image"
               />
               <p className="create-preview-bleed-note">
-                The red dotted lines indicate where the card will be cut during
-                manufacturing.
+                The green line is where the card will be cut. The red line is
+                the safe area - keep important details inside this border.
               </p>
             </>
           ) : (
