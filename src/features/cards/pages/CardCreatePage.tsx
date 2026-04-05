@@ -347,7 +347,7 @@ export default function CardCreatePage() {
               onClick={triggerPreview}
               disabled={previewMutation.isPending || !canRunActions}
             >
-              {previewMutation.isPending ? "Rendering…" : "↻ Refresh"}
+              {previewMutation.isPending ? "Wait…" : "↻ Refresh"}
             </button>
           </div>
 

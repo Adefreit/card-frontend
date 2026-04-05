@@ -64,6 +64,8 @@ const cardUpdateSchema = z
 
 type CardUpdateValues = z.infer<typeof cardUpdateSchema>;
 
+type CardPreviewSide = "front" | "back";
+
 function isPremiumCard(expiresAt?: string | null): boolean {
   if (!expiresAt) {
     return false;
@@ -177,12 +179,13 @@ export default function CardDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewSide, setPreviewSide] = useState<CardPreviewSide>("front");
   const [copiedId, setCopiedId] = useState<"card" | "template" | null>(null);
   const [isManualPreviewing, setIsManualPreviewing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFlavorMarkupHelp, setShowFlavorMarkupHelp] = useState(false);
-  const autoPreviewedCardIdRef = useRef<string | null>(null);
+  const autoPreviewedPreviewKeyRef = useRef<string | null>(null);
 
   async function copyId(kind: "card" | "template", value?: string) {
     if (!value) {
@@ -254,7 +257,9 @@ export default function CardDetailPage() {
       return;
     }
 
-    if (autoPreviewedCardIdRef.current === data.id) {
+    const previewKey = `${data.id}:${previewSide}`;
+
+    if (autoPreviewedPreviewKeyRef.current === previewKey) {
       return;
     }
 
@@ -267,16 +272,17 @@ export default function CardDetailPage() {
       "foreground",
     );
 
-    autoPreviewedCardIdRef.current = data.id;
+    autoPreviewedPreviewKeyRef.current = previewKey;
     previewMutation.mutate({
       templateId: data.template_id,
       title: data.data.title,
       subtitle: data.data.subtitle,
       flavorText: data.data.flavorText,
+      side: previewSide,
       ...backgroundImagePayload,
       ...foregroundImagePayload,
     });
-  }, [data]);
+  }, [data, previewSide]);
 
   useEffect(() => {
     return () => {
@@ -341,6 +347,7 @@ export default function CardDetailPage() {
       title: values.title,
       subtitle: values.subtitle,
       flavorText: convertFlavorMarkupToHtml(values.flavorText),
+      side: previewSide,
       ...backgroundImagePayload,
       ...foregroundImagePayload,
     });
@@ -624,15 +631,39 @@ export default function CardDetailPage() {
 
           <aside className="create-preview-panel">
             <div className="create-preview-header">
-              <h3>Card Front</h3>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => triggerPreview(true)}
-                disabled={isManualPreviewing || !canRunActions}
-              >
-                {isManualPreviewing ? "Rendering..." : "Refresh"}
-              </button>
+              <h3>{previewSide === "front" ? "Card Front" : "Card Back"}</h3>
+              <div className="create-preview-controls">
+                <div
+                  className="preview-side-toggle"
+                  role="tablist"
+                  aria-label="Preview side"
+                >
+                  <button
+                    type="button"
+                    className={`preview-side-toggle__button${previewSide === "front" ? " is-active" : ""}`}
+                    onClick={() => setPreviewSide("front")}
+                    aria-pressed={previewSide === "front"}
+                  >
+                    Front
+                  </button>
+                  <button
+                    type="button"
+                    className={`preview-side-toggle__button${previewSide === "back" ? " is-active" : ""}`}
+                    onClick={() => setPreviewSide("back")}
+                    aria-pressed={previewSide === "back"}
+                  >
+                    Back
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => triggerPreview(true)}
+                  disabled={isManualPreviewing || !canRunActions}
+                >
+                  {isManualPreviewing ? "Wait..." : "Refresh"}
+                </button>
+              </div>
             </div>
 
             {previewMutation.isError ? (
@@ -648,17 +679,23 @@ export default function CardDetailPage() {
                   alt="Card preview"
                   className="create-preview-image"
                 />
-                <p className="create-preview-bleed-note">
-                  The green line is where the card will be cut. The red line is
-                  the safe area - keep important details inside this border.
-                </p>
+                <div className="create-preview-bleed-note" role="note">
+                  <strong>Preview guides only</strong>
+                  <span>
+                    The green line marks the trim edge and the red line marks
+                    the safe area. <br />
+                    <br />
+                    These guides are temporary preview overlays and will not
+                    appear on the final rendered or printed card.
+                  </span>
+                </div>
               </>
             ) : (
               <div className="create-preview-placeholder">
                 <p>
                   {previewMutation.isPending
                     ? "Generating preview.  This may take a bit..."
-                    : "Update fields and click Refresh to render a preview."}
+                    : `Update fields and click Refresh to render the card ${previewSide}.`}
                 </p>
               </div>
             )}

@@ -75,6 +75,7 @@ export interface CardPreviewRequest {
   title: string;
   subtitle: string;
   flavorText: string;
+  side?: "front" | "back";
   backgroundImage?: string;
   backgroundImageUrl?: string;
   backgroundImageBase64?: string;
@@ -126,9 +127,10 @@ export async function deleteCard(id: string) {
 }
 
 export async function previewCard(payload: CardPreviewRequest) {
+  const { side = "front", ...requestBody } = payload;
   const { data } = await apiClient.post<Blob>(
-    "/v1/cards/preview?format=png&side=front&showCutlines=true&showPreviewWatermark=true",
-    payload,
+    `/v1/cards/preview?format=png&side=${side}&showCutlines=true&showPreviewWatermark=true`,
+    requestBody,
     {
       responseType: "blob",
     },
