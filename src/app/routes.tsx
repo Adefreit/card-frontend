@@ -9,6 +9,7 @@ import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
 import DashboardPage from "../features/dashboard/DashboardPage";
 import CardDetailPage from "../features/cards/pages/CardDetailPage";
 import CardCreatePage from "../features/cards/pages/CardCreatePage";
+import CardViewerPage from "../features/cards/pages/CardViewerPage";
 import AppLayout from "../features/layout/AppLayout";
 import HomePage from "../features/home/HomePage";
 
@@ -46,6 +47,10 @@ export const router = createBrowserRouter([
   {
     path: "/reset-password",
     element: <ResetPasswordPage />,
+  },
+  {
+    path: "/cardviewer/:id",
+    element: <CardViewerPage />,
   },
   {
     path: "/app",

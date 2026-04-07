@@ -8,6 +8,46 @@ export interface CardStats {
   blue: number;
 }
 
+export interface CardContactAddress {
+  street1?: string;
+  street2?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+export interface CardContactInfo {
+  firstName?: string;
+  lastName?: string;
+  organization?: string;
+  jobTitle?: string;
+  website?: string;
+  birthday?: string;
+  address?: CardContactAddress;
+  homePhone?: string;
+  cellPhone?: string;
+  personalEmail?: string;
+  workEmail?: string;
+  socialAccounts?: Record<string, string>;
+}
+
+export interface CardCustomCss {
+  bannerColor?: string;
+  bannerForeground?: string;
+}
+
+export interface CardNamedUrl {
+  name: string;
+  url: string;
+}
+
+export interface CardPremiumUrl extends CardNamedUrl {}
+
+export interface CardPremiumConfig {
+  urlList?: CardPremiumUrl[];
+}
+
 export interface CardData {
   title: string;
   subtitle: string;
@@ -16,7 +56,9 @@ export interface CardData {
   foregroundImage?: string;
   backgroundImageUrl?: string;
   foregroundImageUrl?: string;
-  customCss?: Record<string, string>;
+  contactInfo?: CardContactInfo;
+  customCss?: CardCustomCss;
+  premium?: CardPremiumConfig;
   stats?: CardStats;
 }
 
@@ -41,7 +83,9 @@ export interface CardCreatePayload {
   foregroundImage?: string;
   foregroundImageBase64?: string;
   foregroundImageMimeType?: string;
-  customCss?: Record<string, string>;
+  contactInfo?: CardContactInfo;
+  customCss?: CardCustomCss;
+  premium?: CardPremiumConfig;
 }
 
 export interface CardUpdatePayload {
@@ -58,7 +102,9 @@ export interface CardUpdatePayload {
   foregroundImageUrl?: string;
   foregroundImageBase64?: string;
   foregroundImageMimeType?: string;
-  customCss?: Record<string, string>;
+  contactInfo?: CardContactInfo;
+  customCss?: CardCustomCss;
+  premium?: CardPremiumConfig;
 }
 
 interface CardCreateResponse {
@@ -84,7 +130,9 @@ export interface CardPreviewRequest {
   foregroundImageUrl?: string;
   foregroundImageBase64?: string;
   foregroundImageMimeType?: string;
-  customCss?: Record<string, string>;
+  contactInfo?: CardContactInfo;
+  customCss?: CardCustomCss;
+  premium?: CardPremiumConfig;
 }
 
 export interface CardTemplate {
@@ -150,5 +198,13 @@ export async function renderCardProof(id: string) {
 
 export async function getCardTemplates() {
   const { data } = await apiClient.get<CardTemplate[]>("/v1/card-templates");
+  return data;
+}
+
+export async function downloadPublicCardVcard(id: string) {
+  const { data } = await apiClient.get<Blob>(`/v1/cards/${id}/vcard`, {
+    responseType: "blob",
+  });
+
   return data;
 }

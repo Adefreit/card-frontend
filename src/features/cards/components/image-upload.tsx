@@ -247,11 +247,11 @@ export function ImageInput({
 }: ImageInputProps) {
   const [fileName, setFileName] = useState<string>("");
   const [copiedFileName, setCopiedFileName] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function handleSelectedFile(file?: File | null) {
     if (!file) {
       return;
     }
@@ -269,8 +269,37 @@ export function ImageInput({
           ? uploadIssue.message
           : "Unable to process the selected image.",
       );
-      e.target.value = "";
+      if (fileRef.current) {
+        fileRef.current.value = "";
+      }
     }
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    await handleSelectedFile(e.target.files?.[0]);
+  }
+
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isDragActive) {
+      setIsDragActive(true);
+    }
+  }
+
+  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+  }
+
+  async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+
+    await handleSelectedFile(e.dataTransfer.files?.[0]);
   }
 
   const currentDisplayName = fileName || getImageDisplayName(value);
@@ -320,8 +349,11 @@ export function ImageInput({
       </div>
 
       <div
-        className="file-drop-zone file-drop-zone--compact"
+        className={`file-drop-zone file-drop-zone--compact${isDragActive ? " file-drop-zone--active" : ""}`}
         onClick={() => fileRef.current?.click()}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         <input
           ref={fileRef}
@@ -334,7 +366,9 @@ export function ImageInput({
           <span className="file-drop-name">Selected: {fileName}</span>
         ) : (
           <>
-            <span className="file-drop-text">Click to upload an image</span>
+            <span className="file-drop-text">
+              Drag an image here or click to upload
+            </span>
             <span className="file-drop-hint">PNG, JPG, WEBP</span>
           </>
         )}
