@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   downloadPublicCardVcard,
   getCard,
@@ -222,7 +222,6 @@ export default function CardViewerPage() {
   const { id } = useParams();
   const swimlaneRef = useRef<HTMLElement | null>(null);
   const [activePanelIndex, setActivePanelIndex] = useState(0);
-  const [isSwipeHintVisible, setIsSwipeHintVisible] = useState(true);
 
   const cardQuery = useQuery({
     queryKey: ["public-card-viewer", id],
@@ -292,12 +291,6 @@ export default function CardViewerPage() {
     };
   }, [card]);
 
-  useEffect(() => {
-    if (activePanelIndex > 0 && isSwipeHintVisible) {
-      setIsSwipeHintVisible(false);
-    }
-  }, [activePanelIndex, isSwipeHintVisible]);
-
   function jumpToPanel(index: number) {
     const swimlane = swimlaneRef.current;
     const slide = swimlane?.children[index] as HTMLElement | undefined;
@@ -312,17 +305,10 @@ export default function CardViewerPage() {
       inline: "start",
     });
     setActivePanelIndex(index);
-    setIsSwipeHintVisible(false);
   }
 
   return (
     <div className="cardviewer-page">
-      <header className="cardviewer-header">
-        <Link className="cardviewer-backlink" to="/">
-          Legendary Profiles
-        </Link>
-      </header>
-
       <main className="cardviewer-shell">
         {cardQuery.isLoading ? (
           <section className="cardviewer-status cardviewer-status--loading">
@@ -340,68 +326,6 @@ export default function CardViewerPage() {
 
         {card ? (
           <>
-            <section className="cardviewer-topbar">
-              <div className="cardviewer-copy">
-                <span className="cardviewer-kicker">Legendary Profiles</span>
-                <h1>{viewerName || card.data.title || "Profile Card"}</h1>
-                {card.data.contactInfo?.jobTitle ||
-                card.data.contactInfo?.organization ? (
-                  <p className="cardviewer-subtitle">
-                    {[
-                      card.data.contactInfo?.jobTitle,
-                      card.data.contactInfo?.organization,
-                    ]
-                      .filter(Boolean)
-                      .join(" at ")}
-                  </p>
-                ) : card.data.subtitle ? (
-                  <p className="cardviewer-subtitle">{card.data.subtitle}</p>
-                ) : null}
-              </div>
-              <div className="cardviewer-topbar__meta">
-                <div
-                  className="cardviewer-hints"
-                  role="tablist"
-                  aria-label="Card viewer sections"
-                >
-                  {CARDVIEWER_PANELS.map((panel, index) => (
-                    <button
-                      key={panel}
-                      type="button"
-                      role="tab"
-                      className={`cardviewer-hints__button${activePanelIndex === index ? " is-active" : ""}`}
-                      aria-selected={activePanelIndex === index}
-                      onClick={() => jumpToPanel(index)}
-                    >
-                      {panel}
-                    </button>
-                  ))}
-                </div>
-                <div className="cardviewer-pagination" aria-hidden="true">
-                  {CARDVIEWER_PANELS.map((panel, index) => (
-                    <span
-                      key={panel}
-                      className={`cardviewer-pagination__dot${activePanelIndex === index ? " is-active" : ""}`}
-                    />
-                  ))}
-                </div>
-                {isSwipeHintVisible ? (
-                  <div className="cardviewer-swipe-hint" aria-live="polite">
-                    <span className="cardviewer-swipe-hint__label">
-                      Swipe for contact info and links
-                    </span>
-                    <button
-                      type="button"
-                      className="cardviewer-swipe-hint__button"
-                      onClick={() => jumpToPanel(1)}
-                    >
-                      Next
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </section>
-
             <section
               ref={swimlaneRef}
               className="cardviewer-swimlane"
@@ -475,6 +399,19 @@ export default function CardViewerPage() {
                 </div>
               </section>
             </section>
+
+            <div className="cardviewer-pagination cardviewer-pagination--bottom">
+              {CARDVIEWER_PANELS.map((panel, index) => (
+                <button
+                  key={panel}
+                  type="button"
+                  className={`cardviewer-pagination__dot${activePanelIndex === index ? " is-active" : ""}`}
+                  aria-label={`Show ${panel.toLowerCase()} panel`}
+                  aria-pressed={activePanelIndex === index}
+                  onClick={() => jumpToPanel(index)}
+                />
+              ))}
+            </div>
           </>
         ) : null}
       </main>
