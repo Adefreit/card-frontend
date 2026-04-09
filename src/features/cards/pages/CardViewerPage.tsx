@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -7,6 +8,8 @@ import {
   type CardRecord,
   type CardNamedUrl,
 } from "../api";
+
+const CARDVIEWER_PANELS = ["Card", "Contact", "Links"] as const;
 
 function getViewerName(contactInfo?: CardContactInfo) {
   const fullName = [contactInfo?.firstName, contactInfo?.lastName]
@@ -23,6 +26,23 @@ function getViewerPreviewUrl(card?: CardRecord) {
 
 function getViewerPremiumLinks(card?: CardRecord): CardNamedUrl[] {
   return card?.data.premium?.urlList || [];
+}
+
+function getViewerAddress(contactInfo?: CardContactInfo) {
+  const address = contactInfo?.address;
+  if (!address) {
+    return "";
+  }
+
+  return [
+    [address.street1, address.street2].filter(Boolean).join(", "),
+    [address.city, address.region, address.postalCode]
+      .filter(Boolean)
+      .join(", "),
+    address.country,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function slugifyFileName(value: string) {
@@ -45,9 +65,18 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(objectUrl);
 }
 
-function ContactBlock({ card }: { card: CardRecord }) {
+function ContactBlock({
+  card,
+  onDownloadVcard,
+  isDownloadingVcard,
+}: {
+  card: CardRecord;
+  onDownloadVcard: () => void;
+  isDownloadingVcard: boolean;
+}) {
   const contactInfo = card.data.contactInfo;
   const fullName = getViewerName(contactInfo);
+  const addressText = getViewerAddress(contactInfo);
   const socialLinks = Object.entries(contactInfo?.socialAccounts || {});
   const contactRows = [
     contactInfo?.jobTitle
@@ -89,73 +118,111 @@ function ContactBlock({ card }: { card: CardRecord }) {
           href: contactInfo.website,
         }
       : null,
+    addressText ? { label: "Address", value: addressText } : null,
   ].filter(Boolean) as Array<{ label: string; value: string; href?: string }>;
 
   if (!fullName && contactRows.length === 0 && socialLinks.length === 0) {
-    return null;
+    return (
+      <section className="cardviewer-slide cardviewer-slide--contact">
+        <div className="cardviewer-slide__body cardviewer-slide__body--centered">
+          <div className="cardviewer-panel__header">
+            <h2>Contact Information</h2>
+            <p>No contact information has been added to this card yet.</p>
+          </div>
+        </div>
+        <div className="cardviewer-slide__footer">
+          <button
+            type="button"
+            className="cardviewer-action-button"
+            onClick={onDownloadVcard}
+            disabled={isDownloadingVcard}
+          >
+            {isDownloadingVcard ? "Preparing vCard..." : "Download vCard"}
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section className="cardviewer-panel">
-      <div className="cardviewer-panel__header">
-        <h2>Contact Information</h2>
-        <p>Details available on this Legendary Profile card.</p>
-      </div>
+    <section className="cardviewer-slide cardviewer-slide--contact">
+      <div className="cardviewer-slide__body">
+        <div className="cardviewer-panel__header">
+          <h2>Contact Information</h2>
+          <p>Details available on this Legendary Profile card.</p>
+        </div>
 
-      <div className="cardviewer-contact-list">
-        {fullName ? (
-          <div className="cardviewer-contact-row">
-            <span className="cardviewer-contact-label">Name</span>
-            <span className="cardviewer-contact-value">{fullName}</span>
+        <div className="cardviewer-contact-list">
+          {fullName ? (
+            <div className="cardviewer-contact-row">
+              <span className="cardviewer-contact-label">Name</span>
+              <span className="cardviewer-contact-value">{fullName}</span>
+            </div>
+          ) : null}
+
+          {contactRows.map((row) => (
+            <div
+              key={`${row.label}:${row.value}`}
+              className="cardviewer-contact-row"
+            >
+              <span className="cardviewer-contact-label">{row.label}</span>
+              {row.href ? (
+                <a
+                  className="cardviewer-contact-link"
+                  href={row.href}
+                  target={row.href.startsWith("http") ? "_blank" : undefined}
+                  rel={row.href.startsWith("http") ? "noreferrer" : undefined}
+                >
+                  {row.value}
+                </a>
+              ) : (
+                <span className="cardviewer-contact-value cardviewer-contact-value--multiline">
+                  {row.value}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {socialLinks.length > 0 ? (
+          <div className="cardviewer-socials">
+            <h3>Social Links</h3>
+            <div className="cardviewer-socials__list">
+              {socialLinks.map(([platform, url]) => (
+                <a
+                  key={platform}
+                  className="cardviewer-socials__chip"
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {platform}
+                </a>
+              ))}
+            </div>
           </div>
         ) : null}
-
-        {contactRows.map((row) => (
-          <div
-            key={`${row.label}:${row.value}`}
-            className="cardviewer-contact-row"
-          >
-            <span className="cardviewer-contact-label">{row.label}</span>
-            {row.href ? (
-              <a
-                className="cardviewer-contact-link"
-                href={row.href}
-                target={row.href.startsWith("http") ? "_blank" : undefined}
-                rel={row.href.startsWith("http") ? "noreferrer" : undefined}
-              >
-                {row.value}
-              </a>
-            ) : (
-              <span className="cardviewer-contact-value">{row.value}</span>
-            )}
-          </div>
-        ))}
       </div>
 
-      {socialLinks.length > 0 ? (
-        <div className="cardviewer-socials">
-          <h3>Social Links</h3>
-          <div className="cardviewer-socials__list">
-            {socialLinks.map(([platform, url]) => (
-              <a
-                key={platform}
-                className="cardviewer-socials__chip"
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {platform}
-              </a>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      <div className="cardviewer-slide__footer">
+        <button
+          type="button"
+          className="cardviewer-action-button"
+          onClick={onDownloadVcard}
+          disabled={isDownloadingVcard}
+        >
+          {isDownloadingVcard ? "Preparing vCard..." : "Download vCard"}
+        </button>
+      </div>
     </section>
   );
 }
 
 export default function CardViewerPage() {
   const { id } = useParams();
+  const swimlaneRef = useRef<HTMLElement | null>(null);
+  const [activePanelIndex, setActivePanelIndex] = useState(0);
+  const [isSwipeHintVisible, setIsSwipeHintVisible] = useState(true);
 
   const cardQuery = useQuery({
     queryKey: ["public-card-viewer", id],
@@ -180,6 +247,73 @@ export default function CardViewerPage() {
   const previewUrl = getViewerPreviewUrl(card);
   const premiumLinks = getViewerPremiumLinks(card);
   const viewerName = getViewerName(card?.data.contactInfo);
+
+  useEffect(() => {
+    const swimlane = swimlaneRef.current;
+    if (!swimlane || !card) {
+      return undefined;
+    }
+
+    const slides = Array.from(swimlane.children) as HTMLElement[];
+    if (slides.length === 0) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntries = entries.filter((entry) => entry.isIntersecting);
+        if (visibleEntries.length === 0) {
+          return;
+        }
+
+        const mostVisibleEntry = visibleEntries.reduce((current, candidate) => {
+          return candidate.intersectionRatio > current.intersectionRatio
+            ? candidate
+            : current;
+        });
+
+        const nextIndex = slides.indexOf(
+          mostVisibleEntry.target as HTMLElement,
+        );
+        if (nextIndex >= 0) {
+          setActivePanelIndex(nextIndex);
+        }
+      },
+      {
+        root: swimlane,
+        threshold: [0.55, 0.7, 0.9],
+      },
+    );
+
+    slides.forEach((slide) => observer.observe(slide));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [card]);
+
+  useEffect(() => {
+    if (activePanelIndex > 0 && isSwipeHintVisible) {
+      setIsSwipeHintVisible(false);
+    }
+  }, [activePanelIndex, isSwipeHintVisible]);
+
+  function jumpToPanel(index: number) {
+    const swimlane = swimlaneRef.current;
+    const slide = swimlane?.children[index] as HTMLElement | undefined;
+
+    if (!slide) {
+      return;
+    }
+
+    slide.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "start",
+    });
+    setActivePanelIndex(index);
+    setIsSwipeHintVisible(false);
+  }
 
   return (
     <div className="cardviewer-page">
@@ -206,7 +340,7 @@ export default function CardViewerPage() {
 
         {card ? (
           <>
-            <section className="cardviewer-hero">
+            <section className="cardviewer-topbar">
               <div className="cardviewer-copy">
                 <span className="cardviewer-kicker">Legendary Profiles</span>
                 <h1>{viewerName || card.data.title || "Profile Card"}</h1>
@@ -223,70 +357,127 @@ export default function CardViewerPage() {
                 ) : card.data.subtitle ? (
                   <p className="cardviewer-subtitle">{card.data.subtitle}</p>
                 ) : null}
-                <p className="cardviewer-description">
-                  View card details, open premium links, or download the vCard.
-                </p>
               </div>
-
-              <div className="cardviewer-art">
-                {previewUrl ? (
-                  <img
-                    className="cardviewer-image"
-                    src={previewUrl}
-                    alt={
-                      card.data.title || viewerName || "Legendary profile card"
-                    }
-                  />
-                ) : (
-                  <div className="cardviewer-image cardviewer-image--placeholder">
-                    Preview unavailable
+              <div className="cardviewer-topbar__meta">
+                <div
+                  className="cardviewer-hints"
+                  role="tablist"
+                  aria-label="Card viewer sections"
+                >
+                  {CARDVIEWER_PANELS.map((panel, index) => (
+                    <button
+                      key={panel}
+                      type="button"
+                      role="tab"
+                      className={`cardviewer-hints__button${activePanelIndex === index ? " is-active" : ""}`}
+                      aria-selected={activePanelIndex === index}
+                      onClick={() => jumpToPanel(index)}
+                    >
+                      {panel}
+                    </button>
+                  ))}
+                </div>
+                <div className="cardviewer-pagination" aria-hidden="true">
+                  {CARDVIEWER_PANELS.map((panel, index) => (
+                    <span
+                      key={panel}
+                      className={`cardviewer-pagination__dot${activePanelIndex === index ? " is-active" : ""}`}
+                    />
+                  ))}
+                </div>
+                {isSwipeHintVisible ? (
+                  <div className="cardviewer-swipe-hint" aria-live="polite">
+                    <span className="cardviewer-swipe-hint__label">
+                      Swipe for contact info and links
+                    </span>
+                    <button
+                      type="button"
+                      className="cardviewer-swipe-hint__button"
+                      onClick={() => jumpToPanel(1)}
+                    >
+                      Next
+                    </button>
                   </div>
-                )}
+                ) : null}
               </div>
             </section>
 
-            <section className="cardviewer-content">
-              <ContactBlock card={card} />
+            <section
+              ref={swimlaneRef}
+              className="cardviewer-swimlane"
+              aria-label="Card viewer panels"
+            >
+              <section className="cardviewer-slide cardviewer-slide--main">
+                <div className="cardviewer-slide__body cardviewer-slide__body--main">
+                  <div className="cardviewer-art">
+                    {previewUrl ? (
+                      <img
+                        className="cardviewer-image"
+                        src={previewUrl}
+                        alt={
+                          card.data.title ||
+                          viewerName ||
+                          "Legendary profile card"
+                        }
+                      />
+                    ) : (
+                      <div className="cardviewer-image cardviewer-image--placeholder">
+                        Preview unavailable
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-              {premiumLinks.length > 0 ? (
-                <section className="cardviewer-panel">
+                <div className="cardviewer-slide__footer">
+                  <a
+                    className="cardviewer-action-button cardviewer-action-button--secondary"
+                    href="https://legendaryprofiles.com"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Visit LegendaryProfiles.com
+                  </a>
+                </div>
+              </section>
+
+              <ContactBlock
+                card={card}
+                onDownloadVcard={() => vcardMutation.mutate(card.id)}
+                isDownloadingVcard={vcardMutation.isPending}
+              />
+
+              <section className="cardviewer-slide cardviewer-slide--premium">
+                <div className="cardviewer-slide__body">
                   <div className="cardviewer-panel__header">
-                    <h2>Premium Links</h2>
+                    <h2>Premium URLs</h2>
                     <p>Open featured links associated with this profile.</p>
                   </div>
 
-                  <div className="cardviewer-links">
-                    {premiumLinks.map((link) => (
-                      <a
-                        key={`${link.name}:${link.url}`}
-                        className="cardviewer-link-button"
-                        href={link.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {link.name}
-                      </a>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
+                  {premiumLinks.length > 0 ? (
+                    <div className="cardviewer-links cardviewer-links--stacked">
+                      {premiumLinks.map((link) => (
+                        <a
+                          key={`${link.name}:${link.url}`}
+                          className="cardviewer-link-button"
+                          href={link.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {link.name}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="cardviewer-empty-state">
+                      No premium links are available for this card.
+                    </div>
+                  )}
+                </div>
+              </section>
             </section>
           </>
         ) : null}
       </main>
-
-      {card ? (
-        <div className="cardviewer-vcard-bar">
-          <button
-            type="button"
-            className="cardviewer-vcard-button"
-            onClick={() => vcardMutation.mutate(card.id)}
-            disabled={vcardMutation.isPending}
-          >
-            {vcardMutation.isPending ? "Preparing vCard..." : "Download vCard"}
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }
