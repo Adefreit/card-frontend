@@ -169,29 +169,34 @@ type CardUpdateValues = z.infer<typeof cardUpdateSchema>;
 type CardPreviewSide = "front" | "back";
 type CardDetailTab = "general" | "contact" | "premium";
 
+function trimToUndefined(value: string): string | undefined {
+  const trimmedValue = value.trim();
+  return trimmedValue ? trimmedValue : undefined;
+}
+
 function normalizeContactInfo(
   value: CardUpdateValues["contactInfo"],
 ): CardContactInfo | undefined {
   const nextValue: CardContactInfo = {
-    firstName: value.firstName.trim(),
-    lastName: value.lastName.trim(),
-    organization: value.organization.trim(),
-    jobTitle: value.jobTitle.trim(),
-    website: value.website.trim(),
-    birthday: value.birthday.trim(),
+    firstName: trimToUndefined(value.firstName),
+    lastName: trimToUndefined(value.lastName),
+    organization: trimToUndefined(value.organization),
+    jobTitle: trimToUndefined(value.jobTitle),
+    website: trimToUndefined(value.website),
+    birthday: trimToUndefined(value.birthday),
     address: normalizeContactAddress(value.address),
-    homePhone: value.homePhone.trim(),
-    cellPhone: value.cellPhone.trim(),
-    personalEmail: value.personalEmail.trim(),
-    workEmail: value.workEmail.trim(),
+    homePhone: trimToUndefined(value.homePhone),
+    cellPhone: trimToUndefined(value.cellPhone),
+    personalEmail: trimToUndefined(value.personalEmail),
+    workEmail: trimToUndefined(value.workEmail),
     socialAccounts: normalizeSocialAccounts(value.socialMediaAccounts),
   };
 
-  return Object.entries(nextValue).some(([, fieldValue]) =>
-    Array.isArray(fieldValue) ? fieldValue.length > 0 : Boolean(fieldValue),
-  )
-    ? nextValue
-    : undefined;
+  const compactValue = Object.fromEntries(
+    Object.entries(nextValue).filter(([, fieldValue]) => Boolean(fieldValue)),
+  ) as CardContactInfo;
+
+  return Object.keys(compactValue).length > 0 ? compactValue : undefined;
 }
 
 function normalizeCustomCss(
@@ -272,23 +277,6 @@ function isPremiumCard(expiresAt?: string | null): boolean {
   }
 
   return new Date(expiresAt) > new Date();
-}
-
-function formatPremiumExpiration(expiresAt?: string | null): string {
-  if (!expiresAt) {
-    return "N/A";
-  }
-
-  const parsed = new Date(expiresAt);
-  if (Number.isNaN(parsed.getTime())) {
-    return "N/A";
-  }
-
-  return parsed.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function ComingSoonModal({ onClose }: { onClose: () => void }) {
@@ -656,7 +644,6 @@ export default function CardDetailPage() {
     getFlavorMarkupPlainText(flavorTextValue).length > 0 &&
     totalUploadedImageBytes <= MAX_TOTAL_UPLOAD_BYTES;
   const isPremium = data ? isPremiumCard(data.premium_expires_at) : false;
-  const premiumExpiresOn = formatPremiumExpiration(data?.premium_expires_at);
 
   function triggerDelete() {
     if (!data) return;
@@ -719,16 +706,22 @@ export default function CardDetailPage() {
                       : `${data.id.slice(0, 8)}`}
                   </button>
                 </div>
-                <p>Edit content, images, and descriptive copy for this card.</p>
               </div>
               <div className="detail-header-actions">
-                <button
-                  type="button"
-                  className="btn-danger btn-xs"
-                  onClick={triggerDelete}
+                <div
+                  className={`detail-plan-strip ${isPremium ? "detail-plan-strip--premium" : "detail-plan-strip--draft"}`}
                 >
-                  Delete Card
-                </button>
+                  <strong>{isPremium ? "Premium" : "Draft"}</strong>
+                  {!isPremium ? (
+                    <button
+                      type="button"
+                      className="btn-gold btn-xs detail-plan-strip__upgrade"
+                      onClick={() => setShowUpgradeModal(true)}
+                    >
+                      Upgrade
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -761,42 +754,6 @@ export default function CardDetailPage() {
                 });
               })}
             >
-              <div
-                className={`detail-basic-banner${isPremium ? " detail-basic-banner--premium" : ""}`}
-              >
-                {isPremium ? (
-                  <div>
-                    <strong>Premium plan card</strong>
-                    <p>
-                      Premium features are enabled for this card. Enjoy the
-                      unlocked experience.
-                    </p>
-                    <p>Premium Features Expire On: {premiumExpiresOn}</p>
-                  </div>
-                ) : (
-                  <div>
-                    <strong>Draft plan card</strong>
-                    <p>
-                      Some features are limited on Draft. Upgrade this card to
-                      unlock premium features.
-                    </p>
-                  </div>
-                )}
-                {isPremium ? (
-                  <button type="button" className="btn-gold" disabled>
-                    Premium Active
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setShowUpgradeModal(true)}
-                  >
-                    Upgrade Card
-                  </button>
-                )}
-              </div>
-
               <div className="detail-tabs-shell">
                 <div
                   className="detail-tabs"
@@ -1388,6 +1345,13 @@ export default function CardDetailPage() {
               ) : null}
 
               <div className="button-row">
+                <button
+                  type="button"
+                  className="btn-danger"
+                  onClick={triggerDelete}
+                >
+                  Delete Card
+                </button>
                 <button
                   type="submit"
                   disabled={updateMutation.isPending || !canRunActions}
