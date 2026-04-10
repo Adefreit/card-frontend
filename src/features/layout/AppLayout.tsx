@@ -12,7 +12,10 @@ export default function AppLayout() {
       <header className="top-nav">
         <div className="brand-lockup">
           <Link className="brand" to="/">
-            Legendary Profiles
+            <span className="brand-mark" aria-hidden="true">
+              <img className="brand-mark__image" src="/favicon.png" alt="" />
+            </span>
+            <span className="brand-text">Legendary Profiles</span>
           </Link>
           <span className="brand-tag">Workspace</span>
         </div>

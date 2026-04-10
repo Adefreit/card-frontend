@@ -673,7 +673,6 @@ export default function CardDetailPage() {
 
       <section className="content-hero">
         <div>
-          <p className="section-kicker">Edit</p>
           <h1>Card detail</h1>
           <p className="content-hero-copy">
             Refine your profile content, regenerate previews, and keep the card
