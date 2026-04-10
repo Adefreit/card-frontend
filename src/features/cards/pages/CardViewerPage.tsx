@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import {
@@ -218,7 +218,9 @@ function ContactBlock({
 export default function CardViewerPage() {
   const { id } = useParams();
   const swimlaneRef = useRef<HTMLElement | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [activePanelIndex, setActivePanelIndex] = useState(0);
+  const [isSwipeCueVisible, setIsSwipeCueVisible] = useState(false);
 
   const cardQuery = useQuery({
     queryKey: ["public-card-viewer", id],
@@ -288,6 +290,83 @@ export default function CardViewerPage() {
     };
   }, [card]);
 
+  useEffect(() => {
+    if (!card || activePanelIndex !== 0) {
+      setIsSwipeCueVisible(false);
+      return undefined;
+    }
+
+    if (typeof window !== "undefined") {
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+
+      if (prefersReducedMotion) {
+        return undefined;
+      }
+    }
+
+    setIsSwipeCueVisible(true);
+    const timeoutId = window.setTimeout(() => {
+      setIsSwipeCueVisible(false);
+    }, 1500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [activePanelIndex, card]);
+
+  function scrollToPanel(index: number) {
+    const swimlane = swimlaneRef.current;
+    const slide = swimlane?.children[index] as HTMLElement | undefined;
+
+    if (!slide) {
+      return;
+    }
+
+    slide.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "start",
+    });
+  }
+
+  function handleTouchStart(event: TouchEvent<HTMLElement>) {
+    const touch = event.changedTouches[0];
+    if (!touch) {
+      return;
+    }
+
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleTouchEnd(event: TouchEvent<HTMLElement>) {
+    const touchStart = touchStartRef.current;
+    const touch = event.changedTouches[0];
+
+    touchStartRef.current = null;
+
+    if (!touchStart || !touch) {
+      return;
+    }
+
+    const deltaX = touch.clientX - touchStart.x;
+    const deltaY = touch.clientY - touchStart.y;
+
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+      return;
+    }
+
+    const nextIndex =
+      deltaX < 0
+        ? Math.min(activePanelIndex + 1, CARDVIEWER_PANELS.length - 1)
+        : Math.max(activePanelIndex - 1, 0);
+
+    if (nextIndex !== activePanelIndex) {
+      scrollToPanel(nextIndex);
+    }
+  }
+
   return (
     <div className="cardviewer-page">
       <main className="cardviewer-shell">
@@ -338,8 +417,10 @@ export default function CardViewerPage() {
 
             <section
               ref={swimlaneRef}
-              className="cardviewer-swimlane"
+              className={`cardviewer-swimlane${isSwipeCueVisible ? " is-swipe-cued" : ""}`}
               aria-label="Card viewer panels"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
             >
               <section className="cardviewer-slide cardviewer-slide--main">
                 <div className="cardviewer-slide__body cardviewer-slide__body--main">
@@ -359,16 +440,17 @@ export default function CardViewerPage() {
                         Preview unavailable
                       </div>
                     )}
+
+                    <a
+                      className="cardviewer-preview-cta"
+                      href="https://legendaryprofiles.com"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Create Your Own Card
+                    </a>
                   </div>
                 </div>
-                <a
-                  className="cardviewer-preview-cta"
-                  href="https://legendaryprofiles.com"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Create Your Own Card
-                </a>
               </section>
 
               <ContactBlock

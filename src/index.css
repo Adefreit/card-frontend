@@ -2700,15 +2700,33 @@ select:disabled {
   gap: 16px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  padding-top: 82px;
+  padding-top: 90px;
   padding-bottom: 0;
   scrollbar-width: none;
   min-height: 100svh;
-  touch-action: pan-x pinch-zoom;
+}
+
+.cardviewer-swimlane.is-swipe-cued {
+  animation: cardviewerSwipeCue 1.15s ease-out;
 }
 
 .cardviewer-swimlane::-webkit-scrollbar {
   display: none;
+}
+
+@keyframes cardviewerSwipeCue {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  32% {
+    transform: translateX(-18px);
+  }
+
+  58% {
+    transform: translateX(-10px);
+  }
 }
 
 .cardviewer-slide {
@@ -2717,10 +2735,6 @@ select:disabled {
   max-height: 100svh;
   overflow: hidden;
   scroll-snap-align: start;
-}
-
-.cardviewer-slide--main {
-  position: relative;
 }
 
 .cardviewer-slide__body {
@@ -2783,6 +2797,7 @@ select:disabled {
 }
 
 .cardviewer-slide--main .cardviewer-art {
+  position: relative;
   height: 100%;
   justify-content: flex-start;
   align-items: flex-start;
@@ -2825,7 +2840,7 @@ select:disabled {
   box-shadow: 0 12px 24px rgba(36, 45, 112, 0.18);
   position: absolute;
   left: 50%;
-  bottom: max(14px, calc(10px + env(safe-area-inset-bottom, 0px)));
+  bottom: 14px;
   transform: translateX(-50%);
   z-index: 3;
   white-space: nowrap;
@@ -2999,7 +3014,7 @@ select:disabled {
   }
 
   .cardviewer-preview-cta {
-    bottom: max(12px, calc(8px + env(safe-area-inset-bottom, 0px)));
+    bottom: 12px;
     min-height: 42px;
     padding: 0 16px;
     font-size: 0.79rem;
@@ -3075,5 +3090,11 @@ select:disabled {
 
   .cardviewer-preview-cta {
     bottom: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardviewer-swimlane.is-swipe-cued {
+    animation: none;
   }
 }
