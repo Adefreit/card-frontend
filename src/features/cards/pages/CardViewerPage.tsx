@@ -361,6 +361,14 @@ export default function CardViewerPage() {
                     )}
                   </div>
                 </div>
+                <a
+                  className="cardviewer-preview-cta"
+                  href="https://legendaryprofiles.com"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Create Your Own Card
+                </a>
               </section>
 
               <ContactBlock
