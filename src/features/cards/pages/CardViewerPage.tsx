@@ -125,20 +125,20 @@ function ContactBlock({
     return (
       <section className="cardviewer-slide cardviewer-slide--contact">
         <div className="cardviewer-slide__body cardviewer-slide__body--centered">
-          <div className="cardviewer-panel__header">
-            <h2>Contact Information</h2>
-            <p>No contact information has been added to this card yet.</p>
+          <div className="cardviewer-panel__toolbar cardviewer-panel__toolbar--stacked">
+            <div className="cardviewer-panel__header">
+              <h2>Contact Information</h2>
+              <p>No contact information has been added to this card yet.</p>
+            </div>
+            <button
+              type="button"
+              className="cardviewer-action-button cardviewer-action-button--compact"
+              onClick={onDownloadVcard}
+              disabled={isDownloadingVcard}
+            >
+              {isDownloadingVcard ? "Preparing vCard..." : "Download vCard"}
+            </button>
           </div>
-        </div>
-        <div className="cardviewer-slide__footer">
-          <button
-            type="button"
-            className="cardviewer-action-button"
-            onClick={onDownloadVcard}
-            disabled={isDownloadingVcard}
-          >
-            {isDownloadingVcard ? "Preparing vCard..." : "Download vCard"}
-          </button>
         </div>
       </section>
     );
@@ -147,9 +147,20 @@ function ContactBlock({
   return (
     <section className="cardviewer-slide cardviewer-slide--contact">
       <div className="cardviewer-slide__body">
-        <div className="cardviewer-panel__header">
-          <h2>Contact Information</h2>
-          <p>Details available on this Legendary Profile card.</p>
+        <div className="cardviewer-panel__toolbar">
+          <div className="cardviewer-panel__header">
+            <h2>Contact Information</h2>
+            <button
+              type="button"
+              className="cardviewer-action-button cardviewer-action-button--compact"
+              onClick={onDownloadVcard}
+              disabled={isDownloadingVcard}
+            >
+              {isDownloadingVcard
+                ? "Downloading Contact..."
+                : "Add to Contacts"}
+            </button>
+          </div>
         </div>
 
         <div className="cardviewer-contact-list">
@@ -202,17 +213,6 @@ function ContactBlock({
             </div>
           </div>
         ) : null}
-      </div>
-
-      <div className="cardviewer-slide__footer">
-        <button
-          type="button"
-          className="cardviewer-action-button"
-          onClick={onDownloadVcard}
-          disabled={isDownloadingVcard}
-        >
-          {isDownloadingVcard ? "Preparing vCard..." : "Download vCard"}
-        </button>
       </div>
     </section>
   );
@@ -291,22 +291,6 @@ export default function CardViewerPage() {
     };
   }, [card]);
 
-  function jumpToPanel(index: number) {
-    const swimlane = swimlaneRef.current;
-    const slide = swimlane?.children[index] as HTMLElement | undefined;
-
-    if (!slide) {
-      return;
-    }
-
-    slide.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "start",
-    });
-    setActivePanelIndex(index);
-  }
-
   return (
     <div className="cardviewer-page">
       <main className="cardviewer-shell">
@@ -326,6 +310,32 @@ export default function CardViewerPage() {
 
         {card ? (
           <>
+            <div
+              className="cardviewer-page-indicator"
+              aria-label={`Page ${activePanelIndex + 1} of ${CARDVIEWER_PANELS.length}`}
+              aria-live="polite"
+            >
+              <a
+                className="cardviewer-page-indicator__brand"
+                href="https://legendaryprofiles.com"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Legendary Profiles
+              </a>
+              <div
+                className="cardviewer-page-indicator__track"
+                aria-hidden="true"
+              >
+                {CARDVIEWER_PANELS.map((panel, index) => (
+                  <span
+                    key={panel}
+                    className={`cardviewer-page-indicator__segment${activePanelIndex === index ? " is-active" : ""}`}
+                  />
+                ))}
+              </div>
+            </div>
+
             <section
               ref={swimlaneRef}
               className="cardviewer-swimlane"
@@ -350,17 +360,6 @@ export default function CardViewerPage() {
                       </div>
                     )}
                   </div>
-                </div>
-
-                <div className="cardviewer-slide__footer">
-                  <a
-                    className="cardviewer-action-button cardviewer-action-button--secondary"
-                    href="https://legendaryprofiles.com"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Visit LegendaryProfiles.com
-                  </a>
                 </div>
               </section>
 
@@ -399,19 +398,6 @@ export default function CardViewerPage() {
                 </div>
               </section>
             </section>
-
-            <div className="cardviewer-pagination cardviewer-pagination--bottom">
-              {CARDVIEWER_PANELS.map((panel, index) => (
-                <button
-                  key={panel}
-                  type="button"
-                  className={`cardviewer-pagination__dot${activePanelIndex === index ? " is-active" : ""}`}
-                  aria-label={`Show ${panel.toLowerCase()} panel`}
-                  aria-pressed={activePanelIndex === index}
-                  onClick={() => jumpToPanel(index)}
-                />
-              ))}
-            </div>
           </>
         ) : null}
       </main>
