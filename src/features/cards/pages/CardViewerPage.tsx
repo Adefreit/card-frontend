@@ -397,8 +397,23 @@ export default function CardViewerPage() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Legendary Profiles
+                <span
+                  className="cardviewer-page-indicator__brand-mark"
+                  aria-hidden="true"
+                >
+                  <img
+                    className="cardviewer-page-indicator__brand-logo"
+                    src="/favicon.png"
+                    alt=""
+                  />
+                </span>
+                <span className="cardviewer-page-indicator__brand-text">
+                  Legendary Profiles
+                </span>
               </a>
+              <p className="cardviewer-page-indicator__slogan">
+                Create, Connect, Compete
+              </p>
               <div
                 className="cardviewer-page-indicator__track"
                 aria-hidden="true"
@@ -440,15 +455,6 @@ export default function CardViewerPage() {
                         Preview unavailable
                       </div>
                     )}
-
-                    <a
-                      className="cardviewer-preview-cta"
-                      href="https://legendaryprofiles.com"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Create Your Own Card
-                    </a>
                   </div>
                 </div>
               </section>
@@ -462,8 +468,7 @@ export default function CardViewerPage() {
               <section className="cardviewer-slide cardviewer-slide--premium">
                 <div className="cardviewer-slide__body">
                   <div className="cardviewer-panel__header">
-                    <h2>Premium URLs</h2>
-                    <p>Open featured links associated with this profile.</p>
+                    <h2>User Hub</h2>
                   </div>
 
                   {premiumLinks.length > 0 ? (
