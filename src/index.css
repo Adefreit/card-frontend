@@ -2640,19 +2640,26 @@ select:disabled {
   margin: 0;
   display: block;
   font-family: "Fraunces", Georgia, serif;
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: 1.04rem;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-align: center;
-  color: #1f2954;
+  color: #18224c;
   text-decoration: none;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .cardviewer-page-indicator__brand:hover {
   color: #2f3a7a;
   transform: none;
   box-shadow: none;
+}
+
+.cardviewer-page-indicator__brand:focus-visible {
+  outline: 2px solid rgba(91, 99, 255, 0.35);
+  outline-offset: 4px;
+  border-radius: 8px;
 }
 
 .cardviewer-page-indicator__track {
@@ -2673,6 +2680,16 @@ select:disabled {
   background: rgba(91, 99, 255, 0.64);
   transform: scaleY(1.15);
   opacity: 1;
+}
+
+.cardviewer-page-indicator__preview {
+  margin: 0;
+  color: #5f6a92;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .cardviewer-swimlane {
@@ -2743,8 +2760,8 @@ select:disabled {
 
 .cardviewer-art {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: flex-start;
   min-height: 0;
 }
 
@@ -2760,6 +2777,7 @@ select:disabled {
 
 .cardviewer-slide--main .cardviewer-art {
   height: 100%;
+  justify-content: flex-start;
   align-items: flex-start;
   padding: 4px 4px 6px;
 }
@@ -2770,6 +2788,7 @@ select:disabled {
   height: 100%;
   max-width: none;
   max-height: none;
+  object-position: top left;
 }
 
 .cardviewer-image--placeholder {

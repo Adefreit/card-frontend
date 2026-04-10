@@ -10,6 +10,11 @@ import {
 } from "../api";
 
 const CARDVIEWER_PANELS = ["Card", "Contact", "Links"] as const;
+const CARDVIEWER_PANEL_PREVIEW_COPY = [
+  "Full card preview",
+  "Contact details and social links",
+  "Premium URLs and featured destinations",
+] as const;
 
 function getViewerName(contactInfo?: CardContactInfo) {
   const fullName = [contactInfo?.firstName, contactInfo?.lastName]
@@ -130,14 +135,6 @@ function ContactBlock({
               <h2>Contact Information</h2>
               <p>No contact information has been added to this card yet.</p>
             </div>
-            <button
-              type="button"
-              className="cardviewer-action-button cardviewer-action-button--compact"
-              onClick={onDownloadVcard}
-              disabled={isDownloadingVcard}
-            >
-              {isDownloadingVcard ? "Preparing vCard..." : "Download vCard"}
-            </button>
           </div>
         </div>
       </section>
@@ -334,6 +331,9 @@ export default function CardViewerPage() {
                   />
                 ))}
               </div>
+              <p className="cardviewer-page-indicator__preview">
+                {CARDVIEWER_PANEL_PREVIEW_COPY[activePanelIndex]}
+              </p>
             </div>
 
             <section
