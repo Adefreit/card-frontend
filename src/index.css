@@ -977,6 +977,10 @@ button:disabled {
   border-radius: 999px;
   padding: 10px 16px;
   background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   color: var(--ui-muted);
   font-size: 0.86rem;
   font-weight: 700;
@@ -994,6 +998,15 @@ button:disabled {
   background: #ffffff;
   color: var(--ui-brand-strong);
   box-shadow: 0 1px 3px rgba(63, 75, 155, 0.14);
+}
+
+.detail-tabs__button-badge {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #d34a4a;
+  box-shadow: 0 0 0 2px rgba(211, 74, 74, 0.16);
+  flex: 0 0 auto;
 }
 
 .detail-tab-panel {
@@ -1083,10 +1096,26 @@ button:disabled {
 .button-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   margin-top: 18px;
+}
+
+.button-row__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.button-row__group--left {
+  justify-content: flex-start;
+}
+
+.button-row__group--right {
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .btn-xs {
@@ -1731,6 +1760,7 @@ button:disabled {
   justify-content: center;
   position: relative;
   overflow: hidden;
+  border-color: red;
   border-radius: inherit;
   background: transparent;
 }

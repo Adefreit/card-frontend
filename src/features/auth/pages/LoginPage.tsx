@@ -62,14 +62,12 @@ export default function LoginPage() {
   return (
     <AuthPageFrame
       eyebrow="Welcome back"
-      title="Sign in and keep your profile looking legendary"
-      description="Access your profiles, polish the details, and keep every digital business card on brand."
+      title="Keep your profile looking legendary"
+      description="Access your profiles, polish the details, and keep every card on brand."
     >
       <div className="auth-card-copy">
         <h2>Sign in</h2>
-        <p>
-          Manage your profiles, card styling, and preview updates in one place.
-        </p>
+        <br />
       </div>
       <form className="stack" onSubmit={handleSubmit(onSubmit)}>
         <label>

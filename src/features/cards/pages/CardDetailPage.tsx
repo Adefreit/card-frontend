@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useFieldArray, useForm } from "react-hook-form";
+import { type FieldErrors, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -138,6 +138,7 @@ const premiumSchema = z.object({
 
 const cardUpdateSchema = z
   .object({
+    id: z.string().min(1, "Card ID is required."),
     templateId: z.string().min(1, "Please select a template."),
     title: z.string().min(1, "Title is required."),
     subtitle: z.string().min(1, "Subtitle is required."),
@@ -168,6 +169,180 @@ type CardUpdateValues = z.infer<typeof cardUpdateSchema>;
 
 type CardPreviewSide = "front" | "back";
 type CardDetailTab = "general" | "contact" | "premium";
+type CardUpdateFieldErrors = FieldErrors<CardUpdateValues>;
+
+const GENERAL_FIELD_LABELS: Record<string, string> = {
+  templateId: "Template",
+  title: "Title",
+  subtitle: "Subtitle",
+  flavorText: "Flavor Text",
+  backgroundImage: "Background Image",
+  foregroundImage: "Foreground Image",
+  "customCss.bannerColor": "Banner Color",
+  "customCss.bannerForeground": "Banner Text Color",
+};
+
+const CONTACT_FIELD_LABELS: Record<string, string> = {
+  "contactInfo.firstName": "First Name",
+  "contactInfo.lastName": "Last Name",
+  "contactInfo.organization": "Organization",
+  "contactInfo.jobTitle": "Job Title",
+  "contactInfo.website": "Website",
+  "contactInfo.birthday": "Birthday",
+  "contactInfo.address.street1": "Street Address",
+  "contactInfo.address.street2": "Address Line 2",
+  "contactInfo.address.city": "City",
+  "contactInfo.address.region": "State / Province",
+  "contactInfo.address.postalCode": "Postal Code",
+  "contactInfo.address.country": "Country",
+  "contactInfo.homePhone": "Home Phone",
+  "contactInfo.cellPhone": "Cell Phone",
+  "contactInfo.personalEmail": "Personal Email",
+  "contactInfo.workEmail": "Work Email",
+  "contactInfo.socialMediaAccounts.name": "Social Media Platform",
+  "contactInfo.socialMediaAccounts.url": "Social Media URL",
+};
+
+const PREMIUM_FIELD_LABELS: Record<string, string> = {
+  "premium.urlList.name": "Custom Link Name",
+  "premium.urlList.url": "Custom Link URL",
+};
+
+function formatFallbackFieldLabel(segment: string): string {
+  const withSpaces = segment.replace(/([a-z])([A-Z])/g, "$1 $2").trim();
+  return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
+}
+
+function findFirstFieldError(
+  errorNode: unknown,
+  path: string[] = [],
+): { message: string; path: string[] } | null {
+  if (!errorNode || typeof errorNode !== "object") {
+    return null;
+  }
+
+  const record = errorNode as Record<string, unknown>;
+
+  if (typeof record.message === "string" && path.length > 0) {
+    return { message: record.message, path };
+  }
+
+  for (const key of Object.keys(record)) {
+    if (key === "message" || key === "type" || key === "ref") {
+      continue;
+    }
+
+    const nextPath = /^\d+$/.test(key) ? path : [...path, key];
+    const match = findFirstFieldError(record[key], nextPath);
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+}
+
+function getTabErrorDetails(
+  tab: CardDetailTab,
+  invalidErrors: CardUpdateFieldErrors,
+): { fieldLabel: string; message: string } | null {
+  const scope =
+    tab === "contact"
+      ? invalidErrors.contactInfo
+      : tab === "premium"
+        ? invalidErrors.premium
+        : {
+            templateId: invalidErrors.templateId,
+            title: invalidErrors.title,
+            subtitle: invalidErrors.subtitle,
+            flavorText: invalidErrors.flavorText,
+            backgroundImage: invalidErrors.backgroundImage,
+            foregroundImage: invalidErrors.foregroundImage,
+            customCss: invalidErrors.customCss,
+          };
+
+  const firstError = findFirstFieldError(
+    scope,
+    tab === "general" ? [] : [tab === "contact" ? "contactInfo" : "premium"],
+  );
+  if (!firstError) {
+    return null;
+  }
+
+  const normalizedPath = firstError.path.filter(
+    (segment) => segment !== "root",
+  );
+  const labelMap =
+    tab === "contact"
+      ? CONTACT_FIELD_LABELS
+      : tab === "premium"
+        ? PREMIUM_FIELD_LABELS
+        : GENERAL_FIELD_LABELS;
+  const normalizedKey = normalizedPath.join(".");
+  const pathWithoutIndexes = normalizedPath
+    .filter((segment) => !/^\d+$/.test(segment))
+    .join(".");
+  const fieldLabel =
+    labelMap[normalizedKey] ??
+    labelMap[pathWithoutIndexes] ??
+    formatFallbackFieldLabel(
+      normalizedPath[normalizedPath.length - 1] ?? "field",
+    );
+
+  return {
+    fieldLabel,
+    message: firstError.message,
+  };
+}
+
+function formatErrorPath(path: string[]): string {
+  return path.reduce((result, segment) => {
+    if (/^\d+$/.test(segment)) {
+      return `${result}[${segment}]`;
+    }
+
+    return result ? `${result}.${segment}` : segment;
+  }, "");
+}
+
+function collectFieldErrors(
+  errorNode: unknown,
+  labelMap: Record<string, string>,
+  path: string[] = [],
+): Array<{ path: string; fieldLabel: string; message: string }> {
+  if (!errorNode || typeof errorNode !== "object") {
+    return [];
+  }
+
+  const record = errorNode as Record<string, unknown>;
+  const results: Array<{ path: string; fieldLabel: string; message: string }> =
+    [];
+
+  if (typeof record.message === "string" && path.length > 0) {
+    const pathWithoutIndexes = path.filter((segment) => !/^\d+$/.test(segment));
+    const normalizedKey = pathWithoutIndexes.join(".");
+    results.push({
+      path: formatErrorPath(path),
+      fieldLabel:
+        labelMap[normalizedKey] ??
+        formatFallbackFieldLabel(
+          pathWithoutIndexes[pathWithoutIndexes.length - 1] ?? "field",
+        ),
+      message: record.message,
+    });
+    return results;
+  }
+
+  for (const key of Object.keys(record)) {
+    if (key === "message" || key === "type" || key === "ref") {
+      continue;
+    }
+
+    results.push(...collectFieldErrors(record[key], labelMap, [...path, key]));
+  }
+
+  return results;
+}
 
 function trimToUndefined(value: string): string | undefined {
   const trimmedValue = value.trim();
@@ -367,6 +542,9 @@ export default function CardDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<CardDetailTab>("general");
+  const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(
+    null,
+  );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSide, setPreviewSide] = useState<CardPreviewSide>("front");
   const [copiedId, setCopiedId] = useState<"card" | "template" | null>(null);
@@ -405,6 +583,7 @@ export default function CardDetailPage() {
   } = useForm<CardUpdateValues>({
     resolver: zodResolver(cardUpdateSchema),
     defaultValues: {
+      id: "",
       templateId: "",
       title: "",
       subtitle: "",
@@ -477,6 +656,7 @@ export default function CardDetailPage() {
     }
 
     reset({
+      id: data.id,
       templateId: data.template_id || "",
       title: data.data.title,
       subtitle: data.data.subtitle,
@@ -540,6 +720,7 @@ export default function CardDetailPage() {
 
     autoPreviewedPreviewKeyRef.current = previewKey;
     previewMutation.mutate({
+      id: data.id,
       templateId: data.template_id,
       title: data.data.title,
       subtitle: data.data.subtitle,
@@ -592,8 +773,18 @@ export default function CardDetailPage() {
     },
   });
 
+  const resolvedCardId = data?.id ?? cardId ?? "";
+
   function triggerPreview(isManual = true) {
-    if (!data) {
+    if (!data || !resolvedCardId) {
+      console.warn(
+        "[CardDetailPage] Preview skipped because card id is missing",
+        {
+          routeCardId: cardId,
+          loadedCardId: data?.id,
+          formCardId: getValues("id"),
+        },
+      );
       return;
     }
 
@@ -612,6 +803,7 @@ export default function CardDetailPage() {
     );
 
     previewMutation.mutate({
+      id: resolvedCardId,
       templateId: values.templateId,
       title: values.title,
       subtitle: values.subtitle,
@@ -619,7 +811,9 @@ export default function CardDetailPage() {
       side: previewSide,
       contactInfo: normalizeContactInfo(values.contactInfo),
       customCss: normalizeCustomCss(values.customCss),
-      premium: normalizePremiumUrls(values.premium.urlList),
+      premium: isPremium
+        ? normalizePremiumUrls(values.premium.urlList)
+        : undefined,
       ...backgroundImagePayload,
       ...foregroundImagePayload,
     });
@@ -644,6 +838,117 @@ export default function CardDetailPage() {
     getFlavorMarkupPlainText(flavorTextValue).length > 0 &&
     totalUploadedImageBytes <= MAX_TOTAL_UPLOAD_BYTES;
   const isPremium = data ? isPremiumCard(data.premium_expires_at) : false;
+
+  useEffect(() => {
+    if (isPremium) {
+      return;
+    }
+
+    const premiumLinks = getValues("premium.urlList");
+    if (premiumLinks.length > 0) {
+      setValue("premium.urlList", [], {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
+  }, [getValues, isPremium, setValue]);
+
+  function handleInvalidSubmit(invalidErrors: typeof errors) {
+    const targetTab: CardDetailTab = invalidErrors.contactInfo
+      ? "contact"
+      : invalidErrors.premium
+        ? "premium"
+        : "general";
+    const sectionLabel =
+      targetTab === "contact"
+        ? "Contact Information"
+        : targetTab === "premium"
+          ? "User Hub"
+          : "General Information";
+    const errorDetails = getTabErrorDetails(targetTab, invalidErrors);
+    const generalErrors = collectFieldErrors(
+      {
+        templateId: invalidErrors.templateId,
+        title: invalidErrors.title,
+        subtitle: invalidErrors.subtitle,
+        flavorText: invalidErrors.flavorText,
+        backgroundImage: invalidErrors.backgroundImage,
+        foregroundImage: invalidErrors.foregroundImage,
+        customCss: invalidErrors.customCss,
+      },
+      GENERAL_FIELD_LABELS,
+    );
+    const contactErrors = collectFieldErrors(
+      invalidErrors.contactInfo,
+      CONTACT_FIELD_LABELS,
+      ["contactInfo"],
+    );
+    const premiumErrors = collectFieldErrors(
+      invalidErrors.premium,
+      PREMIUM_FIELD_LABELS,
+      ["premium"],
+    );
+    const allErrors = [
+      ...generalErrors.map((entry) => ({ ...entry, tab: "general" as const })),
+      ...contactErrors.map((entry) => ({ ...entry, tab: "contact" as const })),
+      ...premiumErrors.map((entry) => ({ ...entry, tab: "premium" as const })),
+    ];
+
+    setActiveTab(targetTab);
+
+    console.groupCollapsed("[CardDetailPage] Save blocked by validation");
+    console.info("Active tab switched to:", targetTab);
+    if (errorDetails) {
+      console.info("First invalid field:", {
+        section: sectionLabel,
+        field: errorDetails.fieldLabel,
+        message: errorDetails.message,
+      });
+    }
+    console.table(
+      allErrors.map((entry) => ({
+        tab: entry.tab,
+        path: entry.path,
+        field: entry.fieldLabel,
+        message: entry.message,
+      })),
+    );
+    console.debug("Current form values at failed save:", getValues());
+    console.debug("Resolved card id context:", {
+      routeCardId: cardId,
+      loadedCardId: data?.id,
+      formCardId: getValues("id"),
+      resolvedCardId,
+    });
+    console.debug("Raw react-hook-form errors:", invalidErrors);
+    console.groupEnd();
+
+    if (errorDetails) {
+      setSubmitErrorMessage(
+        `${sectionLabel} has an issue with ${errorDetails.fieldLabel}. ${errorDetails.message}`,
+      );
+      return;
+    }
+
+    if (invalidErrors.contactInfo) {
+      setSubmitErrorMessage(
+        "Contact Information has invalid or incomplete fields. Fix them before saving.",
+      );
+    } else if (invalidErrors.premium) {
+      setSubmitErrorMessage(
+        "Custom Links contains invalid or incomplete link details. Fix them before saving.",
+      );
+    } else {
+      setSubmitErrorMessage(
+        "General Information has invalid or incomplete fields. Fix them before saving.",
+      );
+    }
+  }
+
+  const generalTabHasErrors = !!getTabErrorDetails("general", errors);
+  const contactTabHasErrors = !!getTabErrorDetails("contact", errors);
+  const premiumTabHasErrors = !!getTabErrorDetails("premium", errors);
 
   function triggerDelete() {
     if (!data) return;
@@ -674,8 +979,8 @@ export default function CardDetailPage() {
         <div>
           <h1>Card detail</h1>
           <p className="content-hero-copy">
-            Refine your profile content, regenerate previews, and keep the card
-            aligned with the Legendary Profiles brand.
+            Customize your card, add pictures, links, and contact info. When
+            you're ready, share your card with the world!
           </p>
         </div>
         <Link className="btn-secondary" to="/app/dashboard">
@@ -709,15 +1014,6 @@ export default function CardDetailPage() {
                   className={`detail-plan-strip ${isPremium ? "detail-plan-strip--premium" : "detail-plan-strip--draft"}`}
                 >
                   <strong>{isPremium ? "Premium" : "Draft"}</strong>
-                  {!isPremium ? (
-                    <button
-                      type="button"
-                      className="btn-gold btn-xs detail-plan-strip__upgrade"
-                      onClick={() => setShowUpgradeModal(true)}
-                    >
-                      Upgrade
-                    </button>
-                  ) : null}
                 </div>
               </div>
             </div>
@@ -725,6 +1021,23 @@ export default function CardDetailPage() {
             <form
               className="stack"
               onSubmit={handleSubmit((values) => {
+                setSubmitErrorMessage(null);
+
+                if (!resolvedCardId) {
+                  console.error(
+                    "[CardDetailPage] Save blocked because card id is missing",
+                    {
+                      routeCardId: cardId,
+                      loadedCardId: data?.id,
+                      formCardId: values.id,
+                    },
+                  );
+                  setSubmitErrorMessage(
+                    "Card ID is missing. Reload the page and try again.",
+                  );
+                  return;
+                }
+
                 const backgroundImagePayload = buildImagePayload(
                   values.backgroundImage,
                   "background",
@@ -735,10 +1048,19 @@ export default function CardDetailPage() {
                 );
                 const contactInfo = normalizeContactInfo(values.contactInfo);
                 const customCss = normalizeCustomCss(values.customCss);
-                const premium = normalizePremiumUrls(values.premium.urlList);
+                const premium = isPremium
+                  ? normalizePremiumUrls(values.premium.urlList)
+                  : undefined;
+
+                console.debug("[CardDetailPage] Saving card", {
+                  routeCardId: cardId,
+                  loadedCardId: data?.id,
+                  formCardId: values.id,
+                  resolvedCardId,
+                });
 
                 updateMutation.mutate({
-                  id: data.id,
+                  id: resolvedCardId,
                   templateId: values.templateId,
                   title: values.title,
                   subtitle: values.subtitle,
@@ -749,7 +1071,7 @@ export default function CardDetailPage() {
                   ...backgroundImagePayload,
                   ...foregroundImagePayload,
                 });
-              })}
+              }, handleInvalidSubmit)}
             >
               <div className="detail-tabs-shell">
                 <div
@@ -762,27 +1084,60 @@ export default function CardDetailPage() {
                     role="tab"
                     className={`detail-tabs__button${activeTab === "general" ? " is-active" : ""}`}
                     aria-selected={activeTab === "general"}
+                    aria-label={
+                      generalTabHasErrors
+                        ? "General Information, has validation errors"
+                        : undefined
+                    }
                     onClick={() => setActiveTab("general")}
                   >
-                    General Information
+                    <span>General Information</span>
+                    {generalTabHasErrors ? (
+                      <span
+                        className="detail-tabs__button-badge"
+                        aria-hidden="true"
+                      />
+                    ) : null}
                   </button>
                   <button
                     type="button"
                     role="tab"
                     className={`detail-tabs__button${activeTab === "contact" ? " is-active" : ""}`}
                     aria-selected={activeTab === "contact"}
+                    aria-label={
+                      contactTabHasErrors
+                        ? "Contact Information, has validation errors"
+                        : undefined
+                    }
                     onClick={() => setActiveTab("contact")}
                   >
-                    Contact Information
+                    <span>Contact Information</span>
+                    {contactTabHasErrors ? (
+                      <span
+                        className="detail-tabs__button-badge"
+                        aria-hidden="true"
+                      />
+                    ) : null}
                   </button>
                   <button
                     type="button"
                     role="tab"
                     className={`detail-tabs__button${activeTab === "premium" ? " is-active" : ""}`}
                     aria-selected={activeTab === "premium"}
+                    aria-label={
+                      premiumTabHasErrors
+                        ? "User Hub, has validation errors"
+                        : undefined
+                    }
                     onClick={() => setActiveTab("premium")}
                   >
-                    Premium Links
+                    <span>User Hub</span>
+                    {premiumTabHasErrors ? (
+                      <span
+                        className="detail-tabs__button-badge"
+                        aria-hidden="true"
+                      />
+                    ) : null}
                   </button>
                 </div>
 
@@ -1002,203 +1357,327 @@ export default function CardDetailPage() {
                 {activeTab === "contact" ? (
                   <div className="detail-tab-panel" role="tabpanel">
                     <section className="detail-config-section">
-                      <div className="detail-config-section__header">
-                        <h3>Contact Information</h3>
-                        <p>
-                          Store the optional fields used to generate the contact
-                          card vCard.
-                        </p>
-                      </div>
-
-                      <div className="detail-contact-groups">
-                        <section className="detail-contact-group">
-                          <div className="detail-contact-group__header">
-                            <h4>Identity</h4>
-                            <p>Basic profile details for the contact card.</p>
+                      {isPremium ? (
+                        <>
+                          <div className="detail-config-section__header">
+                            <h3>Contact Information</h3>
+                            <p>
+                              Store the optional fields used to generate the
+                              contact card vCard.
+                            </p>
                           </div>
-                          <div className="detail-config-grid detail-config-grid--contact">
-                            <label>
-                              <span>First Name</span>
-                              <input
-                                placeholder="Jane"
-                                {...register("contactInfo.firstName")}
-                              />
-                            </label>
 
-                            <label>
-                              <span>Last Name</span>
-                              <input
-                                placeholder="Hero"
-                                {...register("contactInfo.lastName")}
-                              />
-                            </label>
+                          <div className="detail-contact-groups">
+                            <section className="detail-contact-group">
+                              <div className="detail-contact-group__header">
+                                <h4>Identity</h4>
+                                <p>
+                                  Basic profile details for the contact card.
+                                </p>
+                              </div>
+                              <div className="detail-config-grid detail-config-grid--contact">
+                                <label>
+                                  <span>First Name</span>
+                                  <input
+                                    placeholder="Jane"
+                                    {...register("contactInfo.firstName")}
+                                  />
+                                </label>
 
-                            <label>
-                              <span>Organization</span>
-                              <input
-                                placeholder="Legendary Profiles"
-                                {...register("contactInfo.organization")}
-                              />
-                            </label>
+                                <label>
+                                  <span>Last Name</span>
+                                  <input
+                                    placeholder="Hero"
+                                    {...register("contactInfo.lastName")}
+                                  />
+                                </label>
 
-                            <label>
-                              <span>Job Title</span>
-                              <input
-                                placeholder="Community Manager"
-                                {...register("contactInfo.jobTitle")}
-                              />
-                            </label>
+                                <label>
+                                  <span>Organization</span>
+                                  <input
+                                    placeholder="Legendary Profiles"
+                                    {...register("contactInfo.organization")}
+                                  />
+                                </label>
 
-                            <label>
-                              <span>Website</span>
-                              <input
-                                type="url"
-                                placeholder="https://legendaryprofiles.com"
-                                {...register("contactInfo.website")}
-                              />
-                              {errors.contactInfo?.website ? (
-                                <small className="field-error">
-                                  {errors.contactInfo.website.message}
-                                </small>
-                              ) : null}
-                            </label>
+                                <label>
+                                  <span>Job Title</span>
+                                  <input
+                                    placeholder="Community Manager"
+                                    {...register("contactInfo.jobTitle")}
+                                  />
+                                </label>
 
-                            <label>
-                              <span>Birthday</span>
-                              <input
-                                type="date"
-                                {...register("contactInfo.birthday")}
-                              />
-                            </label>
+                                <label>
+                                  <span>Website</span>
+                                  <input
+                                    type="url"
+                                    placeholder="https://legendaryprofiles.com"
+                                    {...register("contactInfo.website")}
+                                  />
+                                  {errors.contactInfo?.website ? (
+                                    <small className="field-error">
+                                      {errors.contactInfo.website.message}
+                                    </small>
+                                  ) : null}
+                                </label>
+
+                                <label>
+                                  <span>Birthday</span>
+                                  <input
+                                    type="date"
+                                    {...register("contactInfo.birthday")}
+                                  />
+                                </label>
+                              </div>
+                            </section>
+
+                            <section className="detail-contact-group">
+                              <div className="detail-contact-group__header">
+                                <h4>Address</h4>
+                                <p>Mailing details saved with the vCard.</p>
+                              </div>
+                              <div className="detail-config-grid detail-config-grid--contact">
+                                <label className="detail-config-grid__full">
+                                  <span>Street Address 1</span>
+                                  <input
+                                    {...register("contactInfo.address.street1")}
+                                  />
+                                </label>
+
+                                <label className="detail-config-grid__full">
+                                  <span>Street Address 2</span>
+                                  <input
+                                    {...register("contactInfo.address.street2")}
+                                  />
+                                </label>
+
+                                <label>
+                                  <span>City</span>
+                                  <input
+                                    {...register("contactInfo.address.city")}
+                                  />
+                                </label>
+
+                                <label>
+                                  <span>State / Region</span>
+                                  <input
+                                    {...register("contactInfo.address.region")}
+                                  />
+                                </label>
+
+                                <label>
+                                  <span>Postal Code</span>
+                                  <input
+                                    {...register(
+                                      "contactInfo.address.postalCode",
+                                    )}
+                                  />
+                                </label>
+
+                                <label>
+                                  <span>Country</span>
+                                  <input
+                                    {...register("contactInfo.address.country")}
+                                  />
+                                </label>
+                              </div>
+                            </section>
+
+                            <section className="detail-contact-group">
+                              <div className="detail-contact-group__header">
+                                <h4>Direct Contact</h4>
+                                <p>Phone numbers and email addresses.</p>
+                              </div>
+                              <div className="detail-config-grid detail-config-grid--contact">
+                                <label>
+                                  <span>Home Phone</span>
+                                  <input
+                                    {...register("contactInfo.homePhone")}
+                                  />
+                                </label>
+
+                                <label>
+                                  <span>Cell Phone</span>
+                                  <input
+                                    {...register("contactInfo.cellPhone")}
+                                  />
+                                </label>
+
+                                <label>
+                                  <span>Personal Email</span>
+                                  <input
+                                    {...register("contactInfo.personalEmail")}
+                                  />
+                                  {errors.contactInfo?.personalEmail ? (
+                                    <small className="field-error">
+                                      {errors.contactInfo.personalEmail.message}
+                                    </small>
+                                  ) : null}
+                                </label>
+
+                                <label>
+                                  <span>Work Email</span>
+                                  <input
+                                    {...register("contactInfo.workEmail")}
+                                  />
+                                  {errors.contactInfo?.workEmail ? (
+                                    <small className="field-error">
+                                      {errors.contactInfo.workEmail.message}
+                                    </small>
+                                  ) : null}
+                                </label>
+                              </div>
+                            </section>
+
+                            <section className="detail-contact-group">
+                              <div className="detail-config-section__header detail-config-section__header--row">
+                                <div>
+                                  <h4>Social Media Accounts</h4>
+                                  <p>Add named social links one at a time.</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="btn-secondary btn-xs"
+                                  onClick={() =>
+                                    appendSocialMedia({ name: "", url: "" })
+                                  }
+                                >
+                                  Add Account
+                                </button>
+                              </div>
+
+                              {socialMediaFields.length > 0 ? (
+                                <div className="detail-link-list detail-link-list--nested">
+                                  {socialMediaFields.map((field, index) => (
+                                    <div
+                                      key={field.id}
+                                      className="detail-link-row"
+                                    >
+                                      <label>
+                                        <span>Platform</span>
+                                        <input
+                                          placeholder="Instagram"
+                                          {...register(
+                                            `contactInfo.socialMediaAccounts.${index}.name`,
+                                          )}
+                                        />
+                                        {errors.contactInfo
+                                          ?.socialMediaAccounts?.[index]
+                                          ?.name ? (
+                                          <small className="field-error">
+                                            {
+                                              errors.contactInfo
+                                                .socialMediaAccounts[index]
+                                                ?.name?.message
+                                            }
+                                          </small>
+                                        ) : null}
+                                      </label>
+
+                                      <label>
+                                        <span>Profile URL</span>
+                                        <input
+                                          placeholder="https://instagram.com/legend"
+                                          {...register(
+                                            `contactInfo.socialMediaAccounts.${index}.url`,
+                                          )}
+                                        />
+                                        {errors.contactInfo
+                                          ?.socialMediaAccounts?.[index]
+                                          ?.url ? (
+                                          <small className="field-error">
+                                            {
+                                              errors.contactInfo
+                                                .socialMediaAccounts[index]?.url
+                                                ?.message
+                                            }
+                                          </small>
+                                        ) : null}
+                                      </label>
+
+                                      <div className="detail-link-row__actions">
+                                        <button
+                                          type="button"
+                                          className="btn-secondary btn-xs"
+                                          onClick={() =>
+                                            removeSocialMedia(index)
+                                          }
+                                        >
+                                          Remove
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="detail-config-empty-state">
+                                  No social accounts added yet.
+                                </div>
+                              )}
+                            </section>
                           </div>
-                        </section>
-
-                        <section className="detail-contact-group">
-                          <div className="detail-contact-group__header">
-                            <h4>Address</h4>
-                            <p>Mailing details saved with the vCard.</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="detail-config-section__header">
+                            <h3>Contact Information</h3>
+                            <p>
+                              Contact details are a premium feature and are only
+                              available after upgrading this card.
+                            </p>
                           </div>
-                          <div className="detail-config-grid detail-config-grid--contact">
-                            <label className="detail-config-grid__full">
-                              <span>Street Address 1</span>
-                              <input
-                                {...register("contactInfo.address.street1")}
-                              />
-                            </label>
 
-                            <label className="detail-config-grid__full">
-                              <span>Street Address 2</span>
-                              <input
-                                {...register("contactInfo.address.street2")}
-                              />
-                            </label>
-
-                            <label>
-                              <span>City</span>
-                              <input
-                                {...register("contactInfo.address.city")}
-                              />
-                            </label>
-
-                            <label>
-                              <span>State / Region</span>
-                              <input
-                                {...register("contactInfo.address.region")}
-                              />
-                            </label>
-
-                            <label>
-                              <span>Postal Code</span>
-                              <input
-                                {...register("contactInfo.address.postalCode")}
-                              />
-                            </label>
-
-                            <label>
-                              <span>Country</span>
-                              <input
-                                {...register("contactInfo.address.country")}
-                              />
-                            </label>
+                          <div className="detail-config-empty-state">
+                            Upgrade this card to unlock the contact information
+                            fields and vCard details.
                           </div>
-                        </section>
+                        </>
+                      )}
+                    </section>
+                  </div>
+                ) : null}
 
-                        <section className="detail-contact-group">
-                          <div className="detail-contact-group__header">
-                            <h4>Direct Contact</h4>
-                            <p>Phone numbers and email addresses.</p>
-                          </div>
-                          <div className="detail-config-grid detail-config-grid--contact">
-                            <label>
-                              <span>Home Phone</span>
-                              <input {...register("contactInfo.homePhone")} />
-                            </label>
-
-                            <label>
-                              <span>Cell Phone</span>
-                              <input {...register("contactInfo.cellPhone")} />
-                            </label>
-
-                            <label>
-                              <span>Personal Email</span>
-                              <input
-                                {...register("contactInfo.personalEmail")}
-                              />
-                              {errors.contactInfo?.personalEmail ? (
-                                <small className="field-error">
-                                  {errors.contactInfo.personalEmail.message}
-                                </small>
-                              ) : null}
-                            </label>
-
-                            <label>
-                              <span>Work Email</span>
-                              <input {...register("contactInfo.workEmail")} />
-                              {errors.contactInfo?.workEmail ? (
-                                <small className="field-error">
-                                  {errors.contactInfo.workEmail.message}
-                                </small>
-                              ) : null}
-                            </label>
-                          </div>
-                        </section>
-
-                        <section className="detail-contact-group">
+                {activeTab === "premium" ? (
+                  <div className="detail-tab-panel" role="tabpanel">
+                    <section className="detail-config-section">
+                      {isPremium ? (
+                        <>
                           <div className="detail-config-section__header detail-config-section__header--row">
                             <div>
-                              <h4>Social Media Accounts</h4>
-                              <p>Add named social links one at a time.</p>
+                              <h3>Custom Links</h3>
+                              <p>
+                                Add one or more links to be displayed on your
+                                premium card when the user scans your QR code.
+                              </p>
                             </div>
                             <button
                               type="button"
                               className="btn-secondary btn-xs"
                               onClick={() =>
-                                appendSocialMedia({ name: "", url: "" })
+                                appendPremiumUrl({ name: "", url: "" })
                               }
                             >
-                              Add Account
+                              Add Link
                             </button>
                           </div>
 
-                          {socialMediaFields.length > 0 ? (
-                            <div className="detail-link-list detail-link-list--nested">
-                              {socialMediaFields.map((field, index) => (
+                          {premiumUrlFields.length > 0 ? (
+                            <div className="detail-link-list">
+                              {premiumUrlFields.map((field, index) => (
                                 <div key={field.id} className="detail-link-row">
                                   <label>
-                                    <span>Platform</span>
+                                    <span>Link Name</span>
                                     <input
-                                      placeholder="Instagram"
+                                      placeholder="Portfolio"
                                       {...register(
-                                        `contactInfo.socialMediaAccounts.${index}.name`,
+                                        `premium.urlList.${index}.name`,
                                       )}
                                     />
-                                    {errors.contactInfo?.socialMediaAccounts?.[
-                                      index
-                                    ]?.name ? (
+                                    {errors.premium?.urlList?.[index]?.name ? (
                                       <small className="field-error">
                                         {
-                                          errors.contactInfo
-                                            .socialMediaAccounts[index]?.name
+                                          errors.premium.urlList[index]?.name
                                             ?.message
                                         }
                                       </small>
@@ -1206,20 +1685,17 @@ export default function CardDetailPage() {
                                   </label>
 
                                   <label>
-                                    <span>Profile URL</span>
+                                    <span>URL</span>
                                     <input
-                                      placeholder="https://instagram.com/legend"
+                                      placeholder="https://example.com"
                                       {...register(
-                                        `contactInfo.socialMediaAccounts.${index}.url`,
+                                        `premium.urlList.${index}.url`,
                                       )}
                                     />
-                                    {errors.contactInfo?.socialMediaAccounts?.[
-                                      index
-                                    ]?.url ? (
+                                    {errors.premium?.urlList?.[index]?.url ? (
                                       <small className="field-error">
                                         {
-                                          errors.contactInfo
-                                            .socialMediaAccounts[index]?.url
+                                          errors.premium.urlList[index]?.url
                                             ?.message
                                         }
                                       </small>
@@ -1230,7 +1706,7 @@ export default function CardDetailPage() {
                                     <button
                                       type="button"
                                       className="btn-secondary btn-xs"
-                                      onClick={() => removeSocialMedia(index)}
+                                      onClick={() => removePremiumUrl(index)}
                                     >
                                       Remove
                                     </button>
@@ -1240,88 +1716,26 @@ export default function CardDetailPage() {
                             </div>
                           ) : (
                             <div className="detail-config-empty-state">
-                              No social accounts added yet.
+                              No custom links added yet.
                             </div>
                           )}
-                        </section>
-                      </div>
-                    </section>
-                  </div>
-                ) : null}
-
-                {activeTab === "premium" ? (
-                  <div className="detail-tab-panel" role="tabpanel">
-                    <section className="detail-config-section">
-                      <div className="detail-config-section__header detail-config-section__header--row">
-                        <div>
-                          <h3>Custom Links</h3>
-                          <p>
-                            Add one or more named links for premium link data.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-xs"
-                          onClick={() =>
-                            appendPremiumUrl({ name: "", url: "" })
-                          }
-                        >
-                          Add Link
-                        </button>
-                      </div>
-
-                      {premiumUrlFields.length > 0 ? (
-                        <div className="detail-link-list">
-                          {premiumUrlFields.map((field, index) => (
-                            <div key={field.id} className="detail-link-row">
-                              <label>
-                                <span>Link Name</span>
-                                <input
-                                  placeholder="Portfolio"
-                                  {...register(`premium.urlList.${index}.name`)}
-                                />
-                                {errors.premium?.urlList?.[index]?.name ? (
-                                  <small className="field-error">
-                                    {
-                                      errors.premium.urlList[index]?.name
-                                        ?.message
-                                    }
-                                  </small>
-                                ) : null}
-                              </label>
-
-                              <label>
-                                <span>URL</span>
-                                <input
-                                  placeholder="https://example.com"
-                                  {...register(`premium.urlList.${index}.url`)}
-                                />
-                                {errors.premium?.urlList?.[index]?.url ? (
-                                  <small className="field-error">
-                                    {
-                                      errors.premium.urlList[index]?.url
-                                        ?.message
-                                    }
-                                  </small>
-                                ) : null}
-                              </label>
-
-                              <div className="detail-link-row__actions">
-                                <button
-                                  type="button"
-                                  className="btn-secondary btn-xs"
-                                  onClick={() => removePremiumUrl(index)}
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        </>
                       ) : (
-                        <div className="detail-config-empty-state">
-                          No custom links added yet.
-                        </div>
+                        <>
+                          <div className="detail-config-section__header">
+                            <div>
+                              <h3>Custom Links</h3>
+                              <p>
+                                Custom links are a premium feature and are only
+                                available after upgrading this card.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="detail-config-empty-state">
+                            Upgrade this card to add links to the user hub.
+                          </div>
+                        </>
                       )}
                     </section>
                   </div>
@@ -1330,6 +1744,9 @@ export default function CardDetailPage() {
 
               {updateMutation.isError ? (
                 <div className="alert-error">Update failed.</div>
+              ) : null}
+              {submitErrorMessage ? (
+                <div className="alert-error">{submitErrorMessage}</div>
               ) : null}
               {updateMutation.isSuccess ? (
                 <div className="alert-success">Card updated.</div>
@@ -1342,19 +1759,32 @@ export default function CardDetailPage() {
               ) : null}
 
               <div className="button-row">
-                <button
-                  type="button"
-                  className="btn-danger"
-                  onClick={triggerDelete}
-                >
-                  Delete Card
-                </button>
-                <button
-                  type="submit"
-                  disabled={updateMutation.isPending || !canRunActions}
-                >
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
-                </button>
+                <div className="button-row__group button-row__group--left">
+                  {!isPremium ? (
+                    <button
+                      type="button"
+                      className="btn-gold"
+                      onClick={() => setShowUpgradeModal(true)}
+                    >
+                      Upgrade Card
+                    </button>
+                  ) : null}
+                </div>
+                <div className="button-row__group button-row__group--right">
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={triggerDelete}
+                  >
+                    Delete Card
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updateMutation.isPending || !canRunActions}
+                  >
+                    {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
               </div>
             </form>
           </section>
@@ -1410,10 +1840,15 @@ export default function CardDetailPage() {
                   className="create-preview-image"
                 />
                 <div className="create-preview-bleed-note" role="note">
-                  <strong>Preview guides only</strong>
+                  <center>
+                    <strong>How to Interpret the Guide Lines</strong>
+                  </center>
                   <span>
-                    The green line marks the trim edge and the red line marks
-                    the safe area. <br />
+                    The green line marks the trim edge. This is where the card
+                    will be cut during manufacturing. <br />
+                    <br />
+                    The red line marks the safe area. Keep important details
+                    like text and logos within so they look their best. <br />
                     <br />
                     These guides are temporary preview overlays and will not
                     appear on the final rendered or printed card.

@@ -117,6 +117,7 @@ interface ApiMessageResponse {
 }
 
 export interface CardPreviewRequest {
+  id: string;
   templateId: string;
   title: string;
   subtitle: string;
@@ -177,7 +178,7 @@ export async function deleteCard(id: string) {
 export async function previewCard(payload: CardPreviewRequest) {
   const { side = "front", ...requestBody } = payload;
   const { data } = await apiClient.post<Blob>(
-    `/v1/cards/preview?format=png&side=${side}&showCutlines=true&showPreviewWatermark=true`,
+    `/v1/cards/preview?format=png&id=${payload.id}&side=${side}&showCutlines=true&showPreviewWatermark=true`,
     requestBody,
     {
       responseType: "blob",
@@ -192,6 +193,18 @@ export async function renderCardProof(id: string) {
     params: { format: "png", side: "front", showCutlines: false, dpi: 300 },
     responseType: "blob",
   });
+
+  return data;
+}
+
+export async function renderCardProofPrinterFriendly(id: string) {
+  const { data } = await apiClient.get<Blob>(
+    `/v1/cards/render/printerfriendly/${id}`,
+    {
+      params: { template: "Avery-95272" },
+      responseType: "blob",
+    },
+  );
 
   return data;
 }

@@ -143,6 +143,7 @@ export default function CardCreatePage() {
     );
 
     previewMutation.mutate({
+      id: "preview",
       templateId: values.templateId,
       title: values.title,
       subtitle: values.subtitle,

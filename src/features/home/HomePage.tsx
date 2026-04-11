@@ -47,7 +47,7 @@ export default function HomePage() {
             Sign in
           </Link>
           <Link className="lp-nav-link" to="/register">
-            Start Your Adventure
+            Register
           </Link>
         </div>
       </header>
@@ -72,7 +72,7 @@ export default function HomePage() {
             </p>
             <div className="lp-cta-row">
               <Link className="btn-primary btn-lg" to="/register">
-                Become a legend
+                Become A Legend
               </Link>
             </div>
           </div>
@@ -179,10 +179,10 @@ export default function HomePage() {
             </ul>
             <div className="lp-cta-row">
               <Link className="btn-primary btn-lg" to="/register">
-                Start your adventure
+                Create a Free Account
               </Link>
               <Link className="btn-ghost btn-lg" to="/login">
-                I already have an account
+                I Already Have an Account
               </Link>
             </div>
           </div>

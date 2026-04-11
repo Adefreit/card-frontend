@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { getCards, renderCardProof } from "../cards/api";
+import {
+  getCards,
+  renderCardProof,
+  renderCardProofPrinterFriendly,
+} from "../cards/api";
 import { apiClient } from "../../lib/http";
 
 const CARD_GRADIENTS = [
@@ -173,6 +177,21 @@ function getDownloadFileName(cardTitle: string, suffix: string) {
   return `${cardTitle.replace(/\s+/g, "-").toLowerCase()}-${suffix}.png`;
 }
 
+function downloadBlobFile(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+function getPdfDownloadFileName(cardTitle: string) {
+  return `${cardTitle.replace(/\s+/g, "-").toLowerCase()}-printer-friendly.pdf`;
+}
+
 function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const {
@@ -183,6 +202,12 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
     queryKey: ["card-proof", cardId],
     queryFn: () => renderCardProof(cardId),
     staleTime: Infinity,
+  });
+  const printerFriendlyMutation = useMutation({
+    mutationFn: () => renderCardProofPrinterFriendly(cardId),
+    onSuccess: (blob) => {
+      downloadBlobFile(blob, getPdfDownloadFileName(cardTitle));
+    },
   });
 
   useEffect(() => {
@@ -206,7 +231,7 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="qr-modal-header">
-          <h3>Digital Proof</h3>
+          <h3>{cardTitle}</h3>
           <button
             type="button"
             className="qr-modal-close"
@@ -216,12 +241,16 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
             ✕
           </button>
         </div>
-        <p className="qr-modal-subtitle">{cardTitle}</p>
         <div className="qr-modal-body">
           {isLoading && <p className="dash-loading">Rendering proof…</p>}
           {isError && (
             <p className="alert-error">
               Failed to render the digital proof. Try again.
+            </p>
+          )}
+          {printerFriendlyMutation.isError && (
+            <p className="alert-error">
+              Failed to generate the printable PDF. Try again.
             </p>
           )}
           {blobUrl && (
@@ -239,8 +268,18 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
               href={blobUrl}
               download={getDownloadFileName(cardTitle, "proof")}
             >
-              ⬇ Download Proof
+              ⬇ Download Proof (PNG)
             </a>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => printerFriendlyMutation.mutate()}
+              disabled={printerFriendlyMutation.isPending}
+            >
+              {printerFriendlyMutation.isPending
+                ? "Preparing PDF..."
+                : "⬇ Download Avery Template (PDF)"}
+            </button>
           </div>
         )}
       </div>
