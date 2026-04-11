@@ -670,7 +670,6 @@ export default function CardDetailPage() {
       {showFlavorMarkupHelp && (
         <FlavorMarkupHelpModal onClose={() => setShowFlavorMarkupHelp(false)} />
       )}
-
       <section className="content-hero">
         <div>
           <h1>Card detail</h1>
@@ -686,7 +685,6 @@ export default function CardDetailPage() {
 
       {isLoading ? <p>Loading card...</p> : null}
       {isError ? <p className="alert-error">Failed to load card.</p> : null}
-
       {data ? (
         <div className="create-layout">
           <section className="content-card create-form-panel">

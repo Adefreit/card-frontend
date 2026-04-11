@@ -11,9 +11,9 @@ import {
 
 const CARDVIEWER_PANELS = ["Card", "Contact", "Links"] as const;
 const CARDVIEWER_PANEL_PREVIEW_COPY = [
-  "Full card preview",
-  "Contact details and social links",
-  "Premium URLs and featured destinations",
+  "DIGITAL CARD",
+  "CONTACT INFO",
+  "USER HUB",
 ] as const;
 
 function getViewerName(contactInfo?: CardContactInfo) {
@@ -68,6 +68,21 @@ function downloadBlob(blob: Blob, fileName: string) {
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(objectUrl);
+}
+
+function ViewerEmptyState({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
+  return (
+    <div className="cardviewer-empty-state">
+      <strong>{title}</strong>
+      <p>{message}</p>
+    </div>
+  );
 }
 
 function ContactBlock({
@@ -130,12 +145,10 @@ function ContactBlock({
     return (
       <section className="cardviewer-slide cardviewer-slide--contact">
         <div className="cardviewer-slide__body cardviewer-slide__body--centered">
-          <div className="cardviewer-panel__toolbar cardviewer-panel__toolbar--stacked">
-            <div className="cardviewer-panel__header">
-              <h2>Contact Information</h2>
-              <p>No contact information has been added to this card yet.</p>
-            </div>
-          </div>
+          <ViewerEmptyState
+            title="Contact Information"
+            message="No contact information has been added to this card yet."
+          />
         </div>
       </section>
     );
@@ -411,9 +424,6 @@ export default function CardViewerPage() {
                   Legendary Profiles
                 </span>
               </a>
-              <p className="cardviewer-page-indicator__slogan">
-                Create, Connect, Compete
-              </p>
               <div
                 className="cardviewer-page-indicator__track"
                 aria-hidden="true"
@@ -466,11 +476,9 @@ export default function CardViewerPage() {
               />
 
               <section className="cardviewer-slide cardviewer-slide--premium">
-                <div className="cardviewer-slide__body">
-                  <div className="cardviewer-panel__header">
-                    <h2>User Hub</h2>
-                  </div>
-
+                <div
+                  className={`cardviewer-slide__body${premiumLinks.length === 0 ? " cardviewer-slide__body--centered" : ""}`}
+                >
                   {premiumLinks.length > 0 ? (
                     <div className="cardviewer-links cardviewer-links--stacked">
                       {premiumLinks.map((link) => (
@@ -486,9 +494,10 @@ export default function CardViewerPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="cardviewer-empty-state">
-                      No premium links are available for this card.
-                    </div>
+                    <ViewerEmptyState
+                      title="User Hub"
+                      message="No links or user hub content are available for this card yet."
+                    />
                   )}
                 </div>
               </section>
