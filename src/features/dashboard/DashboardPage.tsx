@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
+  getCard,
   getCards,
   renderCardProof,
   renderCardProofPrinterFriendly,
@@ -194,14 +195,29 @@ function getPdfDownloadFileName(cardTitle: string) {
 
 function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [useRenderedProof, setUseRenderedProof] = useState(false);
+  const {
+    data: card,
+    isLoading: isCardLoading,
+    isError: isCardError,
+  } = useQuery({
+    queryKey: ["card-proof-source", cardId],
+    queryFn: () => getCard(cardId),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+  });
   const {
     data: proofBlob,
-    isLoading,
-    isError,
+    isLoading: isProofLoading,
+    isError: isProofError,
   } = useQuery({
     queryKey: ["card-proof", cardId],
     queryFn: () => renderCardProof(cardId),
-    staleTime: Infinity,
+    enabled: Boolean(card) && (!card?.last_proof || useRenderedProof),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
   });
   const printerFriendlyMutation = useMutation({
     mutationFn: () => renderCardProofPrinterFriendly(cardId),
@@ -211,6 +227,11 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
   });
 
   useEffect(() => {
+    if (card?.last_proof && !useRenderedProof) {
+      setBlobUrl(card.last_proof);
+      return;
+    }
+
     if (!proofBlob) {
       setBlobUrl(null);
       return;
@@ -222,7 +243,7 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
     return () => {
       URL.revokeObjectURL(nextBlobUrl);
     };
-  }, [proofBlob]);
+  }, [card?.last_proof, proofBlob, useRenderedProof]);
 
   return (
     <div className="qr-modal-backdrop" onClick={onClose}>
@@ -241,47 +262,90 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
             ✕
           </button>
         </div>
-        <div className="qr-modal-body">
-          {isLoading && <p className="dash-loading">Rendering proof…</p>}
-          {isError && (
-            <p className="alert-error">
-              Failed to render the digital proof. Try again.
-            </p>
-          )}
-          {printerFriendlyMutation.isError && (
-            <p className="alert-error">
-              Failed to generate the printable PDF. Try again.
-            </p>
-          )}
-          {blobUrl && (
-            <img
-              className="qr-image proof-preview"
-              src={blobUrl}
-              alt={`Digital proof for ${cardTitle}`}
-            />
-          )}
-        </div>
-        {blobUrl && (
-          <div className="qr-modal-footer">
-            <a
-              className="btn-primary"
-              href={blobUrl}
-              download={getDownloadFileName(cardTitle, "proof")}
-            >
-              ⬇ Download Proof (PNG)
-            </a>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => printerFriendlyMutation.mutate()}
-              disabled={printerFriendlyMutation.isPending}
-            >
-              {printerFriendlyMutation.isPending
-                ? "Preparing PDF..."
-                : "⬇ Download Avery Template (PDF)"}
-            </button>
+        <div className="qr-modal-body proof-modal-body">
+          <div className="proof-modal-preview-panel">
+            {isCardLoading || isProofLoading ? (
+              <p className="dash-loading">Rendering proof…</p>
+            ) : null}
+            {blobUrl && (
+              <img
+                className="proof-preview"
+                src={blobUrl}
+                alt={`Digital proof for ${cardTitle}`}
+                onError={() => {
+                  if (card?.last_proof && !useRenderedProof) {
+                    setBlobUrl(null);
+                    setUseRenderedProof(true);
+                  }
+                }}
+              />
+            )}
+            {!blobUrl && !isCardLoading && !isProofLoading ? (
+              <div className="proof-modal-empty">
+                <p className="alert-error">
+                  Failed to render the digital proof. Try again.
+                </p>
+              </div>
+            ) : null}
           </div>
-        )}
+          <div className="proof-modal-actions-panel">
+            <div className="proof-modal-actions-header">
+              <h4>Downloads</h4>
+              <p>Choose a format for this proof.</p>
+            </div>
+            {isCardError || isProofError ? (
+              <p className="alert-error">
+                Failed to render the digital proof. Try again.
+              </p>
+            ) : null}
+            {printerFriendlyMutation.isError ? (
+              <p className="alert-error">
+                Failed to generate the printable PDF. Try again.
+              </p>
+            ) : null}
+            <div className="proof-modal-actions-list">
+              <section className="proof-modal-action-section">
+                <span className="proof-modal-section-label">Digital</span>
+                <a
+                  className="proof-download-link"
+                  href={blobUrl ?? "#"}
+                  download={getDownloadFileName(cardTitle, "proof")}
+                  aria-disabled={!blobUrl}
+                  onClick={(event) => {
+                    if (!blobUrl) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
+                  <span className="proof-download-link-copy">
+                    <strong>PNG Image</strong>
+                    <span>Download the current proof as a PNG image.</span>
+                  </span>
+                  <span className="proof-download-link-meta">PNG</span>
+                </a>
+              </section>
+              <section className="proof-modal-action-section">
+                <span className="proof-modal-section-label">Printable</span>
+                <button
+                  type="button"
+                  className="proof-download-link proof-download-link--button"
+                  onClick={() => printerFriendlyMutation.mutate()}
+                  disabled={printerFriendlyMutation.isPending || !blobUrl}
+                >
+                  <span className="proof-download-link-copy">
+                    <strong>
+                      {printerFriendlyMutation.isPending
+                        ? "Preparing PDF"
+                        : "Print Labels"}
+                    </strong>
+                    <span>Compatible with Avery Presta Template 95272.</span>
+                  </span>
+                  <span className="proof-download-link-meta">PDF</span>
+                </button>
+              </section>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

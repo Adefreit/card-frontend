@@ -69,6 +69,7 @@ export interface CardRecord {
   create_time?: string;
   premium_expires_at?: string | null;
   last_render?: string | null;
+  last_proof?: string | null;
   data: CardData;
 }
 
@@ -178,7 +179,7 @@ export async function deleteCard(id: string) {
 export async function previewCard(payload: CardPreviewRequest) {
   const { side = "front", ...requestBody } = payload;
   const { data } = await apiClient.post<Blob>(
-    `/v1/cards/preview?format=png&id=${payload.id}&side=${side}&showCutlines=true&showPreviewWatermark=true`,
+    `/v1/cards/render/preview?format=png&id=${payload.id}&side=${side}&showCutlines=true&showPreviewWatermark=true`,
     requestBody,
     {
       responseType: "blob",
@@ -189,8 +190,8 @@ export async function previewCard(payload: CardPreviewRequest) {
 }
 
 export async function renderCardProof(id: string) {
-  const { data } = await apiClient.get<Blob>(`/v1/cards/render/${id}`, {
-    params: { format: "png", side: "front", showCutlines: false, dpi: 300 },
+  const { data } = await apiClient.get<Blob>(`/v1/cards/render/proof/${id}`, {
+    params: { format: "png", side: "front" },
     responseType: "blob",
   });
 
@@ -198,13 +199,10 @@ export async function renderCardProof(id: string) {
 }
 
 export async function renderCardProofPrinterFriendly(id: string) {
-  const { data } = await apiClient.get<Blob>(
-    `/v1/cards/render/printerfriendly/${id}`,
-    {
-      params: { template: "Avery-95272" },
-      responseType: "blob",
-    },
-  );
+  const { data } = await apiClient.get<Blob>(`/v1/cards/render/proof/${id}`, {
+    params: { template: "Avery-95272" },
+    responseType: "blob",
+  });
 
   return data;
 }

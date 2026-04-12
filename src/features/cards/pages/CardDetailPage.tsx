@@ -643,6 +643,8 @@ export default function CardDetailPage() {
     queryKey: ["card", cardId],
     queryFn: () => getCard(cardId as string),
     enabled: Boolean(cardId),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: templates, isLoading: templatesLoading } = useQuery({
@@ -1847,8 +1849,9 @@ export default function CardDetailPage() {
                     The green line marks the trim edge. This is where the card
                     will be cut during manufacturing. <br />
                     <br />
-                    The red line marks the safe area. Keep important details
-                    like text and logos within so they look their best. <br />
+                    The red line marks the safe area. We automatically keep
+                    details like text and logos within so they look their best.
+                    <br />
                     <br />
                     These guides are temporary preview overlays and will not
                     appear on the final rendered or printed card.

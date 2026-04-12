@@ -159,7 +159,7 @@ function ContactBlock({
       <div className="cardviewer-slide__body">
         <div className="cardviewer-panel__toolbar">
           <div className="cardviewer-panel__header">
-            <h2>Contact Information</h2>
+            {/* <h2>Contact Informations</h2> */}
             <button
               type="button"
               className="cardviewer-action-button cardviewer-action-button--compact"

@@ -2089,7 +2089,7 @@ button:disabled {
 }
 
 .qr-modal.proof-modal {
-  width: min(720px, calc(100vw - 24px));
+  width: min(980px, calc(100vw - 24px));
 }
 
 .qr-modal-header {
@@ -2137,6 +2137,169 @@ button:disabled {
   text-align: center;
 }
 
+.proof-modal-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(260px, 0.85fr);
+  gap: 22px;
+  align-items: stretch;
+  text-align: left;
+}
+
+.proof-modal-preview-panel {
+  min-height: 360px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 246, 255, 0.9)),
+    radial-gradient(circle at top, rgba(55, 48, 163, 0.09), transparent 52%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.proof-modal-actions-panel {
+  border-radius: 22px;
+  border: 1px solid var(--ui-border);
+  background: linear-gradient(180deg, rgba(247, 248, 255, 0.98), rgba(239, 242, 255, 0.96));
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.proof-modal-actions-header h4 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.1rem;
+}
+
+.proof-modal-actions-header p {
+  margin: 6px 0 0;
+  color: var(--ui-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.proof-modal-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.proof-modal-action-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.proof-modal-section-label {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.proof-download-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(121, 130, 196, 0.22);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ui-ink);
+  text-decoration: none;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(31, 35, 64, 0.05);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.proof-download-link:hover {
+  border-color: rgba(55, 48, 163, 0.28);
+  background: rgba(255, 255, 255, 0.96);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(31, 35, 64, 0.1);
+  text-decoration: none;
+}
+
+.proof-download-link:visited,
+.proof-download-link:focus,
+.proof-download-link:focus-visible,
+.proof-download-link:active {
+  color: var(--ui-ink);
+  text-decoration: none;
+}
+
+.proof-download-link-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.proof-download-link-copy strong {
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.proof-download-link-copy span {
+  color: var(--ui-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.proof-download-link-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(55, 48, 163, 0.08);
+  color: #312e81;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.proof-download-link--button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.proof-download-link[aria-disabled="true"],
+.proof-download-link--button:disabled {
+  pointer-events: none;
+  opacity: 0.55;
+  box-shadow: none;
+  transform: none;
+}
+
+@media (max-width: 760px) {
+  .proof-download-link {
+    padding: 13px 14px;
+  }
+
+  .proof-download-link-meta {
+    min-width: 44px;
+  }
+}
+
+.proof-modal-empty {
+  width: 100%;
+}
+
 .qr-image {
   max-width: 100%;
   border-radius: 12px;
@@ -2148,6 +2311,9 @@ button:disabled {
   width: 100%;
   max-height: 72vh;
   object-fit: contain;
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 18px 44px rgba(31, 35, 64, 0.14);
 }
 
 .qr-modal-footer {
@@ -2159,6 +2325,16 @@ button:disabled {
 
 .qr-modal-footer .btn-primary {
   padding: 10px 22px;
+}
+
+@media (max-width: 760px) {
+  .proof-modal-body {
+    grid-template-columns: 1fr;
+  }
+
+  .proof-modal-preview-panel {
+    min-height: 240px;
+  }
 }
 
 /* Plan comparison modal */
@@ -2952,17 +3128,18 @@ select:disabled {
   justify-content: center;
   align-items: flex-start;
   width: 100%;
-  min-height: 0;
+  min-height: 800;
 }
 
 .cardviewer-image {
   width: 100%;
   max-width: min(100%, 380px);
+  min-height: 450px;
   max-height: min(72svh, 760px);
   border-radius: 8px;
   box-shadow: 0 18px 36px rgba(19, 27, 63, 0.22);
-  object-fit: fill;
-  background: linear-gradient(180deg, rgba(240, 243, 255, 0.8), rgba(255, 255, 255, 0.96));
+  object-fit: contain;
+  background: black;
 }
 
 .cardviewer-slide--main .cardviewer-art {
