@@ -336,7 +336,7 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
                     <strong>
                       {printerFriendlyMutation.isPending
                         ? "Preparing PDF"
-                        : "Print Labels"}
+                        : "Generate Labels"}
                     </strong>
                     <span>Compatible with Avery Presta Template 95272.</span>
                   </span>

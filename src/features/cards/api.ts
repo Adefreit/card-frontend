@@ -199,10 +199,13 @@ export async function renderCardProof(id: string) {
 }
 
 export async function renderCardProofPrinterFriendly(id: string) {
-  const { data } = await apiClient.get<Blob>(`/v1/cards/render/proof/${id}`, {
-    params: { template: "Avery-95272" },
-    responseType: "blob",
-  });
+  const { data } = await apiClient.get<Blob>(
+    `/v1/cards/render/printerfriendly/${id}`,
+    {
+      params: { template: "Avery-95272" },
+      responseType: "blob",
+    },
+  );
 
   return data;
 }
