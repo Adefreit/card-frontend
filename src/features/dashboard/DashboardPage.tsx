@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { Link } from "react-router-dom";
 import {
   getCard,
@@ -8,6 +9,12 @@ import {
   renderCardProofPrinterFriendly,
 } from "../cards/api";
 import { apiClient } from "../../lib/http";
+import { useAuth } from "../auth/auth-context";
+import {
+  createIdempotencyKey,
+  createTransaction,
+  getCheckoutRedirectUrl,
+} from "../transactions/api";
 
 const CARD_GRADIENTS = [
   "linear-gradient(135deg, #1e1b4b 0%, #3730a3 100%)",
@@ -25,9 +32,68 @@ const CARD_TINT_BORDERS = [
   "rgba(126, 34, 206, 0.34)",
 ] as const;
 
-function isPremium(expiresAt?: string | null): boolean {
-  if (!expiresAt) return false;
-  return new Date(expiresAt) > new Date();
+function isMinted(minted?: boolean): boolean {
+  return Boolean(minted);
+}
+
+function hasActiveSubscription(accountSubscriptionUntil?: string | null) {
+  if (!accountSubscriptionUntil) {
+    return false;
+  }
+
+  return new Date(accountSubscriptionUntil) > new Date();
+}
+
+function getCatalogProductId(quantity: number): string {
+  switch (quantity) {
+    case 50:
+      return "card_pack_50";
+    case 100:
+      return "card_pack_100";
+    case 500:
+      return "card_pack_500";
+    case 1000:
+      return "card_pack_1000";
+    default:
+      throw new Error("Unsupported pack quantity selected.");
+  }
+}
+
+function getPurchaseTransactionErrorMessage(error: unknown): string {
+  if (!isAxiosError(error)) {
+    return "Unable to start checkout right now. Please try again.";
+  }
+
+  if (error.response?.status !== 400) {
+    return "Unable to start checkout right now. Please try again.";
+  }
+
+  const data = error.response.data;
+  const responseMessage =
+    typeof data === "object" && data !== null && "response" in data
+      ? (data.response as string | undefined)
+      : undefined;
+  const detailText = (responseMessage ?? "").toLowerCase();
+
+  if (
+    detailText.includes("itemtype") ||
+    detailText.includes("productid") ||
+    detailText.includes("quantity")
+  ) {
+    return "Checkout validation failed. Verify product type, product ID, and quantity.";
+  }
+
+  if (detailText.includes("unsupported") || detailText.includes("product")) {
+    return "This card pack is not available yet. Please choose a different pack size.";
+  }
+
+  if (detailText.includes("mismatch")) {
+    return "Selected product information did not pass validation. Please try again.";
+  }
+
+  return (
+    responseMessage || "Unable to start checkout right now. Please try again."
+  );
 }
 
 function PlanModal({ onClose }: { onClose: () => void }) {
@@ -171,7 +237,21 @@ function QrModal({ cardId, cardTitle, onClose }: QrModalProps) {
 interface ProofModalProps {
   cardId: string;
   cardTitle: string;
+  selectedQuantity: number;
+  onSelectQuantity: (quantity: number) => void;
+  onOrderConfirm: () => void;
+  isOrderPending: boolean;
+  orderErrorMessage?: string | null;
   onClose: () => void;
+}
+
+interface MintWarningModalProps {
+  cardTitle: string;
+  acknowledgment: string;
+  onAcknowledgmentChange: (value: string) => void;
+  onConfirm: () => void;
+  onClose: () => void;
+  isPending: boolean;
 }
 
 function getDownloadFileName(cardTitle: string, suffix: string) {
@@ -193,7 +273,83 @@ function getPdfDownloadFileName(cardTitle: string) {
   return `${cardTitle.replace(/\s+/g, "-").toLowerCase()}-printer-friendly.pdf`;
 }
 
-function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
+function MintWarningModal({
+  cardTitle,
+  acknowledgment,
+  onAcknowledgmentChange,
+  onConfirm,
+  onClose,
+  isPending,
+}: MintWarningModalProps) {
+  const requiredPhrase = "I UNDERSTAND";
+  const canConfirm = acknowledgment.trim().toUpperCase() === requiredPhrase;
+
+  return (
+    <div className="qr-modal-backdrop" onClick={onClose}>
+      <div className="qr-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="qr-modal-header">
+          <h3>Mint Card</h3>
+          <button
+            type="button"
+            className="qr-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <p className="qr-modal-subtitle">{cardTitle}</p>
+        <div className="qr-modal-body" style={{ textAlign: "left" }}>
+          <p style={{ marginTop: 0 }}>
+            Minting this card will lock its appearance. After minting, you will
+            no longer be able to change the title, subtitle, flavor text, or
+            images.
+          </p>
+          <label style={{ display: "block", marginTop: "12px" }}>
+            <span>Type {requiredPhrase} to continue:</span>
+            <input
+              type="text"
+              value={acknowledgment}
+              onChange={(event) => onAcknowledgmentChange(event.target.value)}
+              placeholder={requiredPhrase}
+              autoComplete="off"
+            />
+          </label>
+        </div>
+        <div className="qr-modal-footer">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onClose}
+            disabled={isPending}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={onConfirm}
+            disabled={!canConfirm || isPending}
+          >
+            {isPending ? "Minting..." : "I Understand, Mint Card"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProofModal({
+  cardId,
+  cardTitle,
+  selectedQuantity,
+  onSelectQuantity,
+  onOrderConfirm,
+  isOrderPending,
+  orderErrorMessage,
+  onClose,
+}: ProofModalProps) {
+  const quantities = [50, 100, 500, 1000] as const;
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [useRenderedProof, setUseRenderedProof] = useState(false);
   const {
@@ -252,7 +408,7 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="qr-modal-header">
-          <h3>{cardTitle}</h3>
+          <h3>Card Packs and Proofs</h3>
           <button
             type="button"
             className="qr-modal-close"
@@ -289,10 +445,6 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
             ) : null}
           </div>
           <div className="proof-modal-actions-panel">
-            <div className="proof-modal-actions-header">
-              <h4>Downloads</h4>
-              <p>Choose a format for this proof.</p>
-            </div>
             {isCardError || isProofError ? (
               <p className="alert-error">
                 Failed to render the digital proof. Try again.
@@ -304,6 +456,47 @@ function ProofModal({ cardId, cardTitle, onClose }: ProofModalProps) {
               </p>
             ) : null}
             <div className="proof-modal-actions-list">
+              <section className="proof-modal-action-section">
+                <span className="proof-modal-section-label">Order Packs</span>
+                <div
+                  className="proof-modal-pack-options"
+                  role="group"
+                  aria-label="Choose card pack size"
+                >
+                  {quantities.map((quantity) => (
+                    <button
+                      key={quantity}
+                      type="button"
+                      className={
+                        selectedQuantity === quantity
+                          ? "btn-primary"
+                          : "btn-secondary"
+                      }
+                      onClick={() => onSelectQuantity(quantity)}
+                      disabled={isOrderPending}
+                    >
+                      {quantity}
+                    </button>
+                  ))}
+                </div>
+                {orderErrorMessage ? (
+                  <p className="alert-error">{orderErrorMessage}</p>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn-primary proof-order-cta"
+                  onClick={onOrderConfirm}
+                  disabled={isOrderPending}
+                >
+                  {isOrderPending
+                    ? "Redirecting to Checkout..."
+                    : "Proceed to Checkout"}
+                </button>
+                <p className="proof-order-cta-note">
+                  Purchase a {selectedQuantity}-pack using secure checkout.
+                </p>
+              </section>
+              <br />
               <section className="proof-modal-action-section">
                 <span className="proof-modal-section-label">Digital</span>
                 <a
@@ -384,6 +577,9 @@ function ComingSoonModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
+  const { accountSubscriptionUntil, userPermissions, refreshAccountProfile } =
+    useAuth();
   const [qrCard, setQrCard] = useState<{ id: string; title: string } | null>(
     null,
   );
@@ -391,8 +587,17 @@ export default function DashboardPage() {
     id: string;
     title: string;
   } | null>(null);
+  const [mintCard, setMintCard] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [mintAcknowledgment, setMintAcknowledgment] = useState("");
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [selectedPackQuantity, setSelectedPackQuantity] = useState(50);
+  const [purchaseErrorMessage, setPurchaseErrorMessage] = useState<
+    string | null
+  >(null);
 
   const {
     data: cards,
@@ -404,9 +609,78 @@ export default function DashboardPage() {
   });
   const [cardSearch, setCardSearch] = useState("");
 
-  const premiumCount =
-    cards?.filter((c) => isPremium(c.premium_expires_at)).length ?? 0;
-  const draftCount = (cards?.length ?? 0) - premiumCount;
+  const hasFounderPermission = userPermissions.includes("FOUNDER");
+  const isSubscribed = hasActiveSubscription(accountSubscriptionUntil);
+
+  const mintMutation = useMutation({
+    mutationFn: (cardId: string) =>
+      createTransaction({
+        transactionType: "mint",
+        idempotencyKey: createIdempotencyKey(),
+        currency: "usd",
+        mint: { cardId },
+      }),
+    onSuccess: async (result) => {
+      const checkoutUrl = getCheckoutRedirectUrl(result);
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["cards"] });
+      await refreshAccountProfile();
+    },
+  });
+
+  const purchasePackMutation = useMutation({
+    mutationFn: ({ quantity }: { quantity: number }) =>
+      createTransaction({
+        transactionType: "purchase_item",
+        idempotencyKey: createIdempotencyKey(),
+        currency: "usd",
+        items: [
+          {
+            itemType: "card_pack",
+            productId: getCatalogProductId(quantity),
+            quantity: 1,
+          },
+        ],
+      }),
+    onMutate: () => {
+      setPurchaseErrorMessage(null);
+    },
+    onSuccess: (result) => {
+      const checkoutUrl = getCheckoutRedirectUrl(result);
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      }
+    },
+    onError: (error) => {
+      setPurchaseErrorMessage(getPurchaseTransactionErrorMessage(error));
+    },
+  });
+
+  const subscribeMutation = useMutation({
+    mutationFn: () =>
+      createTransaction({
+        transactionType: "subscription",
+        idempotencyKey: createIdempotencyKey(),
+        currency: "usd",
+        subscription: { interval: "year" },
+      }),
+    onSuccess: async (result) => {
+      const checkoutUrl = getCheckoutRedirectUrl(result);
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      await refreshAccountProfile();
+    },
+  });
+
+  const mintedCount = cards?.filter((c) => isMinted(c.minted)).length ?? 0;
+  const draftCount = (cards?.length ?? 0) - mintedCount;
   const filteredCards =
     cards?.filter((card) =>
       card.data.title.toLowerCase().includes(cardSearch.trim().toLowerCase()),
@@ -425,7 +699,46 @@ export default function DashboardPage() {
         <ProofModal
           cardId={proofCard.id}
           cardTitle={proofCard.title}
-          onClose={() => setProofCard(null)}
+          selectedQuantity={selectedPackQuantity}
+          onSelectQuantity={(quantity) => {
+            setSelectedPackQuantity(quantity);
+            setPurchaseErrorMessage(null);
+          }}
+          onOrderConfirm={() =>
+            purchasePackMutation.mutate({
+              quantity: selectedPackQuantity,
+            })
+          }
+          isOrderPending={purchasePackMutation.isPending}
+          orderErrorMessage={purchaseErrorMessage}
+          onClose={() => {
+            setProofCard(null);
+            setPurchaseErrorMessage(null);
+          }}
+        />
+      )}
+      {mintCard && (
+        <MintWarningModal
+          cardTitle={mintCard.title}
+          acknowledgment={mintAcknowledgment}
+          onAcknowledgmentChange={setMintAcknowledgment}
+          onClose={() => {
+            if (mintMutation.isPending) {
+              return;
+            }
+
+            setMintCard(null);
+            setMintAcknowledgment("");
+          }}
+          isPending={mintMutation.isPending}
+          onConfirm={() => {
+            mintMutation.mutate(mintCard.id, {
+              onSuccess: async () => {
+                setMintCard(null);
+                setMintAcknowledgment("");
+              },
+            });
+          }}
         />
       )}
       {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} />}
@@ -443,9 +756,6 @@ export default function DashboardPage() {
             orders, and level up your legendary presence.
           </p>
         </div>
-        <Link className="btn-primary btn-lg" to="/app/cards/new">
-          ✦ Create New Card
-        </Link>
       </section>
 
       {/* ── Dashboard Body ── */}
@@ -462,18 +772,36 @@ export default function DashboardPage() {
               <div className="dash-plan-divider" />
               <div className="dash-plan-stat">
                 <span className="dash-plan-stat-value dash-plan-stat-value--gold">
-                  {premiumCount}
+                  {mintedCount}
                 </span>
-                <span className="dash-plan-stat-label">✦ Premium</span>
+                <span className="dash-plan-stat-label">✦ Minted</span>
               </div>
             </div>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setShowPlanModal(true)}
-            >
-              Compare plans
-            </button>
+            <div className="button-row" style={{ margin: 0 }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowPlanModal(true)}
+              >
+                Compare plans
+              </button>
+              {!isSubscribed ? (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => subscribeMutation.mutate()}
+                  disabled={subscribeMutation.isPending}
+                >
+                  {subscribeMutation.isPending
+                    ? "Redirecting..."
+                    : "Start Subscription"}
+                </button>
+              ) : (
+                <Link className="btn-secondary" to="/app/settings">
+                  Manage Subscription
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* My Cards */}
@@ -525,6 +853,7 @@ export default function DashboardPage() {
                 {filteredCards.map((card, i) => {
                   const cardBorderTint =
                     CARD_TINT_BORDERS[i % CARD_TINT_BORDERS.length];
+                  const minted = isMinted(card.minted);
 
                   return (
                     <article key={card.id} className="dash-card-item">
@@ -534,7 +863,7 @@ export default function DashboardPage() {
                           to={`/app/cards/${card.id}`}
                         >
                           <div
-                            className="dash-card-stage"
+                            className={`dash-card-stage${minted ? " dash-card-stage--minted" : ""}`}
                             style={{
                               backgroundImage: `linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.82)), ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`,
                             }}
@@ -564,9 +893,9 @@ export default function DashboardPage() {
                               >
                                 {card.data.title?.[0]?.toUpperCase() ?? "?"}
                               </span>
-                              {isPremium(card.premium_expires_at) ? (
+                              {minted ? (
                                 <span className="card-tier-badge card-tier-badge--premium">
-                                  ✦ Premium
+                                  ✦ Minted
                                 </span>
                               ) : (
                                 <span className="card-tier-badge card-tier-badge--draft">
@@ -577,45 +906,57 @@ export default function DashboardPage() {
                           </div>
                         </Link>
                         <div
-                          className={`dash-card-actions${isPremium(card.premium_expires_at) ? " dash-card-actions--premium" : " dash-card-actions--draft"}`}
+                          className={`dash-card-actions${minted ? " dash-card-actions--premium" : " dash-card-actions--draft"}`}
                           style={{ borderColor: cardBorderTint }}
                         >
-                          {!isPremium(card.premium_expires_at) && (
+                          {!minted && (
                             <button
                               type="button"
                               className="dash-action-btn dash-action-btn--upgrade"
-                              onClick={() => setShowUpgradeModal(true)}
+                              onClick={() => {
+                                setMintAcknowledgment("");
+                                setMintCard({
+                                  id: card.id,
+                                  title: card.data.title,
+                                });
+                              }}
+                              disabled={mintMutation.isPending}
                             >
-                              ✦ Upgrade
+                              {mintMutation.isPending
+                                ? "Minting..."
+                                : hasFounderPermission
+                                  ? "✦ Mint Free"
+                                  : "✦ Mint"}
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className="dash-action-btn dash-action-btn--order"
-                          >
-                            📦 Order
-                          </button>
-                          <button
-                            type="button"
-                            className="dash-action-btn dash-action-btn--proof"
-                            onClick={() =>
-                              setProofCard({
-                                id: card.id,
-                                title: card.data.title,
-                              })
-                            }
-                          >
-                            ⬇ Proof
-                          </button>
-                          <button
-                            type="button"
-                            className="dash-action-btn dash-action-btn--qr"
-                            onClick={() =>
-                              setQrCard({ id: card.id, title: card.data.title })
-                            }
-                          >
-                            ◉ QR
-                          </button>
+                          {minted ? (
+                            <>
+                              <button
+                                type="button"
+                                className="dash-action-btn dash-action-btn--proof"
+                                onClick={() =>
+                                  setProofCard({
+                                    id: card.id,
+                                    title: card.data.title,
+                                  })
+                                }
+                              >
+                                📦 Packs & Proof
+                              </button>
+                              <button
+                                type="button"
+                                className="dash-action-btn dash-action-btn--qr"
+                                onClick={() =>
+                                  setQrCard({
+                                    id: card.id,
+                                    title: card.data.title,
+                                  })
+                                }
+                              >
+                                ◉ QR
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
                     </article>
@@ -649,22 +990,15 @@ export default function DashboardPage() {
                   <span className="dash-quick-sub">Start your next legend</span>
                 </div>
               </Link>
-              <a className="dash-quick-item" href="#">
-                <div className="dash-quick-icon">📦</div>
-                <div>
-                  <span className="dash-quick-label">Order Cards</span>
-                  <span className="dash-quick-sub">
-                    Turn your legend into reality
-                  </span>
-                </div>
-              </a>
-              <a className="dash-quick-item" href="#">
+              <Link className="dash-quick-item" to="/app/settings">
                 <div className="dash-quick-icon">⚙</div>
                 <div>
                   <span className="dash-quick-label">Manage Subscription</span>
-                  <span className="dash-quick-sub">Upgrade your quest</span>
+                  <span className="dash-quick-sub">
+                    {isSubscribed ? "Subscription active" : "Not subscribed"}
+                  </span>
                 </div>
-              </a>
+              </Link>
               <a className="dash-quick-item dash-quick-item--locked" href="#">
                 <div className="dash-quick-icon">🔗</div>
                 <div>

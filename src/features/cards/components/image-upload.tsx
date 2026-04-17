@@ -235,6 +235,7 @@ interface ImageInputProps {
   onClear: () => void;
   maxUploadBytes: number;
   error?: string;
+  disabled?: boolean;
 }
 
 export function ImageInput({
@@ -244,6 +245,7 @@ export function ImageInput({
   onClear,
   maxUploadBytes,
   error,
+  disabled,
 }: ImageInputProps) {
   const [fileName, setFileName] = useState<string>("");
   const [copiedFileName, setCopiedFileName] = useState(false);
@@ -252,6 +254,10 @@ export function ImageInput({
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleSelectedFile(file?: File | null) {
+    if (disabled) {
+      return;
+    }
+
     if (!file) {
       return;
     }
@@ -280,6 +286,10 @@ export function ImageInput({
   }
 
   function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    if (disabled) {
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
 
@@ -289,12 +299,20 @@ export function ImageInput({
   }
 
   function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    if (disabled) {
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
   }
 
   async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    if (disabled) {
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
@@ -306,6 +324,10 @@ export function ImageInput({
   const hasFile = Boolean(value);
 
   async function handleCopyFileName() {
+    if (disabled) {
+      return;
+    }
+
     if (!hasFile) {
       return;
     }
@@ -320,6 +342,10 @@ export function ImageInput({
   }
 
   function handleClear() {
+    if (disabled) {
+      return;
+    }
+
     setFileName("");
     setCopiedFileName(false);
     setUploadError(null);
@@ -337,7 +363,7 @@ export function ImageInput({
           type="button"
           className={`image-status-chip${hasFile ? " image-status-chip--uploaded" : " image-status-chip--empty"}`}
           onClick={handleCopyFileName}
-          disabled={!hasFile}
+          disabled={!hasFile || disabled}
           title={
             hasFile
               ? `Click to copy file name: ${currentDisplayName}`
@@ -350,7 +376,13 @@ export function ImageInput({
 
       <div
         className={`file-drop-zone file-drop-zone--compact${isDragActive ? " file-drop-zone--active" : ""}`}
-        onClick={() => fileRef.current?.click()}
+        onClick={() => {
+          if (disabled) {
+            return;
+          }
+
+          fileRef.current?.click();
+        }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -361,6 +393,7 @@ export function ImageInput({
           accept="image/*"
           className="file-drop-hidden"
           onChange={handleFileChange}
+          disabled={disabled}
         />
         {fileName ? (
           <span className="file-drop-name">Selected: {fileName}</span>
@@ -379,7 +412,7 @@ export function ImageInput({
           type="button"
           className="btn-secondary btn-xs"
           onClick={handleClear}
-          disabled={!value}
+          disabled={!value || disabled}
         >
           Clear Image
         </button>

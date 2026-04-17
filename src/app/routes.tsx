@@ -12,6 +12,9 @@ import CardCreatePage from "../features/cards/pages/CardCreatePage";
 import CardViewerPage from "../features/cards/pages/CardViewerPage";
 import AppLayout from "../features/layout/AppLayout";
 import HomePage from "../features/home/HomePage";
+import PaymentSuccessPage from "../features/transactions/pages/PaymentSuccessPage";
+import PaymentCancelPage from "../features/transactions/pages/PaymentCancelPage";
+import SettingsPage from "../features/settings/SettingsPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -53,6 +56,22 @@ export const router = createBrowserRouter([
     element: <CardViewerPage />,
   },
   {
+    path: "/payment/success",
+    element: (
+      <ProtectedRoute>
+        <PaymentSuccessPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/payment/cancel",
+    element: (
+      <ProtectedRoute>
+        <PaymentCancelPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/app",
     element: (
       <ProtectedRoute>
@@ -75,6 +94,10 @@ export const router = createBrowserRouter([
       {
         path: "cards/:cardId",
         element: <CardDetailPage />,
+      },
+      {
+        path: "settings",
+        element: <SettingsPage />,
       },
     ],
   },

@@ -34,7 +34,9 @@ apiClient.interceptors.request.use((requestConfig) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    // Only treat 401 as an expired/invalid session.
+    // 403 is often a business-rule denial (forbidden action) and should not log users out.
+    if (error.response?.status === 401) {
       unauthorizedHandler?.();
     }
 

@@ -11,7 +11,7 @@ export default function AppLayout() {
       <div className="app-orb app-orb-right" aria-hidden="true"></div>
       <header className="top-nav">
         <div className="brand-lockup">
-          <Link className="brand" to="/">
+          <Link className="brand" to="/app/dashboard">
             <span className="brand-mark" aria-hidden="true">
               <img className="brand-mark__image" src="/favicon.png" alt="" />
             </span>
@@ -20,8 +20,8 @@ export default function AppLayout() {
           <span className="brand-tag">Workspace</span>
         </div>
         <nav>
-          <Link to="/app/dashboard">Dashboard</Link>
-          <Link to="/app/cards/new">Create</Link>
+          <Link to="/app/dashboard">Home</Link>
+          <Link to="/app/settings">Settings</Link>
           <button
             type="button"
             className="btn-quiet"

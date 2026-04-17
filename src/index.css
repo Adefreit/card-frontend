@@ -1736,6 +1736,15 @@ button:disabled {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.dash-card-stage--minted {
+  border: 2px solid rgba(240, 180, 41, 0.85);
+  box-shadow:
+    0 0 0 2px rgba(240, 180, 41, 0.22),
+    0 18px 42px rgba(55, 67, 145, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -28px 46px rgba(255, 255, 255, 0.22);
+}
+
 .dash-card-link:hover .dash-card-stage {
   transform: translateY(-4px) scale(1.025);
   box-shadow:
@@ -1822,9 +1831,11 @@ button:disabled {
 .dash-card-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(34px, auto);
+  align-content: start;
   gap: 8px;
   width: 100%;
-  min-height: 52px;
+  min-height: 94px;
   padding: 10px 10px 11px;
   border: 1px solid rgba(103, 120, 207, 0.24);
   border-radius: 8px;
@@ -1879,13 +1890,8 @@ button:disabled {
   color: #5a3800;
 }
 
-.dash-card-actions--draft .dash-action-btn--order {
-  grid-column: 1;
-  grid-row: 1;
-}
-
 .dash-card-actions--draft .dash-action-btn--upgrade {
-  grid-column: 2;
+  grid-column: 1 / span 2;
   grid-row: 1;
 }
 
@@ -1899,19 +1905,14 @@ button:disabled {
   grid-row: 2;
 }
 
-.dash-card-actions--premium .dash-action-btn--order {
-  grid-column: 1 / span 2;
-  grid-row: 1;
-}
-
 .dash-card-actions--premium .dash-action-btn--proof {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
 }
 
 .dash-card-actions--premium .dash-action-btn--qr {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 1;
 }
 
 /* Card premium/draft tier badge */
@@ -2192,10 +2193,21 @@ button:disabled {
   gap: 8px;
 }
 
+.proof-modal-pack-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.proof-modal-pack-options .btn-primary,
+.proof-modal-pack-options .btn-secondary {
+  width: 100%;
+}
+
 .proof-modal-section-label {
   display: inline-flex;
   align-items: center;
-  font-size: 0.72rem;
+  font-size: 0.80rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2278,6 +2290,18 @@ button:disabled {
   cursor: pointer;
 }
 
+.proof-order-cta {
+  width: 100%;
+  justify-content: center;
+}
+
+.proof-order-cta-note {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 .proof-download-link[aria-disabled="true"],
 .proof-download-link--button:disabled {
   pointer-events: none;
@@ -2287,6 +2311,10 @@ button:disabled {
 }
 
 @media (max-width: 760px) {
+  .proof-modal-pack-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .proof-download-link {
     padding: 13px 14px;
   }
@@ -2596,6 +2624,20 @@ button:disabled {
   font-size: 1.1rem;
   flex-shrink: 0;
   padding-top: 1px;
+}
+
+.detail-lock-notice {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(240, 180, 41, 0.55);
+  background: linear-gradient(
+    135deg,
+    rgba(240, 180, 41, 0.16) 0%,
+    rgba(240, 180, 41, 0.08) 100%
+  );
+  color: #9a6300;
+  font-weight: 700;
 }
 
 /* Image input toggle */

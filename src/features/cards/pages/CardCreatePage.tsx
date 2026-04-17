@@ -190,8 +190,8 @@ export default function CardCreatePage() {
       <div className="create-basic-notice">
         <span className="create-basic-icon">ℹ</span>
         <span>
-          New cards start out as <strong>Drafts</strong>. Once you have created
-          the card, you can upgrade it to <strong>Premium</strong> from your
+          New cards start out as <strong>Drafts</strong>. Once you have
+          customized the card, you can <strong>mint</strong> it from your
           dashboard.
         </span>
       </div>

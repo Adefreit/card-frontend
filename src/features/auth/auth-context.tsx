@@ -6,6 +6,7 @@ import {
   setUnauthorizedHandler,
 } from "../../lib/http";
 import { authStorage } from "../../lib/storage";
+import { getCurrentUserProfile } from "./api";
 
 function decodeJwtPayload(token: string) {
   const [, payload] = token.split(".");
@@ -51,19 +52,34 @@ function isTokenExpired(token: string) {
 function getStoredSession() {
   const storedToken = authStorage.getToken();
   const storedUserId = authStorage.getUserId();
+  const storedAccountSubscriptionUntil =
+    authStorage.getAccountSubscriptionUntil();
 
   if (!storedToken) {
-    return { token: null, userId: storedUserId };
+    return {
+      token: null,
+      userId: storedUserId,
+      accountSubscriptionUntil: storedAccountSubscriptionUntil,
+    };
   }
 
   if (isTokenExpired(storedToken)) {
     authStorage.setAuthNotice("Your session expired. Please sign in again.");
     authStorage.clearToken();
     authStorage.clearUserId();
-    return { token: null, userId: null };
+    authStorage.clearAccountSubscriptionUntil();
+    return {
+      token: null,
+      userId: null,
+      accountSubscriptionUntil: null,
+    };
   }
 
-  return { token: storedToken, userId: storedUserId };
+  return {
+    token: storedToken,
+    userId: storedUserId,
+    accountSubscriptionUntil: storedAccountSubscriptionUntil,
+  };
 }
 
 interface LoginRequest {
@@ -75,14 +91,18 @@ interface LoginResponse {
   response: string;
   userID: string;
   token: string;
+  account_subscription_until?: string | null;
 }
 
 interface AuthContextValue {
   token: string | null;
   userId: string | null;
+  accountSubscriptionUntil: string | null;
+  userPermissions: string[];
   isAuthenticated: boolean;
   login: (payload: LoginRequest) => Promise<void>;
   logout: () => void;
+  refreshAccountProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -91,6 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const storedSession = getStoredSession();
   const [token, setToken] = useState<string | null>(storedSession.token);
   const [userId, setUserId] = useState<string | null>(storedSession.userId);
+  const [accountSubscriptionUntil, setAccountSubscriptionUntil] = useState<
+    string | null
+  >(storedSession.accountSubscriptionUntil ?? null);
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
 
   const clearSession = (reason?: "expired") => {
     if (reason === "expired") {
@@ -99,8 +123,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     authStorage.clearToken();
     authStorage.clearUserId();
+    authStorage.clearAccountSubscriptionUntil();
     setToken(null);
     setUserId(null);
+    setAccountSubscriptionUntil(null);
+    setUserPermissions([]);
+  };
+
+  const refreshAccountProfile = async (
+    tokenOverride?: string | null,
+    userIdOverride?: string | null,
+  ) => {
+    const activeToken = tokenOverride ?? token;
+    const activeUserId = userIdOverride ?? userId;
+
+    if (!activeToken || !activeUserId) {
+      setAccountSubscriptionUntil(null);
+      setUserPermissions([]);
+      authStorage.clearAccountSubscriptionUntil();
+      return;
+    }
+
+    try {
+      const profile = await getCurrentUserProfile(activeUserId);
+      const nextSubscriptionUntil = profile.account_subscription_until ?? null;
+      const nextPermissions = profile.permissions ?? [];
+
+      authStorage.setAccountSubscriptionUntil(nextSubscriptionUntil);
+      setAccountSubscriptionUntil(nextSubscriptionUntil);
+      setUserPermissions(nextPermissions);
+    } catch {
+      setUserPermissions([]);
+    }
   };
 
   useEffect(() => {
@@ -144,6 +198,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!token || !userId) {
+      return;
+    }
+
+    void refreshAccountProfile();
+  }, [token, userId]);
+
   const login = async (payload: LoginRequest) => {
     const { data } = await apiClient.post<LoginResponse>(
       "/v1/users/login",
@@ -157,8 +219,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     authStorage.setToken(data.token);
     authStorage.setUserId(data.userID);
+    authStorage.setAccountSubscriptionUntil(
+      data.account_subscription_until ?? null,
+    );
     setToken(data.token);
     setUserId(data.userID);
+    setAccountSubscriptionUntil(data.account_subscription_until ?? null);
+    await refreshAccountProfile(data.token, data.userID);
   };
 
   const logout = () => {
@@ -169,11 +236,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       token,
       userId,
+      accountSubscriptionUntil,
+      userPermissions,
       isAuthenticated: Boolean(token),
       login,
       logout,
+      refreshAccountProfile,
     }),
-    [token, userId],
+    [token, userId, accountSubscriptionUntil, userPermissions],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

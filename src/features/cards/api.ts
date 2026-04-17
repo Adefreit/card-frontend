@@ -67,6 +67,7 @@ export interface CardRecord {
   user_id: string;
   template_id: string;
   create_time?: string;
+  minted?: boolean;
   premium_expires_at?: string | null;
   last_render?: string | null;
   last_proof?: string | null;

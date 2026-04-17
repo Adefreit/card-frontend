@@ -264,6 +264,7 @@ interface FlavorMarkupInputProps {
   onChange: (value: string) => void;
   error?: string;
   onHelp: () => void;
+  disabled?: boolean;
 }
 
 export function FlavorMarkupInput({
@@ -271,6 +272,7 @@ export function FlavorMarkupInput({
   onChange,
   error,
   onHelp,
+  disabled,
 }: FlavorMarkupInputProps) {
   return (
     <div className="flavor-markup-input">
@@ -278,7 +280,12 @@ export function FlavorMarkupInput({
         <span className="flavor-markup-hint">
           Supports plain-text or markup
         </span>
-        <button type="button" className="btn-secondary btn-xs" onClick={onHelp}>
+        <button
+          type="button"
+          className="btn-secondary btn-xs"
+          onClick={onHelp}
+          disabled={disabled}
+        >
           Markup Examples
         </button>
       </div>
@@ -287,6 +294,7 @@ export function FlavorMarkupInput({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder="Type flavor text with markup here..."
+        disabled={disabled}
       />
       {error ? <small className="field-error">{error}</small> : null}
     </div>

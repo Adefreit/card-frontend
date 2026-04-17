@@ -9,6 +9,7 @@ import {
   type CardCustomCss,
   type CardNamedUrl,
   type CardPremiumConfig,
+  type CardUpdatePayload,
   deleteCard,
   getCard,
   getCardTemplates,
@@ -29,6 +30,7 @@ import {
   ImageInput,
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
+import { useAuth } from "../../auth/auth-context";
 
 const imageFieldSchema = z
   .string()
@@ -446,7 +448,7 @@ function mapSocialAccountsToNamedUrls(
   }));
 }
 
-function isPremiumCard(expiresAt?: string | null): boolean {
+function hasActiveSubscription(expiresAt?: string | null): boolean {
   if (!expiresAt) {
     return false;
   }
@@ -538,6 +540,7 @@ function DeleteConfirmModal({
 }
 
 export default function CardDetailPage() {
+  const { accountSubscriptionUntil } = useAuth();
   const { cardId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -813,7 +816,7 @@ export default function CardDetailPage() {
       side: previewSide,
       contactInfo: normalizeContactInfo(values.contactInfo),
       customCss: normalizeCustomCss(values.customCss),
-      premium: isPremium
+      premium: canEditLinkedSections
         ? normalizePremiumUrls(values.premium.urlList)
         : undefined,
       ...backgroundImagePayload,
@@ -839,22 +842,12 @@ export default function CardDetailPage() {
     subtitleValue.trim().length > 0 &&
     getFlavorMarkupPlainText(flavorTextValue).length > 0 &&
     totalUploadedImageBytes <= MAX_TOTAL_UPLOAD_BYTES;
-  const isPremium = data ? isPremiumCard(data.premium_expires_at) : false;
-
-  useEffect(() => {
-    if (isPremium) {
-      return;
-    }
-
-    const premiumLinks = getValues("premium.urlList");
-    if (premiumLinks.length > 0) {
-      setValue("premium.urlList", [], {
-        shouldDirty: false,
-        shouldTouch: false,
-        shouldValidate: false,
-      });
-    }
-  }, [getValues, isPremium, setValue]);
+  const isMintedCard = Boolean(data?.minted);
+  const isAccountSubscribed = hasActiveSubscription(accountSubscriptionUntil);
+  const isReadOnlyCard = isMintedCard && !isAccountSubscribed;
+  const canEditCardAppearance = !isMintedCard;
+  const canEditLinkedSections = !isMintedCard || isAccountSubscribed;
+  const hasImmutableContentLock = isMintedCard;
 
   function handleInvalidSubmit(invalidErrors: typeof errors) {
     const targetTab: CardDetailTab = invalidErrors.contactInfo
@@ -867,7 +860,7 @@ export default function CardDetailPage() {
         ? "Contact Information"
         : targetTab === "premium"
           ? "User Hub"
-          : "General Information";
+          : "Card Appearance";
     const errorDetails = getTabErrorDetails(targetTab, invalidErrors);
     const generalErrors = collectFieldErrors(
       {
@@ -943,7 +936,7 @@ export default function CardDetailPage() {
       );
     } else {
       setSubmitErrorMessage(
-        "General Information has invalid or incomplete fields. Fix them before saving.",
+        "Card Appearance has invalid or incomplete fields. Fix them before saving.",
       );
     }
   }
@@ -953,7 +946,10 @@ export default function CardDetailPage() {
   const premiumTabHasErrors = !!getTabErrorDetails("premium", errors);
 
   function triggerDelete() {
-    if (!data) return;
+    if (!data || isMintedCard) {
+      return;
+    }
+
     setShowDeleteModal(true);
   }
 
@@ -985,9 +981,11 @@ export default function CardDetailPage() {
             you're ready, share your card with the world!
           </p>
         </div>
-        <Link className="btn-secondary" to="/app/dashboard">
-          Back to Dashboard
-        </Link>
+        {isMintedCard && resolvedCardId ? (
+          <Link className="btn-secondary" to={`/cardviewer/${resolvedCardId}`}>
+            Open Mobile View
+          </Link>
+        ) : null}
       </section>
 
       {isLoading ? <p>Loading card...</p> : null}
@@ -1013,9 +1011,9 @@ export default function CardDetailPage() {
               </div>
               <div className="detail-header-actions">
                 <div
-                  className={`detail-plan-strip ${isPremium ? "detail-plan-strip--premium" : "detail-plan-strip--draft"}`}
+                  className={`detail-plan-strip ${isMintedCard ? "detail-plan-strip--premium" : "detail-plan-strip--draft"}`}
                 >
-                  <strong>{isPremium ? "Premium" : "Draft"}</strong>
+                  <strong>{isMintedCard ? "Minted" : "Draft"}</strong>
                 </div>
               </div>
             </div>
@@ -1040,17 +1038,15 @@ export default function CardDetailPage() {
                   return;
                 }
 
-                const backgroundImagePayload = buildImagePayload(
-                  values.backgroundImage,
-                  "background",
-                );
-                const foregroundImagePayload = buildImagePayload(
-                  values.foregroundImage,
-                  "foreground",
-                );
+                if (isReadOnlyCard) {
+                  setSubmitErrorMessage(
+                    "Minted cards are read-only unless your account has an active subscription.",
+                  );
+                  return;
+                }
+
                 const contactInfo = normalizeContactInfo(values.contactInfo);
-                const customCss = normalizeCustomCss(values.customCss);
-                const premium = isPremium
+                const premium = canEditLinkedSections
                   ? normalizePremiumUrls(values.premium.urlList)
                   : undefined;
 
@@ -1061,688 +1057,774 @@ export default function CardDetailPage() {
                   resolvedCardId,
                 });
 
-                updateMutation.mutate({
+                const updatePayload: CardUpdatePayload = {
                   id: resolvedCardId,
-                  templateId: values.templateId,
-                  title: values.title,
-                  subtitle: values.subtitle,
-                  flavorText: convertFlavorMarkupToHtml(values.flavorText),
                   contactInfo,
-                  customCss,
                   premium,
-                  ...backgroundImagePayload,
-                  ...foregroundImagePayload,
-                });
+                };
+
+                if (!isMintedCard) {
+                  const backgroundImagePayload = buildImagePayload(
+                    values.backgroundImage,
+                    "background",
+                  );
+                  const foregroundImagePayload = buildImagePayload(
+                    values.foregroundImage,
+                    "foreground",
+                  );
+
+                  updatePayload.templateId = values.templateId;
+                  updatePayload.title = values.title;
+                  updatePayload.subtitle = values.subtitle;
+                  updatePayload.flavorText = convertFlavorMarkupToHtml(
+                    values.flavorText,
+                  );
+                  updatePayload.customCss = normalizeCustomCss(
+                    values.customCss,
+                  );
+
+                  Object.assign(
+                    updatePayload,
+                    backgroundImagePayload,
+                    foregroundImagePayload,
+                  );
+                }
+
+                updateMutation.mutate(updatePayload);
               }, handleInvalidSubmit)}
             >
-              <div className="detail-tabs-shell">
-                <div
-                  className="detail-tabs"
-                  role="tablist"
-                  aria-label="Card detail sections"
-                >
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`detail-tabs__button${activeTab === "general" ? " is-active" : ""}`}
-                    aria-selected={activeTab === "general"}
-                    aria-label={
-                      generalTabHasErrors
-                        ? "General Information, has validation errors"
-                        : undefined
-                    }
-                    onClick={() => setActiveTab("general")}
+              <fieldset
+                disabled={isReadOnlyCard}
+                style={{ border: 0, margin: 0, padding: 0 }}
+              >
+                <div className="detail-tabs-shell">
+                  <div
+                    className="detail-tabs"
+                    role="tablist"
+                    aria-label="Card detail sections"
                   >
-                    <span>General Information</span>
-                    {generalTabHasErrors ? (
-                      <span
-                        className="detail-tabs__button-badge"
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`detail-tabs__button${activeTab === "contact" ? " is-active" : ""}`}
-                    aria-selected={activeTab === "contact"}
-                    aria-label={
-                      contactTabHasErrors
-                        ? "Contact Information, has validation errors"
-                        : undefined
-                    }
-                    onClick={() => setActiveTab("contact")}
-                  >
-                    <span>Contact Information</span>
-                    {contactTabHasErrors ? (
-                      <span
-                        className="detail-tabs__button-badge"
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`detail-tabs__button${activeTab === "premium" ? " is-active" : ""}`}
-                    aria-selected={activeTab === "premium"}
-                    aria-label={
-                      premiumTabHasErrors
-                        ? "User Hub, has validation errors"
-                        : undefined
-                    }
-                    onClick={() => setActiveTab("premium")}
-                  >
-                    <span>User Hub</span>
-                    {premiumTabHasErrors ? (
-                      <span
-                        className="detail-tabs__button-badge"
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                  </button>
-                </div>
-
-                {activeTab === "general" ? (
-                  <div className="detail-tab-panel" role="tabpanel">
-                    <section className="detail-config-section">
-                      <div className="detail-config-section__header">
-                        <h3>General Information</h3>
-                        <p>
-                          Update the main content and styling for the front of
-                          the card.
-                        </p>
-                      </div>
-
-                      <div className="detail-config-grid">
-                        <label className="detail-config-grid__full">
-                          <span className="label-required">
-                            Template{" "}
-                            <span className="required-asterisk">*</span>
-                          </span>
-                          <select
-                            {...register("templateId")}
-                            disabled={templatesLoading}
-                          >
-                            <option value="">
-                              {templatesLoading
-                                ? "Loading templates..."
-                                : "Select a template"}
-                            </option>
-                            {templates?.map((template) => (
-                              <option key={template.id} value={template.id}>
-                                {template.name}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.templateId ? (
-                            <small className="field-error">
-                              {errors.templateId.message}
-                            </small>
-                          ) : null}
-                          {selectedTemplateId ? (
-                            <small className="id-copy-note">
-                              Selected: {selectedTemplateName}
-                            </small>
-                          ) : null}
-                        </label>
-
-                        <label>
-                          <span className="label-required">
-                            Title <span className="required-asterisk">*</span>
-                          </span>
-                          <input {...register("title")} />
-                          {errors.title ? (
-                            <small className="field-error">
-                              {errors.title.message}
-                            </small>
-                          ) : null}
-                        </label>
-
-                        <label>
-                          <span className="label-required">
-                            Subtitle{" "}
-                            <span className="required-asterisk">*</span>
-                          </span>
-                          <input {...register("subtitle")} />
-                          {errors.subtitle ? (
-                            <small className="field-error">
-                              {errors.subtitle.message}
-                            </small>
-                          ) : null}
-                        </label>
-
-                        <label className="detail-config-grid__full">
-                          <span className="label-required">
-                            Flavor Text{" "}
-                            <span className="required-asterisk">*</span>
-                          </span>
-                          <FlavorMarkupInput
-                            value={flavorTextValue}
-                            onChange={(nextValue) =>
-                              setValue("flavorText", nextValue, {
-                                shouldValidate: true,
-                              })
-                            }
-                            error={errors.flavorText?.message}
-                            onHelp={() => setShowFlavorMarkupHelp(true)}
-                          />
-                        </label>
-                      </div>
-                    </section>
-
-                    <section className="detail-config-section">
-                      <div className="detail-config-section__header">
-                        <h3>Custom Styling</h3>
-                      </div>
-
-                      <div className="detail-config-grid">
-                        <label>
-                          <span>Banner Color</span>
-                          <div className="detail-color-input">
-                            <input
-                              type="color"
-                              value={bannerColorValue || "#336699"}
-                              onChange={(event) =>
-                                setValue(
-                                  "customCss.bannerColor",
-                                  event.target.value,
-                                  {
-                                    shouldValidate: true,
-                                  },
-                                )
-                              }
-                              aria-label="Banner color"
-                            />
-                            <span>{bannerColorValue || "Default"}</span>
-                            <button
-                              type="button"
-                              className="btn-secondary btn-xs"
-                              onClick={() =>
-                                setValue("customCss.bannerColor", "", {
-                                  shouldValidate: true,
-                                })
-                              }
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        </label>
-
-                        <label>
-                          <span>Banner Foreground</span>
-                          <div className="detail-color-input">
-                            <input
-                              type="color"
-                              value={bannerForegroundValue || "#ffffff"}
-                              onChange={(event) =>
-                                setValue(
-                                  "customCss.bannerForeground",
-                                  event.target.value,
-                                  { shouldValidate: true },
-                                )
-                              }
-                              aria-label="Banner foreground color"
-                            />
-                            <span>{bannerForegroundValue || "Default"}</span>
-                            <button
-                              type="button"
-                              className="btn-secondary btn-xs"
-                              onClick={() =>
-                                setValue("customCss.bannerForeground", "", {
-                                  shouldValidate: true,
-                                })
-                              }
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        </label>
-                      </div>
-                    </section>
-
-                    <section className="detail-config-section">
-                      <div className="detail-config-section__header">
-                        <h3>Images</h3>
-                        <p>
-                          Upload the art assets used to render the card preview.
-                        </p>
-                      </div>
-
-                      <div className="image-input-row">
-                        <ImageInput
-                          label="Background Image"
-                          value={bgValue}
-                          maxUploadBytes={Math.max(
-                            0,
-                            MAX_TOTAL_UPLOAD_BYTES -
-                              estimateUploadedImageBytes(fgValue),
-                          )}
-                          onChange={(url) =>
-                            setValue("backgroundImage", url, {
-                              shouldValidate: true,
-                            })
-                          }
-                          onClear={() =>
-                            setValue("backgroundImage", "", {
-                              shouldValidate: true,
-                            })
-                          }
-                          error={errors.backgroundImage?.message}
+                    <button
+                      type="button"
+                      role="tab"
+                      className={`detail-tabs__button${activeTab === "general" ? " is-active" : ""}`}
+                      aria-selected={activeTab === "general"}
+                      aria-label={
+                        generalTabHasErrors
+                          ? "Card Appearance, has validation errors"
+                          : undefined
+                      }
+                      onClick={() => setActiveTab("general")}
+                    >
+                      <span>Card Appearance</span>
+                      {generalTabHasErrors ? (
+                        <span
+                          className="detail-tabs__button-badge"
+                          aria-hidden="true"
                         />
-
-                        <ImageInput
-                          label="Logo / Icon"
-                          value={fgValue}
-                          maxUploadBytes={Math.max(
-                            0,
-                            MAX_TOTAL_UPLOAD_BYTES -
-                              estimateUploadedImageBytes(bgValue),
-                          )}
-                          onChange={(url) =>
-                            setValue("foregroundImage", url, {
-                              shouldValidate: true,
-                            })
-                          }
-                          onClear={() =>
-                            setValue("foregroundImage", "", {
-                              shouldValidate: true,
-                            })
-                          }
-                          error={errors.foregroundImage?.message}
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      className={`detail-tabs__button${activeTab === "contact" ? " is-active" : ""}`}
+                      aria-selected={activeTab === "contact"}
+                      aria-label={
+                        contactTabHasErrors
+                          ? "Contact Information, has validation errors"
+                          : undefined
+                      }
+                      onClick={() => setActiveTab("contact")}
+                    >
+                      <span>Contact Information</span>
+                      {contactTabHasErrors ? (
+                        <span
+                          className="detail-tabs__button-badge"
+                          aria-hidden="true"
                         />
-                      </div>
-                    </section>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      className={`detail-tabs__button${activeTab === "premium" ? " is-active" : ""}`}
+                      aria-selected={activeTab === "premium"}
+                      aria-label={
+                        premiumTabHasErrors
+                          ? "User Hub, has validation errors"
+                          : undefined
+                      }
+                      onClick={() => setActiveTab("premium")}
+                    >
+                      <span>User Hub</span>
+                      {premiumTabHasErrors ? (
+                        <span
+                          className="detail-tabs__button-badge"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </button>
                   </div>
-                ) : null}
 
-                {activeTab === "contact" ? (
-                  <div className="detail-tab-panel" role="tabpanel">
-                    <section className="detail-config-section">
-                      {isPremium ? (
+                  {activeTab === "general" ? (
+                    <div className="detail-tab-panel" role="tabpanel">
+                      {isMintedCard ? (
+                        <div
+                          className="detail-lock-notice"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          This card has been minted. Card Appearance is locked
+                          and can no longer be edited.
+                        </div>
+                      ) : null}
+
+                      {!isMintedCard ? (
                         <>
-                          <div className="detail-config-section__header">
-                            <h3>Contact Information</h3>
-                            <p>
-                              Store the optional fields used to generate the
-                              contact card vCard.
-                            </p>
-                          </div>
+                          <section className="detail-config-section">
+                            <div className="detail-config-section__header">
+                              <h3>Card Appearance</h3>
+                              <p>
+                                Update the main content and styling for the
+                                front of the card.
+                              </p>
+                            </div>
 
-                          <div className="detail-contact-groups">
-                            <section className="detail-contact-group">
-                              <div className="detail-contact-group__header">
-                                <h4>Identity</h4>
-                                <p>
-                                  Basic profile details for the contact card.
-                                </p>
-                              </div>
-                              <div className="detail-config-grid detail-config-grid--contact">
-                                <label>
-                                  <span>First Name</span>
-                                  <input
-                                    placeholder="Jane"
-                                    {...register("contactInfo.firstName")}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>Last Name</span>
-                                  <input
-                                    placeholder="Hero"
-                                    {...register("contactInfo.lastName")}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>Organization</span>
-                                  <input
-                                    placeholder="Legendary Profiles"
-                                    {...register("contactInfo.organization")}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>Job Title</span>
-                                  <input
-                                    placeholder="Community Manager"
-                                    {...register("contactInfo.jobTitle")}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>Website</span>
-                                  <input
-                                    type="url"
-                                    placeholder="https://legendaryprofiles.com"
-                                    {...register("contactInfo.website")}
-                                  />
-                                  {errors.contactInfo?.website ? (
-                                    <small className="field-error">
-                                      {errors.contactInfo.website.message}
-                                    </small>
-                                  ) : null}
-                                </label>
-
-                                <label>
-                                  <span>Birthday</span>
-                                  <input
-                                    type="date"
-                                    {...register("contactInfo.birthday")}
-                                  />
-                                </label>
-                              </div>
-                            </section>
-
-                            <section className="detail-contact-group">
-                              <div className="detail-contact-group__header">
-                                <h4>Address</h4>
-                                <p>Mailing details saved with the vCard.</p>
-                              </div>
-                              <div className="detail-config-grid detail-config-grid--contact">
-                                <label className="detail-config-grid__full">
-                                  <span>Street Address 1</span>
-                                  <input
-                                    {...register("contactInfo.address.street1")}
-                                  />
-                                </label>
-
-                                <label className="detail-config-grid__full">
-                                  <span>Street Address 2</span>
-                                  <input
-                                    {...register("contactInfo.address.street2")}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>City</span>
-                                  <input
-                                    {...register("contactInfo.address.city")}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>State / Region</span>
-                                  <input
-                                    {...register("contactInfo.address.region")}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>Postal Code</span>
-                                  <input
-                                    {...register(
-                                      "contactInfo.address.postalCode",
-                                    )}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>Country</span>
-                                  <input
-                                    {...register("contactInfo.address.country")}
-                                  />
-                                </label>
-                              </div>
-                            </section>
-
-                            <section className="detail-contact-group">
-                              <div className="detail-contact-group__header">
-                                <h4>Direct Contact</h4>
-                                <p>Phone numbers and email addresses.</p>
-                              </div>
-                              <div className="detail-config-grid detail-config-grid--contact">
-                                <label>
-                                  <span>Home Phone</span>
-                                  <input
-                                    {...register("contactInfo.homePhone")}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>Cell Phone</span>
-                                  <input
-                                    {...register("contactInfo.cellPhone")}
-                                  />
-                                </label>
-
-                                <label>
-                                  <span>Personal Email</span>
-                                  <input
-                                    {...register("contactInfo.personalEmail")}
-                                  />
-                                  {errors.contactInfo?.personalEmail ? (
-                                    <small className="field-error">
-                                      {errors.contactInfo.personalEmail.message}
-                                    </small>
-                                  ) : null}
-                                </label>
-
-                                <label>
-                                  <span>Work Email</span>
-                                  <input
-                                    {...register("contactInfo.workEmail")}
-                                  />
-                                  {errors.contactInfo?.workEmail ? (
-                                    <small className="field-error">
-                                      {errors.contactInfo.workEmail.message}
-                                    </small>
-                                  ) : null}
-                                </label>
-                              </div>
-                            </section>
-
-                            <section className="detail-contact-group">
-                              <div className="detail-config-section__header detail-config-section__header--row">
-                                <div>
-                                  <h4>Social Media Accounts</h4>
-                                  <p>Add named social links one at a time.</p>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="btn-secondary btn-xs"
-                                  onClick={() =>
-                                    appendSocialMedia({ name: "", url: "" })
+                            <div className="detail-config-grid">
+                              <label className="detail-config-grid__full">
+                                <span className="label-required">
+                                  Template{" "}
+                                  <span className="required-asterisk">*</span>
+                                </span>
+                                <select
+                                  {...register("templateId")}
+                                  disabled={
+                                    templatesLoading || !canEditCardAppearance
                                   }
                                 >
-                                  Add Account
-                                </button>
-                              </div>
-
-                              {socialMediaFields.length > 0 ? (
-                                <div className="detail-link-list detail-link-list--nested">
-                                  {socialMediaFields.map((field, index) => (
-                                    <div
-                                      key={field.id}
-                                      className="detail-link-row"
+                                  <option value="">
+                                    {templatesLoading
+                                      ? "Loading templates..."
+                                      : "Select a template"}
+                                  </option>
+                                  {templates?.map((template) => (
+                                    <option
+                                      key={template.id}
+                                      value={template.id}
                                     >
-                                      <label>
-                                        <span>Platform</span>
-                                        <input
-                                          placeholder="Instagram"
-                                          {...register(
-                                            `contactInfo.socialMediaAccounts.${index}.name`,
-                                          )}
-                                        />
-                                        {errors.contactInfo
-                                          ?.socialMediaAccounts?.[index]
-                                          ?.name ? (
-                                          <small className="field-error">
-                                            {
-                                              errors.contactInfo
-                                                .socialMediaAccounts[index]
-                                                ?.name?.message
-                                            }
-                                          </small>
-                                        ) : null}
-                                      </label>
-
-                                      <label>
-                                        <span>Profile URL</span>
-                                        <input
-                                          placeholder="https://instagram.com/legend"
-                                          {...register(
-                                            `contactInfo.socialMediaAccounts.${index}.url`,
-                                          )}
-                                        />
-                                        {errors.contactInfo
-                                          ?.socialMediaAccounts?.[index]
-                                          ?.url ? (
-                                          <small className="field-error">
-                                            {
-                                              errors.contactInfo
-                                                .socialMediaAccounts[index]?.url
-                                                ?.message
-                                            }
-                                          </small>
-                                        ) : null}
-                                      </label>
-
-                                      <div className="detail-link-row__actions">
-                                        <button
-                                          type="button"
-                                          className="btn-secondary btn-xs"
-                                          onClick={() =>
-                                            removeSocialMedia(index)
-                                          }
-                                        >
-                                          Remove
-                                        </button>
-                                      </div>
-                                    </div>
+                                      {template.name}
+                                    </option>
                                   ))}
-                                </div>
-                              ) : (
-                                <div className="detail-config-empty-state">
-                                  No social accounts added yet.
-                                </div>
-                              )}
-                            </section>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="detail-config-section__header">
-                            <h3>Contact Information</h3>
-                            <p>
-                              Contact details are a premium feature and are only
-                              available after upgrading this card.
-                            </p>
-                          </div>
+                                </select>
+                                {errors.templateId ? (
+                                  <small className="field-error">
+                                    {errors.templateId.message}
+                                  </small>
+                                ) : null}
+                                {selectedTemplateId ? (
+                                  <small className="id-copy-note">
+                                    Selected: {selectedTemplateName}
+                                  </small>
+                                ) : null}
+                              </label>
 
-                          <div className="detail-config-empty-state">
-                            Upgrade this card to unlock the contact information
-                            fields and vCard details.
-                          </div>
-                        </>
-                      )}
-                    </section>
-                  </div>
-                ) : null}
+                              <label>
+                                <span className="label-required">
+                                  Title{" "}
+                                  <span className="required-asterisk">*</span>
+                                </span>
+                                <input
+                                  {...register("title")}
+                                  disabled={hasImmutableContentLock}
+                                />
+                                {errors.title ? (
+                                  <small className="field-error">
+                                    {errors.title.message}
+                                  </small>
+                                ) : null}
+                              </label>
 
-                {activeTab === "premium" ? (
-                  <div className="detail-tab-panel" role="tabpanel">
-                    <section className="detail-config-section">
-                      {isPremium ? (
-                        <>
-                          <div className="detail-config-section__header detail-config-section__header--row">
-                            <div>
-                              <h3>Custom Links</h3>
+                              <label>
+                                <span className="label-required">
+                                  Subtitle{" "}
+                                  <span className="required-asterisk">*</span>
+                                </span>
+                                <input
+                                  {...register("subtitle")}
+                                  disabled={hasImmutableContentLock}
+                                />
+                                {errors.subtitle ? (
+                                  <small className="field-error">
+                                    {errors.subtitle.message}
+                                  </small>
+                                ) : null}
+                              </label>
+
+                              <label className="detail-config-grid__full">
+                                <span className="label-required">
+                                  Flavor Text{" "}
+                                  <span className="required-asterisk">*</span>
+                                </span>
+                                <FlavorMarkupInput
+                                  value={flavorTextValue}
+                                  onChange={(nextValue) =>
+                                    setValue("flavorText", nextValue, {
+                                      shouldValidate: true,
+                                    })
+                                  }
+                                  error={errors.flavorText?.message}
+                                  onHelp={() => setShowFlavorMarkupHelp(true)}
+                                  disabled={hasImmutableContentLock}
+                                />
+                              </label>
+                            </div>
+                          </section>
+
+                          <section className="detail-config-section">
+                            <div className="detail-config-section__header">
+                              <h3>Custom Styling</h3>
+                            </div>
+
+                            <div className="detail-config-grid">
+                              <label>
+                                <span>Banner Color</span>
+                                <div className="detail-color-input">
+                                  <input
+                                    type="color"
+                                    value={bannerColorValue || "#336699"}
+                                    onChange={(event) =>
+                                      setValue(
+                                        "customCss.bannerColor",
+                                        event.target.value,
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      )
+                                    }
+                                    aria-label="Banner color"
+                                    disabled={!canEditCardAppearance}
+                                  />
+                                  <span>{bannerColorValue || "Default"}</span>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary btn-xs"
+                                    onClick={() =>
+                                      setValue("customCss.bannerColor", "", {
+                                        shouldValidate: true,
+                                      })
+                                    }
+                                    disabled={!canEditCardAppearance}
+                                  >
+                                    Clear
+                                  </button>
+                                </div>
+                              </label>
+
+                              <label>
+                                <span>Banner Foreground</span>
+                                <div className="detail-color-input">
+                                  <input
+                                    type="color"
+                                    value={bannerForegroundValue || "#ffffff"}
+                                    onChange={(event) =>
+                                      setValue(
+                                        "customCss.bannerForeground",
+                                        event.target.value,
+                                        { shouldValidate: true },
+                                      )
+                                    }
+                                    aria-label="Banner foreground color"
+                                    disabled={!canEditCardAppearance}
+                                  />
+                                  <span>
+                                    {bannerForegroundValue || "Default"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary btn-xs"
+                                    onClick={() =>
+                                      setValue(
+                                        "customCss.bannerForeground",
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      )
+                                    }
+                                    disabled={!canEditCardAppearance}
+                                  >
+                                    Clear
+                                  </button>
+                                </div>
+                              </label>
+                            </div>
+                          </section>
+
+                          <section className="detail-config-section">
+                            <div className="detail-config-section__header">
+                              <h3>Images</h3>
                               <p>
-                                Add one or more links to be displayed on your
-                                premium card when the user scans your QR code.
+                                Upload the art assets used to render the card
+                                preview.
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              className="btn-secondary btn-xs"
-                              onClick={() =>
-                                appendPremiumUrl({ name: "", url: "" })
-                              }
-                            >
-                              Add Link
-                            </button>
-                          </div>
 
-                          {premiumUrlFields.length > 0 ? (
-                            <div className="detail-link-list">
-                              {premiumUrlFields.map((field, index) => (
-                                <div key={field.id} className="detail-link-row">
+                            <div className="image-input-row">
+                              <ImageInput
+                                label="Background Image"
+                                value={bgValue}
+                                maxUploadBytes={Math.max(
+                                  0,
+                                  MAX_TOTAL_UPLOAD_BYTES -
+                                    estimateUploadedImageBytes(fgValue),
+                                )}
+                                onChange={(url) =>
+                                  setValue("backgroundImage", url, {
+                                    shouldValidate: true,
+                                  })
+                                }
+                                onClear={() =>
+                                  setValue("backgroundImage", "", {
+                                    shouldValidate: true,
+                                  })
+                                }
+                                error={errors.backgroundImage?.message}
+                                disabled={hasImmutableContentLock}
+                              />
+
+                              <ImageInput
+                                label="Logo / Icon"
+                                value={fgValue}
+                                maxUploadBytes={Math.max(
+                                  0,
+                                  MAX_TOTAL_UPLOAD_BYTES -
+                                    estimateUploadedImageBytes(bgValue),
+                                )}
+                                onChange={(url) =>
+                                  setValue("foregroundImage", url, {
+                                    shouldValidate: true,
+                                  })
+                                }
+                                onClear={() =>
+                                  setValue("foregroundImage", "", {
+                                    shouldValidate: true,
+                                  })
+                                }
+                                error={errors.foregroundImage?.message}
+                                disabled={hasImmutableContentLock}
+                              />
+                            </div>
+                          </section>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {activeTab === "contact" ? (
+                    <div className="detail-tab-panel" role="tabpanel">
+                      <section className="detail-config-section">
+                        {canEditLinkedSections ? (
+                          <>
+                            <div className="detail-config-section__header">
+                              <h3>Contact Information</h3>
+                              <p>
+                                Store the optional fields used to generate the
+                                contact card vCard.
+                              </p>
+                            </div>
+
+                            <div className="detail-contact-groups">
+                              <section className="detail-contact-group">
+                                <div className="detail-contact-group__header">
+                                  <h4>Identity</h4>
+                                  <p>
+                                    Basic profile details for the contact card.
+                                  </p>
+                                </div>
+                                <div className="detail-config-grid detail-config-grid--contact">
                                   <label>
-                                    <span>Link Name</span>
+                                    <span>First Name</span>
                                     <input
-                                      placeholder="Portfolio"
+                                      placeholder="Jane"
+                                      {...register("contactInfo.firstName")}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>Last Name</span>
+                                    <input
+                                      placeholder="Hero"
+                                      {...register("contactInfo.lastName")}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>Organization</span>
+                                    <input
+                                      placeholder="Legendary Profiles"
+                                      {...register("contactInfo.organization")}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>Job Title</span>
+                                    <input
+                                      placeholder="Community Manager"
+                                      {...register("contactInfo.jobTitle")}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>Website</span>
+                                    <input
+                                      type="url"
+                                      placeholder="https://legendaryprofiles.com"
+                                      {...register("contactInfo.website")}
+                                    />
+                                    {errors.contactInfo?.website ? (
+                                      <small className="field-error">
+                                        {errors.contactInfo.website.message}
+                                      </small>
+                                    ) : null}
+                                  </label>
+
+                                  <label>
+                                    <span>Birthday</span>
+                                    <input
+                                      type="date"
+                                      {...register("contactInfo.birthday")}
+                                    />
+                                  </label>
+                                </div>
+                              </section>
+
+                              <section className="detail-contact-group">
+                                <div className="detail-contact-group__header">
+                                  <h4>Address</h4>
+                                  <p>Mailing details saved with the vCard.</p>
+                                </div>
+                                <div className="detail-config-grid detail-config-grid--contact">
+                                  <label className="detail-config-grid__full">
+                                    <span>Street Address 1</span>
+                                    <input
                                       {...register(
-                                        `premium.urlList.${index}.name`,
+                                        "contactInfo.address.street1",
                                       )}
                                     />
-                                    {errors.premium?.urlList?.[index]?.name ? (
+                                  </label>
+
+                                  <label className="detail-config-grid__full">
+                                    <span>Street Address 2</span>
+                                    <input
+                                      {...register(
+                                        "contactInfo.address.street2",
+                                      )}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>City</span>
+                                    <input
+                                      {...register("contactInfo.address.city")}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>State / Region</span>
+                                    <input
+                                      {...register(
+                                        "contactInfo.address.region",
+                                      )}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>Postal Code</span>
+                                    <input
+                                      {...register(
+                                        "contactInfo.address.postalCode",
+                                      )}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>Country</span>
+                                    <input
+                                      {...register(
+                                        "contactInfo.address.country",
+                                      )}
+                                    />
+                                  </label>
+                                </div>
+                              </section>
+
+                              <section className="detail-contact-group">
+                                <div className="detail-contact-group__header">
+                                  <h4>Direct Contact</h4>
+                                  <p>Phone numbers and email addresses.</p>
+                                </div>
+                                <div className="detail-config-grid detail-config-grid--contact">
+                                  <label>
+                                    <span>Home Phone</span>
+                                    <input
+                                      {...register("contactInfo.homePhone")}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>Cell Phone</span>
+                                    <input
+                                      {...register("contactInfo.cellPhone")}
+                                    />
+                                  </label>
+
+                                  <label>
+                                    <span>Personal Email</span>
+                                    <input
+                                      {...register("contactInfo.personalEmail")}
+                                    />
+                                    {errors.contactInfo?.personalEmail ? (
                                       <small className="field-error">
                                         {
-                                          errors.premium.urlList[index]?.name
-                                            ?.message
+                                          errors.contactInfo.personalEmail
+                                            .message
                                         }
                                       </small>
                                     ) : null}
                                   </label>
 
                                   <label>
-                                    <span>URL</span>
+                                    <span>Work Email</span>
                                     <input
-                                      placeholder="https://example.com"
-                                      {...register(
-                                        `premium.urlList.${index}.url`,
-                                      )}
+                                      {...register("contactInfo.workEmail")}
                                     />
-                                    {errors.premium?.urlList?.[index]?.url ? (
+                                    {errors.contactInfo?.workEmail ? (
                                       <small className="field-error">
-                                        {
-                                          errors.premium.urlList[index]?.url
-                                            ?.message
-                                        }
+                                        {errors.contactInfo.workEmail.message}
                                       </small>
                                     ) : null}
                                   </label>
+                                </div>
+                              </section>
 
-                                  <div className="detail-link-row__actions">
-                                    <button
-                                      type="button"
-                                      className="btn-secondary btn-xs"
-                                      onClick={() => removePremiumUrl(index)}
-                                    >
-                                      Remove
-                                    </button>
+                              <section className="detail-contact-group">
+                                <div className="detail-config-section__header detail-config-section__header--row">
+                                  <div>
+                                    <h4>Social Media Accounts</h4>
+                                    <p>Add named social links one at a time.</p>
                                   </div>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary btn-xs"
+                                    onClick={() =>
+                                      appendSocialMedia({ name: "", url: "" })
+                                    }
+                                  >
+                                    Add Account
+                                  </button>
                                 </div>
-                              ))}
+
+                                {socialMediaFields.length > 0 ? (
+                                  <div className="detail-link-list detail-link-list--nested">
+                                    {socialMediaFields.map((field, index) => (
+                                      <div
+                                        key={field.id}
+                                        className="detail-link-row"
+                                      >
+                                        <label>
+                                          <span>Platform</span>
+                                          <input
+                                            placeholder="Instagram"
+                                            {...register(
+                                              `contactInfo.socialMediaAccounts.${index}.name`,
+                                            )}
+                                          />
+                                          {errors.contactInfo
+                                            ?.socialMediaAccounts?.[index]
+                                            ?.name ? (
+                                            <small className="field-error">
+                                              {
+                                                errors.contactInfo
+                                                  .socialMediaAccounts[index]
+                                                  ?.name?.message
+                                              }
+                                            </small>
+                                          ) : null}
+                                        </label>
+
+                                        <label>
+                                          <span>Profile URL</span>
+                                          <input
+                                            placeholder="https://instagram.com/legend"
+                                            {...register(
+                                              `contactInfo.socialMediaAccounts.${index}.url`,
+                                            )}
+                                          />
+                                          {errors.contactInfo
+                                            ?.socialMediaAccounts?.[index]
+                                            ?.url ? (
+                                            <small className="field-error">
+                                              {
+                                                errors.contactInfo
+                                                  .socialMediaAccounts[index]
+                                                  ?.url?.message
+                                              }
+                                            </small>
+                                          ) : null}
+                                        </label>
+
+                                        <div className="detail-link-row__actions">
+                                          <button
+                                            type="button"
+                                            className="btn-secondary btn-xs"
+                                            onClick={() =>
+                                              removeSocialMedia(index)
+                                            }
+                                          >
+                                            Remove
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="detail-config-empty-state">
+                                    No social accounts added yet.
+                                  </div>
+                                )}
+                              </section>
                             </div>
-                          ) : (
-                            <div className="detail-config-empty-state">
-                              No custom links added yet.
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <div className="detail-config-section__header">
-                            <div>
-                              <h3>Custom Links</h3>
+                          </>
+                        ) : (
+                          <>
+                            <div className="detail-config-section__header">
+                              <h3>Contact Information</h3>
                               <p>
-                                Custom links are a premium feature and are only
-                                available after upgrading this card.
+                                Minted cards require an active account
+                                subscription before contact details can be
+                                edited.
                               </p>
                             </div>
-                          </div>
 
-                          <div className="detail-config-empty-state">
-                            Upgrade this card to add links to the user hub.
-                          </div>
-                        </>
-                      )}
-                    </section>
-                  </div>
-                ) : null}
-              </div>
+                            <div className="detail-config-empty-state">
+                              Start or renew your account subscription to unlock
+                              contact editing for minted cards.
+                            </div>
+                          </>
+                        )}
+                      </section>
+                    </div>
+                  ) : null}
+
+                  {activeTab === "premium" ? (
+                    <div className="detail-tab-panel" role="tabpanel">
+                      <section className="detail-config-section">
+                        {canEditLinkedSections ? (
+                          <>
+                            <div className="detail-config-section__header detail-config-section__header--row">
+                              <div>
+                                <h3>Custom Links</h3>
+                                <p>
+                                  Add one or more links to be displayed on your
+                                  profile card when the user scans your QR code.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn-secondary btn-xs"
+                                onClick={() =>
+                                  appendPremiumUrl({ name: "", url: "" })
+                                }
+                              >
+                                Add Link
+                              </button>
+                            </div>
+
+                            {premiumUrlFields.length > 0 ? (
+                              <div className="detail-link-list">
+                                {premiumUrlFields.map((field, index) => (
+                                  <div
+                                    key={field.id}
+                                    className="detail-link-row"
+                                  >
+                                    <label>
+                                      <span>Link Name</span>
+                                      <input
+                                        placeholder="Portfolio"
+                                        {...register(
+                                          `premium.urlList.${index}.name`,
+                                        )}
+                                      />
+                                      {errors.premium?.urlList?.[index]
+                                        ?.name ? (
+                                        <small className="field-error">
+                                          {
+                                            errors.premium.urlList[index]?.name
+                                              ?.message
+                                          }
+                                        </small>
+                                      ) : null}
+                                    </label>
+
+                                    <label>
+                                      <span>URL</span>
+                                      <input
+                                        placeholder="https://example.com"
+                                        {...register(
+                                          `premium.urlList.${index}.url`,
+                                        )}
+                                      />
+                                      {errors.premium?.urlList?.[index]?.url ? (
+                                        <small className="field-error">
+                                          {
+                                            errors.premium.urlList[index]?.url
+                                              ?.message
+                                          }
+                                        </small>
+                                      ) : null}
+                                    </label>
+
+                                    <div className="detail-link-row__actions">
+                                      <button
+                                        type="button"
+                                        className="btn-secondary btn-xs"
+                                        onClick={() => removePremiumUrl(index)}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="detail-config-empty-state">
+                                No custom links added yet.
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className="detail-config-section__header">
+                              <div>
+                                <h3>Custom Links</h3>
+                                <p>
+                                  Minted cards require an active account
+                                  subscription before custom links can be
+                                  edited.
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="detail-config-empty-state">
+                              Start or renew your account subscription to manage
+                              links for minted cards.
+                            </div>
+                          </>
+                        )}
+                      </section>
+                    </div>
+                  ) : null}
+                </div>
+              </fieldset>
 
               {updateMutation.isError ? (
                 <div className="alert-error">Update failed.</div>
@@ -1762,27 +1844,29 @@ export default function CardDetailPage() {
 
               <div className="button-row">
                 <div className="button-row__group button-row__group--left">
-                  {!isPremium ? (
-                    <button
-                      type="button"
-                      className="btn-gold"
-                      onClick={() => setShowUpgradeModal(true)}
-                    >
-                      Upgrade Card
-                    </button>
+                  {isReadOnlyCard ? (
+                    <Link className="btn-gold" to="/app/settings">
+                      Start Subscription
+                    </Link>
                   ) : null}
                 </div>
                 <div className="button-row__group button-row__group--right">
-                  <button
-                    type="button"
-                    className="btn-danger"
-                    onClick={triggerDelete}
-                  >
-                    Delete Card
-                  </button>
+                  {!isMintedCard ? (
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={triggerDelete}
+                    >
+                      Delete Card
+                    </button>
+                  ) : null}
                   <button
                     type="submit"
-                    disabled={updateMutation.isPending || !canRunActions}
+                    disabled={
+                      updateMutation.isPending ||
+                      !canRunActions ||
+                      isReadOnlyCard
+                    }
                   >
                     {updateMutation.isPending ? "Saving..." : "Save Changes"}
                   </button>

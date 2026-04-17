@@ -19,6 +19,13 @@ interface ApiMessageResponse {
   response: string;
 }
 
+export interface UserProfile {
+  id: string;
+  email?: string;
+  account_subscription_until?: string | null;
+  permissions?: string[];
+}
+
 export async function registerUser(payload: RegisterPayload) {
   const { data } = await apiClient.post<ApiMessageResponse>(
     "/v1/users/register",
@@ -49,5 +56,10 @@ export async function resetPassword(payload: ResetPasswordPayload) {
     "/v1/users/resetPassword",
     payload,
   );
+  return data;
+}
+
+export async function getCurrentUserProfile(userId: string) {
+  const { data } = await apiClient.get<UserProfile>(`/v1/users/${userId}`);
   return data;
 }
