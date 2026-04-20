@@ -50,7 +50,7 @@ export default function RegisterPage() {
           "Registration successful. Check email for activation code.",
       );
     } catch {
-      setError("Registration failed. Check API key and backend validation.");
+      setError("Registration failed. Please try again later.");
     }
   };
 
@@ -62,10 +62,8 @@ export default function RegisterPage() {
     >
       <div className="auth-card-copy">
         <h2>Create account</h2>
-        <p>
-          Register a new account, then activate it with the code sent to your
-          inbox.
-        </p>
+        <p>Enter your registration details below.</p>
+        <br />
       </div>
 
       <form className="stack" onSubmit={handleSubmit(onSubmit)}>

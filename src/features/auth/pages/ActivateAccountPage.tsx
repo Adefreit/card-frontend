@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AuthPageFrame from "../AuthPageFrame";
 import { activateUser } from "../api";
 
@@ -14,9 +14,9 @@ const activationSchema = z.object({
 type ActivationValues = z.infer<typeof activationSchema>;
 
 export default function ActivateAccountPage() {
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const emailFromQuery = searchParams.get("email") ?? "";
   const activationCodeFromQuery = searchParams.get("activationCode") ?? "";
@@ -34,12 +34,14 @@ export default function ActivateAccountPage() {
   });
 
   const onSubmit = async (values: ActivationValues) => {
-    setMessage(null);
     setError(null);
 
     try {
-      const data = await activateUser(values.email, values.code);
-      setMessage(data.response || "Account activated.");
+      await activateUser(values.email, values.code);
+      navigate("/login", {
+        replace: true,
+        state: { activationSuccess: true },
+      });
     } catch {
       setError("Activation failed. Confirm email and activation code.");
     }
@@ -73,7 +75,6 @@ export default function ActivateAccountPage() {
           ) : null}
         </label>
 
-        {message ? <div className="alert-success">{message}</div> : null}
         {error ? <div className="alert-error">{error}</div> : null}
 
         <button type="submit" disabled={isSubmitting}>

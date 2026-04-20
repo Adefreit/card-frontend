@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FieldErrors, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +31,14 @@ import {
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
 import { useAuth } from "../../auth/auth-context";
+import MintCardModal from "../components/MintCardModal";
+import {
+  createIdempotencyKey,
+  createTransaction,
+  getCheckoutRedirectUrl,
+  getPricing,
+  getTransactions,
+} from "../../transactions/api";
 
 const imageFieldSchema = z
   .string()
@@ -448,14 +456,6 @@ function mapSocialAccountsToNamedUrls(
   }));
 }
 
-function hasActiveSubscription(expiresAt?: string | null): boolean {
-  if (!expiresAt) {
-    return false;
-  }
-
-  return new Date(expiresAt) > new Date();
-}
-
 function ComingSoonModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="qr-modal-backdrop" onClick={onClose}>
@@ -540,7 +540,7 @@ function DeleteConfirmModal({
 }
 
 export default function CardDetailPage() {
-  const { accountSubscriptionUntil } = useAuth();
+  const { accountSubscriptionUntil, refreshAccountProfile } = useAuth();
   const { cardId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -555,6 +555,8 @@ export default function CardDetailPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFlavorMarkupHelp, setShowFlavorMarkupHelp] = useState(false);
+  const [showMintModal, setShowMintModal] = useState(false);
+  const [mintAcknowledgment, setMintAcknowledgment] = useState("");
   const autoPreviewedPreviewKeyRef = useRef<string | null>(null);
 
   async function copyId(kind: "card" | "template", value?: string) {
@@ -653,6 +655,16 @@ export default function CardDetailPage() {
   const { data: templates, isLoading: templatesLoading } = useQuery({
     queryKey: ["card-templates"],
     queryFn: getCardTemplates,
+  });
+
+  const pricingQuery = useQuery({
+    queryKey: ["pricing"],
+    queryFn: getPricing,
+  });
+
+  const transactionsQuery = useQuery({
+    queryKey: ["transactions"],
+    queryFn: getTransactions,
   });
 
   useEffect(() => {
@@ -764,6 +776,27 @@ export default function CardDetailPage() {
     },
   });
 
+  const mintMutation = useMutation({
+    mutationFn: (id: string) =>
+      createTransaction({
+        transactionType: "mint",
+        idempotencyKey: createIdempotencyKey(),
+        currency: "usd",
+        mint: { cardId: id },
+      }),
+    onSuccess: async (result) => {
+      const checkoutUrl = getCheckoutRedirectUrl(result);
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["card", cardId] });
+      await queryClient.invalidateQueries({ queryKey: ["cards"] });
+      await refreshAccountProfile();
+    },
+  });
+
   const previewMutation = useMutation({
     mutationFn: previewCard,
     onSuccess: (imageBlob) => {
@@ -816,9 +849,7 @@ export default function CardDetailPage() {
       side: previewSide,
       contactInfo: normalizeContactInfo(values.contactInfo),
       customCss: normalizeCustomCss(values.customCss),
-      premium: canEditLinkedSections
-        ? normalizePremiumUrls(values.premium.urlList)
-        : undefined,
+      premium: normalizePremiumUrls(values.premium.urlList),
       ...backgroundImagePayload,
       ...foregroundImagePayload,
     });
@@ -843,10 +874,52 @@ export default function CardDetailPage() {
     getFlavorMarkupPlainText(flavorTextValue).length > 0 &&
     totalUploadedImageBytes <= MAX_TOTAL_UPLOAD_BYTES;
   const isMintedCard = Boolean(data?.minted);
-  const isAccountSubscribed = hasActiveSubscription(accountSubscriptionUntil);
-  const isReadOnlyCard = isMintedCard && !isAccountSubscribed;
+  const isAccountSubscribed = Boolean(
+    accountSubscriptionUntil &&
+    new Date(accountSubscriptionUntil).getTime() > Date.now(),
+  );
+  const monthlyMintAllowance = isAccountSubscribed
+    ? (pricingQuery.data?.subscriptionTypes[0]?.monthlyMintLimit ?? 2)
+    : 0;
+  const monthlyMintTransactions = useMemo(() => {
+    const now = new Date();
+    const records = transactionsQuery.data ?? [];
+    return records.filter((tx) => {
+      if (tx.order_type !== "mint") {
+        return false;
+      }
+
+      const status = (tx.status ?? "").toLowerCase();
+      if (
+        status === "cancelled" ||
+        status === "canceled" ||
+        status === "failed" ||
+        status === "expired"
+      ) {
+        return false;
+      }
+
+      if (!tx.create_time) {
+        return false;
+      }
+
+      const createdAt = new Date(tx.create_time);
+      return (
+        createdAt.getFullYear() === now.getFullYear() &&
+        createdAt.getMonth() === now.getMonth()
+      );
+    }).length;
+  }, [transactionsQuery.data]);
+  const monthlyMintsUsed = Math.min(
+    monthlyMintAllowance,
+    monthlyMintTransactions,
+  );
+  const monthlyMintsRemaining = Math.max(
+    monthlyMintAllowance - monthlyMintsUsed,
+    0,
+  );
   const canEditCardAppearance = !isMintedCard;
-  const canEditLinkedSections = !isMintedCard || isAccountSubscribed;
+  const canEditLinkedSections = true;
   const hasImmutableContentLock = isMintedCard;
 
   function handleInvalidSubmit(invalidErrors: typeof errors) {
@@ -973,6 +1046,45 @@ export default function CardDetailPage() {
       {showFlavorMarkupHelp && (
         <FlavorMarkupHelpModal onClose={() => setShowFlavorMarkupHelp(false)} />
       )}
+      {showMintModal && data ? (
+        <MintCardModal
+          cardTitle={data.data.title}
+          mintPrice={pricingQuery.data?.mint ?? null}
+          isSubscribed={isAccountSubscribed}
+          mintDiscountPercent={
+            pricingQuery.data?.subscriptionTypes[0]?.mintDiscountPercent
+          }
+          freeMintsRemaining={monthlyMintsRemaining}
+          acknowledgment={mintAcknowledgment}
+          onAcknowledgmentChange={setMintAcknowledgment}
+          onManageSubscriptions={() => {
+            setShowMintModal(false);
+            setMintAcknowledgment("");
+            navigate("/app/settings");
+          }}
+          onClose={() => {
+            if (mintMutation.isPending) {
+              return;
+            }
+
+            setShowMintModal(false);
+            setMintAcknowledgment("");
+          }}
+          isPending={mintMutation.isPending}
+          onConfirm={() => {
+            if (!data) {
+              return;
+            }
+
+            mintMutation.mutate(data.id, {
+              onSuccess: async () => {
+                setShowMintModal(false);
+                setMintAcknowledgment("");
+              },
+            });
+          }}
+        />
+      ) : null}
       <section className="content-hero">
         <div>
           <h1>Card detail</h1>
@@ -1038,17 +1150,8 @@ export default function CardDetailPage() {
                   return;
                 }
 
-                if (isReadOnlyCard) {
-                  setSubmitErrorMessage(
-                    "Minted cards are read-only unless your account has an active subscription.",
-                  );
-                  return;
-                }
-
                 const contactInfo = normalizeContactInfo(values.contactInfo);
-                const premium = canEditLinkedSections
-                  ? normalizePremiumUrls(values.premium.urlList)
-                  : undefined;
+                const premium = normalizePremiumUrls(values.premium.urlList);
 
                 console.debug("[CardDetailPage] Saving card", {
                   routeCardId: cardId,
@@ -1093,10 +1196,7 @@ export default function CardDetailPage() {
                 updateMutation.mutate(updatePayload);
               }, handleInvalidSubmit)}
             >
-              <fieldset
-                disabled={isReadOnlyCard}
-                style={{ border: 0, margin: 0, padding: 0 }}
-              >
+              <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
                 <div className="detail-tabs-shell">
                   <div
                     className="detail-tabs"
@@ -1303,7 +1403,7 @@ export default function CardDetailPage() {
                                     aria-label="Banner color"
                                     disabled={!canEditCardAppearance}
                                   />
-                                  <span>{bannerColorValue || "Default"}</span>
+                                  <span>{bannerColorValue || "#336699"}</span>
                                   <button
                                     type="button"
                                     className="btn-secondary btn-xs"
@@ -1336,7 +1436,7 @@ export default function CardDetailPage() {
                                     disabled={!canEditCardAppearance}
                                   />
                                   <span>
-                                    {bannerForegroundValue || "Default"}
+                                    {bannerForegroundValue || "#ffffff"}
                                   </span>
                                   <button
                                     type="button"
@@ -1843,13 +1943,7 @@ export default function CardDetailPage() {
               ) : null}
 
               <div className="button-row">
-                <div className="button-row__group button-row__group--left">
-                  {isReadOnlyCard ? (
-                    <Link className="btn-gold" to="/app/settings">
-                      Start Subscription
-                    </Link>
-                  ) : null}
-                </div>
+                <div className="button-row__group button-row__group--left"></div>
                 <div className="button-row__group button-row__group--right">
                   {!isMintedCard ? (
                     <button
@@ -1862,11 +1956,7 @@ export default function CardDetailPage() {
                   ) : null}
                   <button
                     type="submit"
-                    disabled={
-                      updateMutation.isPending ||
-                      !canRunActions ||
-                      isReadOnlyCard
-                    }
+                    disabled={updateMutation.isPending || !canRunActions}
                   >
                     {updateMutation.isPending ? "Saving..." : "Save Changes"}
                   </button>
@@ -1925,6 +2015,19 @@ export default function CardDetailPage() {
                   alt="Card preview"
                   className="create-preview-image"
                 />
+                {!isMintedCard ? (
+                  <button
+                    type="button"
+                    className="btn-gold create-preview-mint-btn"
+                    onClick={() => {
+                      setMintAcknowledgment("");
+                      setShowMintModal(true);
+                    }}
+                    disabled={mintMutation.isPending}
+                  >
+                    {mintMutation.isPending ? "Minting..." : "Mint Card"}
+                  </button>
+                ) : null}
                 <div className="create-preview-bleed-note" role="note">
                   <center>
                     <strong>How to Interpret the Guide Lines</strong>
@@ -1951,6 +2054,19 @@ export default function CardDetailPage() {
                 </p>
               </div>
             )}
+            {!previewUrl && !isMintedCard ? (
+              <button
+                type="button"
+                className="btn-gold create-preview-mint-btn"
+                onClick={() => {
+                  setMintAcknowledgment("");
+                  setShowMintModal(true);
+                }}
+                disabled={mintMutation.isPending}
+              >
+                {mintMutation.isPending ? "Minting..." : "Mint Card"}
+              </button>
+            ) : null}
           </aside>
         </div>
       ) : null}

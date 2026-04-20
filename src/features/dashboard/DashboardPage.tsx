@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Link } from "react-router-dom";
@@ -8,13 +8,20 @@ import {
   renderCardProof,
   renderCardProofPrinterFriendly,
 } from "../cards/api";
+import MintCardModal from "../cards/components/MintCardModal";
 import { apiClient } from "../../lib/http";
 import { useAuth } from "../auth/auth-context";
 import {
+  type CardPackProductId,
   createIdempotencyKey,
   createTransaction,
   getCheckoutRedirectUrl,
+  getPricing,
+  getTransactions,
+  type StripePriceSummary,
+  type SubscriptionTypePricing,
 } from "../transactions/api";
+import PlanComparisonTable from "../subscription/components/PlanComparisonTable";
 
 const CARD_GRADIENTS = [
   "linear-gradient(135deg, #1e1b4b 0%, #3730a3 100%)",
@@ -96,12 +103,47 @@ function getPurchaseTransactionErrorMessage(error: unknown): string {
   );
 }
 
-function PlanModal({ onClose }: { onClose: () => void }) {
+function formatStripePrice(price: {
+  unitAmountCents: number;
+  currency: string;
+}) {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: price.currency.toUpperCase(),
+  }).format(price.unitAmountCents / 100);
+}
+
+function PlanModal({
+  onClose,
+  plans,
+  selectedPlanId,
+  onSelectPlan,
+  selectedInterval,
+  onSelectInterval,
+  onStartSubscription,
+  isStartPending,
+  isSubscribed,
+  mintPrice,
+}: {
+  onClose: () => void;
+  plans: SubscriptionTypePricing[];
+  selectedPlanId: string;
+  onSelectPlan: (id: string) => void;
+  selectedInterval: "month" | "year";
+  onSelectInterval: (interval: "month" | "year") => void;
+  onStartSubscription: () => void;
+  isStartPending: boolean;
+  isSubscribed: boolean;
+  mintPrice?: StripePriceSummary | null;
+}) {
+  const selectedPlan =
+    plans.find((plan) => plan.id === selectedPlanId) ?? plans[0] ?? null;
+
   return (
     <div className="qr-modal-backdrop" onClick={onClose}>
       <div className="qr-modal plan-modal" onClick={(e) => e.stopPropagation()}>
         <div className="qr-modal-header">
-          <h3>Draft vs. Premium</h3>
+          <h3>Free vs. Founder Subscription</h3>
           <button
             type="button"
             className="qr-modal-close"
@@ -112,53 +154,30 @@ function PlanModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className="qr-modal-subtitle">
-          Choose the tier that fits your legend.
+          Pick a model that fits your journey today.
         </p>
-        <div className="plan-compare">
-          <div className="plan-col plan-col--draft">
-            <div className="plan-col-header">
-              <span className="plan-name">Draft</span>
-              <span className="plan-price">Free</span>
-            </div>
-            <ul className="plan-features">
-              <li className="plan-feat plan-feat--yes">
-                Create / Update Cards
-              </li>
-              <li className="plan-feat plan-feat--no">Downloadable Proof</li>
-              <li className="plan-feat plan-feat--no">Smart QR Codes</li>
-              <li className="plan-feat plan-feat--no">
-                Analytics &amp; Scan Tracking
-              </li>
-              <li className="plan-feat plan-feat--no">Link Hub Page</li>
-              <li className="plan-feat plan-feat--no">Priority Support</li>
-            </ul>
-          </div>
-          <div className="plan-col plan-col--premium">
-            <div className="plan-col-header">
-              <span className="plan-name">✦ Premium</span>
-              <span className="plan-price">$10.00 / year</span>
-            </div>
-            <ul className="plan-features">
-              <li className="plan-feat plan-feat--yes">
-                Create / Update Cards
-              </li>
-              <li className="plan-feat plan-feat--yes">Downloadable Proof</li>
-              <li className="plan-feat plan-feat--yes">Smart QR Codes</li>
-              <li className="plan-feat plan-feat--yes">
-                Analytics &amp; Scan Tracking
-              </li>
-              <li className="plan-feat plan-feat--yes">Link Hub Page</li>
-              <li className="plan-feat plan-feat--yes">Priority Support</li>
-            </ul>
-          </div>
-        </div>
+        <PlanComparisonTable
+          plans={plans}
+          selectedPlanId={selectedPlanId}
+          onSelectPlan={onSelectPlan}
+          selectedInterval={selectedInterval}
+          onSelectInterval={onSelectInterval}
+          onStartSubscription={onStartSubscription}
+          isStartPending={isStartPending}
+          isSubscribed={isSubscribed}
+          mintPrice={mintPrice}
+        />
         <div className="qr-modal-footer">
-          <p
-            style={{ margin: 0, fontSize: "0.9rem", color: "var(--ui-muted)" }}
-          >
-            💡 Ordering physical cards will automatically upgrade that card to
-            Premium.
-          </p>
+          {!selectedPlan ? (
+            <p style={{ margin: 0, color: "var(--ui-muted)" }}>
+              No subscription plans are currently available.
+            </p>
+          ) : null}
+          {isSubscribed ? (
+            <p style={{ margin: 0, color: "var(--ui-muted)" }}>
+              Your Founder Subscription is active.
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
@@ -204,7 +223,13 @@ function QrModal({ cardId, cardTitle, onClose }: QrModalProps) {
             ✕
           </button>
         </div>
-        <p className="qr-modal-subtitle">{cardTitle}</p>
+        <p className="qr-modal-subtitle">
+          <b>{cardTitle}</b>
+        </p>
+        <p className="qr-modal-subtitle">
+          This QR code can be scanned to access the user hub. Feel free to
+          download it and use it however you would like.
+        </p>
         <div className="qr-modal-body">
           {isLoading && <p className="dash-loading">Summoning QR code…</p>}
           {isError && (
@@ -219,13 +244,16 @@ function QrModal({ cardId, cardTitle, onClose }: QrModalProps) {
           )}
         </div>
         {blobUrl && (
-          <div className="qr-modal-footer">
+          <div className="qr-modal-footer qr-modal-footer--actions">
+            <Link className="btn-secondary" to={`/cardviewer/${cardId}`}>
+              Open Card Viewer
+            </Link>
             <a
               className="btn-primary"
               href={blobUrl}
               download={`${cardTitle.replace(/\s+/g, "-").toLowerCase()}-qr.png`}
             >
-              ⬇ Download PNG
+              ⬇ Download (PNG)
             </a>
           </div>
         )}
@@ -237,21 +265,16 @@ function QrModal({ cardId, cardTitle, onClose }: QrModalProps) {
 interface ProofModalProps {
   cardId: string;
   cardTitle: string;
+  isMintedCard: boolean;
   selectedQuantity: number;
+  packPrices?: Record<CardPackProductId, StripePriceSummary> | null;
   onSelectQuantity: (quantity: number) => void;
   onOrderConfirm: () => void;
+  onMintRequest: () => void;
+  isMintPending: boolean;
   isOrderPending: boolean;
   orderErrorMessage?: string | null;
   onClose: () => void;
-}
-
-interface MintWarningModalProps {
-  cardTitle: string;
-  acknowledgment: string;
-  onAcknowledgmentChange: (value: string) => void;
-  onConfirm: () => void;
-  onClose: () => void;
-  isPending: boolean;
 }
 
 function getDownloadFileName(cardTitle: string, suffix: string) {
@@ -273,85 +296,22 @@ function getPdfDownloadFileName(cardTitle: string) {
   return `${cardTitle.replace(/\s+/g, "-").toLowerCase()}-printer-friendly.pdf`;
 }
 
-function MintWarningModal({
-  cardTitle,
-  acknowledgment,
-  onAcknowledgmentChange,
-  onConfirm,
-  onClose,
-  isPending,
-}: MintWarningModalProps) {
-  const requiredPhrase = "I UNDERSTAND";
-  const canConfirm = acknowledgment.trim().toUpperCase() === requiredPhrase;
-
-  return (
-    <div className="qr-modal-backdrop" onClick={onClose}>
-      <div className="qr-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="qr-modal-header">
-          <h3>Mint Card</h3>
-          <button
-            type="button"
-            className="qr-modal-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-        <p className="qr-modal-subtitle">{cardTitle}</p>
-        <div className="qr-modal-body" style={{ textAlign: "left" }}>
-          <p style={{ marginTop: 0 }}>
-            Minting this card will lock its appearance. After minting, you will
-            no longer be able to change the title, subtitle, flavor text, or
-            images.
-          </p>
-          <label style={{ display: "block", marginTop: "12px" }}>
-            <span>Type {requiredPhrase} to continue:</span>
-            <input
-              type="text"
-              value={acknowledgment}
-              onChange={(event) => onAcknowledgmentChange(event.target.value)}
-              placeholder={requiredPhrase}
-              autoComplete="off"
-            />
-          </label>
-        </div>
-        <div className="qr-modal-footer">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-            disabled={isPending}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={onConfirm}
-            disabled={!canConfirm || isPending}
-          >
-            {isPending ? "Minting..." : "I Understand, Mint Card"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ProofModal({
   cardId,
   cardTitle,
+  isMintedCard,
   selectedQuantity,
+  packPrices,
   onSelectQuantity,
   onOrderConfirm,
+  onMintRequest,
+  isMintPending,
   isOrderPending,
   orderErrorMessage,
   onClose,
 }: ProofModalProps) {
   const quantities = [50, 100, 500, 1000] as const;
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [useRenderedProof, setUseRenderedProof] = useState(false);
   const {
     data: card,
     isLoading: isCardLoading,
@@ -370,7 +330,7 @@ function ProofModal({
   } = useQuery({
     queryKey: ["card-proof", cardId],
     queryFn: () => renderCardProof(cardId),
-    enabled: Boolean(card) && (!card?.last_proof || useRenderedProof),
+    enabled: Boolean(card) && isMintedCard,
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: "always",
@@ -382,24 +342,27 @@ function ProofModal({
     },
   });
 
+  const fallbackPreviewUrl = isMintedCard
+    ? (card?.last_proof ?? card?.last_render ?? null)
+    : (card?.last_render ?? card?.last_proof ?? null);
+
   useEffect(() => {
-    if (card?.last_proof && !useRenderedProof) {
-      setBlobUrl(card.last_proof);
+    if (!isMintedCard) {
+      setBlobUrl(fallbackPreviewUrl);
       return;
     }
 
-    if (!proofBlob) {
-      setBlobUrl(null);
-      return;
+    if (proofBlob) {
+      const nextBlobUrl = URL.createObjectURL(proofBlob);
+      setBlobUrl(nextBlobUrl);
+
+      return () => {
+        URL.revokeObjectURL(nextBlobUrl);
+      };
     }
 
-    const nextBlobUrl = URL.createObjectURL(proofBlob);
-    setBlobUrl(nextBlobUrl);
-
-    return () => {
-      URL.revokeObjectURL(nextBlobUrl);
-    };
-  }, [card?.last_proof, proofBlob, useRenderedProof]);
+    setBlobUrl(fallbackPreviewUrl);
+  }, [fallbackPreviewUrl, isMintedCard, proofBlob]);
 
   return (
     <div className="qr-modal-backdrop" onClick={onClose}>
@@ -408,7 +371,7 @@ function ProofModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="qr-modal-header">
-          <h3>Card Packs and Proofs</h3>
+          <h3>Get Cards</h3>
           <button
             type="button"
             className="qr-modal-close"
@@ -418,10 +381,19 @@ function ProofModal({
             ✕
           </button>
         </div>
+        <p
+          className={`proof-modal-status-note${isMintedCard ? " proof-modal-status-note--minted" : " proof-modal-status-note--draft"}`}
+        >
+          {isMintedCard
+            ? "High-resolution card image ready for production."
+            : "This card image is a low-resolution preview until the card is minted."}
+        </p>
         <div className="qr-modal-body proof-modal-body">
           <div className="proof-modal-preview-panel">
-            {isCardLoading || isProofLoading ? (
-              <p className="dash-loading">Rendering proof…</p>
+            {(isCardLoading || isProofLoading) && !blobUrl ? (
+              <p className="dash-loading">
+                {isMintedCard ? "Rendering proof..." : "Loading preview..."}
+              </p>
             ) : null}
             {blobUrl && (
               <img
@@ -429,17 +401,16 @@ function ProofModal({
                 src={blobUrl}
                 alt={`Digital proof for ${cardTitle}`}
                 onError={() => {
-                  if (card?.last_proof && !useRenderedProof) {
-                    setBlobUrl(null);
-                    setUseRenderedProof(true);
-                  }
+                  setBlobUrl(fallbackPreviewUrl);
                 }}
               />
             )}
             {!blobUrl && !isCardLoading && !isProofLoading ? (
               <div className="proof-modal-empty">
                 <p className="alert-error">
-                  Failed to render the digital proof. Try again.
+                  {isMintedCard
+                    ? "Failed to render the digital proof. Try again."
+                    : "No preview is available yet for this draft."}
                 </p>
               </div>
             ) : null}
@@ -456,6 +427,23 @@ function ProofModal({
               </p>
             ) : null}
             <div className="proof-modal-actions-list">
+              {!isMintedCard ? (
+                <section className="proof-modal-action-section">
+                  <span className="proof-modal-section-label">Mint Card</span>
+                  <button
+                    type="button"
+                    className="btn-gold proof-order-cta"
+                    onClick={onMintRequest}
+                    disabled={isMintPending}
+                  >
+                    {isMintPending ? "Minting..." : "Mint This Card"}
+                  </button>
+                  <p className="proof-order-cta-note">
+                    Mint first to unlock digital proofs and QR-ready production
+                    output.
+                  </p>
+                </section>
+              ) : null}
               <section className="proof-modal-action-section">
                 <span className="proof-modal-section-label">Order Packs</span>
                 <div
@@ -463,21 +451,37 @@ function ProofModal({
                   role="group"
                   aria-label="Choose card pack size"
                 >
-                  {quantities.map((quantity) => (
-                    <button
-                      key={quantity}
-                      type="button"
-                      className={
-                        selectedQuantity === quantity
-                          ? "btn-primary"
-                          : "btn-secondary"
-                      }
-                      onClick={() => onSelectQuantity(quantity)}
-                      disabled={isOrderPending}
-                    >
-                      {quantity}
-                    </button>
-                  ))}
+                  {quantities.map((quantity) =>
+                    (() => {
+                      const productId = getCatalogProductId(
+                        quantity,
+                      ) as CardPackProductId;
+                      const packPrice = packPrices?.[productId];
+                      const buttonCopy = packPrice
+                        ? formatStripePrice(packPrice)
+                        : "Price unavailable";
+                      const isSelected = selectedQuantity === quantity;
+
+                      return (
+                        <button
+                          key={quantity}
+                          type="button"
+                          className={`proof-pack-option${isSelected ? " is-selected" : ""}`}
+                          onClick={() => onSelectQuantity(quantity)}
+                          disabled={isOrderPending}
+                          aria-pressed={isSelected}
+                        >
+                          <span className="proof-pack-option-copy">
+                            <strong>{quantity} cards</strong>
+                            <span>Deck + Free Minting</span>
+                          </span>
+                          <span className="proof-pack-option-price">
+                            {buttonCopy}
+                          </span>
+                        </button>
+                      );
+                    })(),
+                  )}
                 </div>
                 {orderErrorMessage ? (
                   <p className="alert-error">{orderErrorMessage}</p>
@@ -492,50 +496,53 @@ function ProofModal({
                     ? "Redirecting to Checkout..."
                     : "Proceed to Checkout"}
                 </button>
-                <p className="proof-order-cta-note">
-                  Purchase a {selectedQuantity}-pack using secure checkout.
-                </p>
               </section>
-              <br />
-              <section className="proof-modal-action-section">
-                <span className="proof-modal-section-label">Digital</span>
-                <a
-                  className="proof-download-link"
-                  href={blobUrl ?? "#"}
-                  download={getDownloadFileName(cardTitle, "proof")}
-                  aria-disabled={!blobUrl}
-                  onClick={(event) => {
-                    if (!blobUrl) {
-                      event.preventDefault();
-                    }
-                  }}
-                >
-                  <span className="proof-download-link-copy">
-                    <strong>PNG Image</strong>
-                    <span>Download the current proof as a PNG image.</span>
-                  </span>
-                  <span className="proof-download-link-meta">PNG</span>
-                </a>
-              </section>
-              <section className="proof-modal-action-section">
-                <span className="proof-modal-section-label">Printable</span>
-                <button
-                  type="button"
-                  className="proof-download-link proof-download-link--button"
-                  onClick={() => printerFriendlyMutation.mutate()}
-                  disabled={printerFriendlyMutation.isPending || !blobUrl}
-                >
-                  <span className="proof-download-link-copy">
-                    <strong>
-                      {printerFriendlyMutation.isPending
-                        ? "Preparing PDF"
-                        : "Generate Labels"}
-                    </strong>
-                    <span>Compatible with Avery Presta Template 95272.</span>
-                  </span>
-                  <span className="proof-download-link-meta">PDF</span>
-                </button>
-              </section>
+              {isMintedCard ? (
+                <>
+                  <br />
+                  <section className="proof-modal-action-section">
+                    <span className="proof-modal-section-label">Digital</span>
+                    <a
+                      className="proof-download-link"
+                      href={blobUrl ?? "#"}
+                      download={getDownloadFileName(cardTitle, "proof")}
+                      aria-disabled={!blobUrl}
+                      onClick={(event) => {
+                        if (!blobUrl) {
+                          event.preventDefault();
+                        }
+                      }}
+                    >
+                      <span className="proof-download-link-copy">
+                        <strong>PNG Image</strong>
+                        <span>Download the current proof as a PNG image.</span>
+                      </span>
+                      <span className="proof-download-link-meta">PNG</span>
+                    </a>
+                  </section>
+                  <section className="proof-modal-action-section">
+                    <span className="proof-modal-section-label">Printable</span>
+                    <button
+                      type="button"
+                      className="proof-download-link proof-download-link--button"
+                      onClick={() => printerFriendlyMutation.mutate()}
+                      disabled={printerFriendlyMutation.isPending || !blobUrl}
+                    >
+                      <span className="proof-download-link-copy">
+                        <strong>
+                          {printerFriendlyMutation.isPending
+                            ? "Preparing PDF"
+                            : "Generate Labels"}
+                        </strong>
+                        <span>
+                          Compatible with Avery Presta Template 95272.
+                        </span>
+                      </span>
+                      <span className="proof-download-link-meta">PDF</span>
+                    </button>
+                  </section>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
@@ -578,14 +585,14 @@ function ComingSoonModal({ onClose }: { onClose: () => void }) {
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
-  const { accountSubscriptionUntil, userPermissions, refreshAccountProfile } =
-    useAuth();
+  const { accountSubscriptionUntil, refreshAccountProfile } = useAuth();
   const [qrCard, setQrCard] = useState<{ id: string; title: string } | null>(
     null,
   );
   const [proofCard, setProofCard] = useState<{
     id: string;
     title: string;
+    minted: boolean;
   } | null>(null);
   const [mintCard, setMintCard] = useState<{
     id: string;
@@ -598,6 +605,13 @@ export default function DashboardPage() {
   const [purchaseErrorMessage, setPurchaseErrorMessage] = useState<
     string | null
   >(null);
+  const [selectedSubscriptionType, setSelectedSubscriptionType] = useState("");
+  const [subscriptionInterval, setSubscriptionInterval] = useState<
+    "month" | "year"
+  >("year");
+  const [cardStatusFilter, setCardStatusFilter] = useState<
+    "all" | "draft" | "minted"
+  >("all");
 
   const {
     data: cards,
@@ -607,10 +621,48 @@ export default function DashboardPage() {
     queryKey: ["cards"],
     queryFn: getCards,
   });
+  const pricingQuery = useQuery({
+    queryKey: ["pricing"],
+    queryFn: getPricing,
+  });
+  const transactionsQuery = useQuery({
+    queryKey: ["transactions"],
+    queryFn: getTransactions,
+  });
   const [cardSearch, setCardSearch] = useState("");
 
-  const hasFounderPermission = userPermissions.includes("FOUNDER");
   const isSubscribed = hasActiveSubscription(accountSubscriptionUntil);
+  const selectedPlan = useMemo(
+    () =>
+      pricingQuery.data?.subscriptionTypes.find(
+        (plan) => plan.id === selectedSubscriptionType,
+      ) ?? null,
+    [pricingQuery.data?.subscriptionTypes, selectedSubscriptionType],
+  );
+
+  useEffect(() => {
+    const plans = pricingQuery.data?.subscriptionTypes;
+    if (!plans || plans.length === 0 || selectedSubscriptionType) {
+      return;
+    }
+
+    setSelectedSubscriptionType(plans[0].id);
+  }, [pricingQuery.data?.subscriptionTypes, selectedSubscriptionType]);
+
+  useEffect(() => {
+    if (!selectedPlan) {
+      return;
+    }
+
+    if (subscriptionInterval === "month" && !selectedPlan.prices.monthly) {
+      setSubscriptionInterval(selectedPlan.prices.yearly ? "year" : "month");
+      return;
+    }
+
+    if (subscriptionInterval === "year" && !selectedPlan.prices.yearly) {
+      setSubscriptionInterval(selectedPlan.prices.monthly ? "month" : "year");
+    }
+  }, [selectedPlan, subscriptionInterval]);
 
   const mintMutation = useMutation({
     mutationFn: (cardId: string) =>
@@ -633,7 +685,7 @@ export default function DashboardPage() {
   });
 
   const purchasePackMutation = useMutation({
-    mutationFn: ({ quantity }: { quantity: number }) =>
+    mutationFn: ({ quantity, cardId }: { quantity: number; cardId: string }) =>
       createTransaction({
         transactionType: "purchase_item",
         idempotencyKey: createIdempotencyKey(),
@@ -643,6 +695,14 @@ export default function DashboardPage() {
             itemType: "card_pack",
             productId: getCatalogProductId(quantity),
             quantity: 1,
+            metadata: {
+              cardsIncluded: [
+                {
+                  cardID: cardId,
+                  quantity,
+                },
+              ],
+            },
           },
         ],
       }),
@@ -666,7 +726,10 @@ export default function DashboardPage() {
         transactionType: "subscription",
         idempotencyKey: createIdempotencyKey(),
         currency: "usd",
-        subscription: { interval: "year" },
+        subscription: {
+          subscriptionType: selectedSubscriptionType,
+          interval: subscriptionInterval,
+        },
       }),
     onSuccess: async (result) => {
       const checkoutUrl = getCheckoutRedirectUrl(result);
@@ -681,10 +744,65 @@ export default function DashboardPage() {
 
   const mintedCount = cards?.filter((c) => isMinted(c.minted)).length ?? 0;
   const draftCount = (cards?.length ?? 0) - mintedCount;
+  const draftLimit = isSubscribed
+    ? (selectedPlan?.maxDraftsSubscribed ?? 10)
+    : 3;
+  const monthlyMintAllowance = isSubscribed
+    ? (selectedPlan?.monthlyMintLimit ?? 2)
+    : 0;
+  const monthlyMintTransactions = useMemo(() => {
+    const now = new Date();
+    const records = transactionsQuery.data ?? [];
+    return records.filter((tx) => {
+      if (tx.order_type !== "mint") {
+        return false;
+      }
+
+      const status = (tx.status ?? "").toLowerCase();
+      if (
+        status === "cancelled" ||
+        status === "canceled" ||
+        status === "failed" ||
+        status === "expired"
+      ) {
+        return false;
+      }
+
+      if (!tx.create_time) {
+        return false;
+      }
+
+      const createdAt = new Date(tx.create_time);
+      return (
+        createdAt.getFullYear() === now.getFullYear() &&
+        createdAt.getMonth() === now.getMonth()
+      );
+    }).length;
+  }, [transactionsQuery.data]);
+  const monthlyMintsUsed = Math.min(
+    monthlyMintAllowance,
+    monthlyMintTransactions,
+  );
+  const monthlyMintsRemaining = Math.max(
+    monthlyMintAllowance - monthlyMintsUsed,
+    0,
+  );
   const filteredCards =
-    cards?.filter((card) =>
-      card.data.title.toLowerCase().includes(cardSearch.trim().toLowerCase()),
-    ) ?? [];
+    cards?.filter((card) => {
+      const matchesSearch = card.data.title
+        .toLowerCase()
+        .includes(cardSearch.trim().toLowerCase());
+      if (!matchesSearch) {
+        return false;
+      }
+
+      if (cardStatusFilter === "all") {
+        return true;
+      }
+
+      const minted = isMinted(card.minted);
+      return cardStatusFilter === "minted" ? minted : !minted;
+    }) ?? [];
 
   return (
     <div className="page-stack">
@@ -699,7 +817,9 @@ export default function DashboardPage() {
         <ProofModal
           cardId={proofCard.id}
           cardTitle={proofCard.title}
+          isMintedCard={proofCard.minted}
           selectedQuantity={selectedPackQuantity}
+          packPrices={pricingQuery.data?.cardPacks ?? null}
           onSelectQuantity={(quantity) => {
             setSelectedPackQuantity(quantity);
             setPurchaseErrorMessage(null);
@@ -707,8 +827,18 @@ export default function DashboardPage() {
           onOrderConfirm={() =>
             purchasePackMutation.mutate({
               quantity: selectedPackQuantity,
+              cardId: proofCard.id,
             })
           }
+          onMintRequest={() => {
+            setProofCard(null);
+            setMintAcknowledgment("");
+            setMintCard({
+              id: proofCard.id,
+              title: proofCard.title,
+            });
+          }}
+          isMintPending={mintMutation.isPending}
           isOrderPending={purchasePackMutation.isPending}
           orderErrorMessage={purchaseErrorMessage}
           onClose={() => {
@@ -718,10 +848,19 @@ export default function DashboardPage() {
         />
       )}
       {mintCard && (
-        <MintWarningModal
+        <MintCardModal
           cardTitle={mintCard.title}
+          mintPrice={pricingQuery.data?.mint ?? null}
+          isSubscribed={isSubscribed}
+          mintDiscountPercent={selectedPlan?.mintDiscountPercent}
+          freeMintsRemaining={monthlyMintsRemaining}
           acknowledgment={mintAcknowledgment}
           onAcknowledgmentChange={setMintAcknowledgment}
+          onManageSubscriptions={() => {
+            setMintCard(null);
+            setMintAcknowledgment("");
+            setShowPlanModal(true);
+          }}
           onClose={() => {
             if (mintMutation.isPending) {
               return;
@@ -741,7 +880,20 @@ export default function DashboardPage() {
           }}
         />
       )}
-      {showPlanModal && <PlanModal onClose={() => setShowPlanModal(false)} />}
+      {showPlanModal ? (
+        <PlanModal
+          onClose={() => setShowPlanModal(false)}
+          plans={pricingQuery.data?.subscriptionTypes ?? []}
+          selectedPlanId={selectedSubscriptionType}
+          onSelectPlan={setSelectedSubscriptionType}
+          selectedInterval={subscriptionInterval}
+          onSelectInterval={setSubscriptionInterval}
+          onStartSubscription={() => subscribeMutation.mutate()}
+          isStartPending={subscribeMutation.isPending}
+          isSubscribed={isSubscribed}
+          mintPrice={pricingQuery.data?.mint ?? null}
+        />
+      ) : null}
       {showUpgradeModal && (
         <ComingSoonModal onClose={() => setShowUpgradeModal(false)} />
       )}
@@ -756,6 +908,13 @@ export default function DashboardPage() {
             orders, and level up your legendary presence.
           </p>
         </div>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => setShowPlanModal(true)}
+        >
+          Compare Plans
+        </button>
       </section>
 
       {/* ── Dashboard Body ── */}
@@ -766,41 +925,20 @@ export default function DashboardPage() {
           <div className="dash-plan-band">
             <div className="dash-plan-stats">
               <div className="dash-plan-stat">
-                <span className="dash-plan-stat-value">{draftCount}</span>
-                <span className="dash-plan-stat-label">Draft</span>
+                <span className="dash-plan-stat-value">
+                  {draftCount} / {draftLimit}
+                </span>
+                <span className="dash-plan-stat-label">Drafts Used</span>
               </div>
               <div className="dash-plan-divider" />
               <div className="dash-plan-stat">
-                <span className="dash-plan-stat-value dash-plan-stat-value--gold">
-                  {mintedCount}
+                <span className="dash-plan-stat-value">
+                  {monthlyMintsUsed} / {monthlyMintAllowance}
                 </span>
-                <span className="dash-plan-stat-label">✦ Minted</span>
+                <span className="dash-plan-stat-label">
+                  Free Monthly Mints Used
+                </span>
               </div>
-            </div>
-            <div className="button-row" style={{ margin: 0 }}>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setShowPlanModal(true)}
-              >
-                Compare plans
-              </button>
-              {!isSubscribed ? (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => subscribeMutation.mutate()}
-                  disabled={subscribeMutation.isPending}
-                >
-                  {subscribeMutation.isPending
-                    ? "Redirecting..."
-                    : "Start Subscription"}
-                </button>
-              ) : (
-                <Link className="btn-secondary" to="/app/settings">
-                  Manage Subscription
-                </Link>
-              )}
             </div>
           </div>
 
@@ -822,6 +960,45 @@ export default function DashboardPage() {
                   placeholder="Search by title"
                 />
               </label>
+              <div
+                className="dash-filter-group"
+                role="group"
+                aria-label="Filter card status"
+              >
+                <button
+                  type="button"
+                  className={
+                    cardStatusFilter === "all"
+                      ? "dash-filter-btn dash-filter-btn--active"
+                      : "dash-filter-btn"
+                  }
+                  onClick={() => setCardStatusFilter("all")}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={
+                    cardStatusFilter === "draft"
+                      ? "dash-filter-btn dash-filter-btn--active"
+                      : "dash-filter-btn"
+                  }
+                  onClick={() => setCardStatusFilter("draft")}
+                >
+                  Draft
+                </button>
+                <button
+                  type="button"
+                  className={
+                    cardStatusFilter === "minted"
+                      ? "dash-filter-btn dash-filter-btn--active"
+                      : "dash-filter-btn"
+                  }
+                  onClick={() => setCardStatusFilter("minted")}
+                >
+                  Minted
+                </button>
+              </div>
             </div>
 
             {isLoading && <p className="dash-loading">Summoning your cards…</p>}
@@ -909,53 +1086,44 @@ export default function DashboardPage() {
                           className={`dash-card-actions${minted ? " dash-card-actions--premium" : " dash-card-actions--draft"}`}
                           style={{ borderColor: cardBorderTint }}
                         >
-                          {!minted && (
+                          <button
+                            type="button"
+                            className="dash-action-btn dash-action-btn--proof"
+                            onClick={() =>
+                              setProofCard({
+                                id: card.id,
+                                title: card.data.title,
+                                minted,
+                              })
+                            }
+                          >
+                            <span
+                              className="dash-action-btn-icon"
+                              aria-hidden="true"
+                            >
+                              📦
+                            </span>
+                            Get Cards
+                          </button>
+                          {minted ? (
                             <button
                               type="button"
-                              className="dash-action-btn dash-action-btn--upgrade"
-                              onClick={() => {
-                                setMintAcknowledgment("");
-                                setMintCard({
+                              className="dash-action-btn dash-action-btn--qr"
+                              onClick={() =>
+                                setQrCard({
                                   id: card.id,
                                   title: card.data.title,
-                                });
-                              }}
-                              disabled={mintMutation.isPending}
+                                })
+                              }
                             >
-                              {mintMutation.isPending
-                                ? "Minting..."
-                                : hasFounderPermission
-                                  ? "✦ Mint Free"
-                                  : "✦ Mint"}
+                              <span
+                                className="dash-action-btn-icon"
+                                aria-hidden="true"
+                              >
+                                ◉
+                              </span>
+                              QR Code
                             </button>
-                          )}
-                          {minted ? (
-                            <>
-                              <button
-                                type="button"
-                                className="dash-action-btn dash-action-btn--proof"
-                                onClick={() =>
-                                  setProofCard({
-                                    id: card.id,
-                                    title: card.data.title,
-                                  })
-                                }
-                              >
-                                📦 Packs & Proof
-                              </button>
-                              <button
-                                type="button"
-                                className="dash-action-btn dash-action-btn--qr"
-                                onClick={() =>
-                                  setQrCard({
-                                    id: card.id,
-                                    title: card.data.title,
-                                  })
-                                }
-                              >
-                                ◉ QR
-                              </button>
-                            </>
                           ) : null}
                         </div>
                       </div>
@@ -995,16 +1163,16 @@ export default function DashboardPage() {
                 <div>
                   <span className="dash-quick-label">Manage Subscription</span>
                   <span className="dash-quick-sub">
-                    {isSubscribed ? "Subscription active" : "Not subscribed"}
+                    {isSubscribed ? "Subscription Active" : "Not Subscribed"}
                   </span>
                 </div>
               </Link>
               <a className="dash-quick-item dash-quick-item--locked" href="#">
                 <div className="dash-quick-icon">🔗</div>
                 <div>
-                  <span className="dash-quick-label">View Link Hub</span>
+                  <span className="dash-quick-label">Card Analytics</span>
                   <span className="dash-quick-sub dash-quick-sub--pro">
-                    ✦ Pro feature
+                    ✦ Coming Soon
                   </span>
                 </div>
               </a>

@@ -18,6 +18,9 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated } = useAuth();
+  const activationSuccess =
+    (location.state as { activationSuccess?: boolean } | null)
+      ?.activationSuccess === true;
   const [serverError, setServerError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(() => {
     const message = authStorage.getAuthNotice();
@@ -28,6 +31,10 @@ export default function LoginPage() {
 
     return message;
   });
+
+  const effectiveNotice = activationSuccess
+    ? "Activation successful."
+    : authNotice;
 
   const {
     register,
@@ -86,7 +93,9 @@ export default function LoginPage() {
           ) : null}
         </label>
 
-        {authNotice ? <div className="alert-success">{authNotice}</div> : null}
+        {effectiveNotice ? (
+          <div className="alert-success">{effectiveNotice}</div>
+        ) : null}
         {serverError ? <div className="alert-error">{serverError}</div> : null}
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Signing in..." : "Sign in"}

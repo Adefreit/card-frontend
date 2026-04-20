@@ -7,6 +7,48 @@ interface ParsedDataUrl {
   base64: string;
 }
 
+function inferMimeTypeFromBase64(value: string): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value.startsWith("iVBORw0KGgo")) {
+    return "image/png";
+  }
+
+  if (value.startsWith("/9j/")) {
+    return "image/jpeg";
+  }
+
+  if (value.startsWith("R0lGOD")) {
+    return "image/gif";
+  }
+
+  if (value.startsWith("UklGR") && value.includes("V0VCUA")) {
+    return "image/webp";
+  }
+
+  return null;
+}
+
+function normalizeParsedDataUrl(parsed: ParsedDataUrl): ParsedDataUrl {
+  const inferredMimeType = inferMimeTypeFromBase64(parsed.base64);
+
+  if (!inferredMimeType || inferredMimeType === parsed.mimeType) {
+    return parsed;
+  }
+
+  console.warn("[ImageUpload] MIME mismatch detected in data URL", {
+    declaredMimeType: parsed.mimeType,
+    inferredMimeType,
+  });
+
+  return {
+    ...parsed,
+    mimeType: inferredMimeType,
+  };
+}
+
 function parseDataUrl(value: string): ParsedDataUrl | null {
   const match = /^data:([^;,]+);base64,(.+)$/s.exec(value);
   if (!match) {
@@ -95,8 +137,16 @@ async function optimizeImageForUpload(file: File, maxBytes: number) {
   }
 
   if (file.size <= maxBytes) {
+    console.info("[ImageUpload] No optimization needed for image upload");
     return blobToDataUrl(file);
   }
+
+  console.info("[ImageUpload] Downsizing image upload", {
+    fileName: file.name,
+    originalType: file.type || "unknown",
+    originalBytes: file.size,
+    maxAllowedBytes: maxBytes,
+  });
 
   const image = await loadImage(file);
   const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
@@ -132,6 +182,12 @@ async function optimizeImageForUpload(file: File, maxBytes: number) {
         }
 
         if (blob.size <= maxBytes) {
+          console.info("[ImageUpload] Downsizing complete", {
+            fileName: file.name,
+            outputType: blob.type || mimeType,
+            outputBytes: blob.size,
+            maxAllowedBytes: maxBytes,
+          });
           return blobToDataUrl(blob);
         }
       }
@@ -196,9 +252,10 @@ export function buildImagePayload(
 
   const parsed = parseDataUrl(value);
   if (parsed) {
+    const normalized = normalizeParsedDataUrl(parsed);
     return {
-      [`${prefix}ImageBase64`]: parsed.base64,
-      [`${prefix}ImageMimeType`]: parsed.mimeType,
+      [`${prefix}ImageBase64`]: normalized.base64,
+      [`${prefix}ImageMimeType`]: normalized.mimeType,
     };
   }
 
@@ -217,9 +274,10 @@ export function buildPreviewImagePayload(
 
   const parsed = parseDataUrl(value);
   if (parsed) {
+    const normalized = normalizeParsedDataUrl(parsed);
     return {
-      [`${prefix}ImageBase64`]: parsed.base64,
-      [`${prefix}ImageMimeType`]: parsed.mimeType,
+      [`${prefix}ImageBase64`]: normalized.base64,
+      [`${prefix}ImageMimeType`]: normalized.mimeType,
     };
   }
 

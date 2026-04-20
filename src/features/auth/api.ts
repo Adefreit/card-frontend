@@ -22,7 +22,11 @@ interface ApiMessageResponse {
 export interface UserProfile {
   id: string;
   email?: string;
+  create_time?: string;
+  created_at?: string;
+  createdAt?: string;
   account_subscription_until?: string | null;
+  subscription_type?: string;
   permissions?: string[];
 }
 

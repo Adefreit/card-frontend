@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,6 +45,10 @@ const cardCreateSchema = z
       ),
     backgroundImage: imageFieldSchema,
     foregroundImage: imageFieldSchema,
+    customCss: z.object({
+      bannerColor: z.string(),
+      bannerForeground: z.string(),
+    }),
   })
   .refine(
     (value) =>
@@ -58,11 +63,81 @@ const cardCreateSchema = z
 
 type CardCreateValues = z.infer<typeof cardCreateSchema>;
 
+interface DraftLimitInfo {
+  draftCount: number;
+  draftLimit: number;
+}
+
+function normalizeCustomCss(value: CardCreateValues["customCss"]) {
+  const bannerColor = value.bannerColor.trim();
+  const bannerForeground = value.bannerForeground.trim();
+
+  if (!bannerColor && !bannerForeground) {
+    return undefined;
+  }
+
+  return {
+    bannerColor: bannerColor || undefined,
+    bannerForeground: bannerForeground || undefined,
+  };
+}
+
+function DraftLimitModal({
+  info,
+  onClose,
+  onUpgrade,
+}: {
+  info: DraftLimitInfo;
+  onClose: () => void;
+  onUpgrade: () => void;
+}) {
+  return (
+    <div className="qr-modal-backdrop" onClick={onClose}>
+      <div className="qr-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="qr-modal-header">
+          <h3>Draft Limit Reached</h3>
+          <button
+            type="button"
+            className="qr-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="qr-modal-body" style={{ textAlign: "left" }}>
+          <p style={{ marginTop: 0 }}>
+            You have reached your draft card limit.
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            Current usage: <strong>{info.draftCount}</strong> of{" "}
+            <strong>{info.draftLimit}</strong> drafts.
+          </p>
+        </div>
+        <div className="qr-modal-footer">
+          <button className="btn-secondary" type="button" onClick={onClose}>
+            Close
+          </button>
+          <button className="btn-primary" type="button" onClick={onUpgrade}>
+            Upgrade in Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CardCreatePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showFlavorMarkupHelp, setShowFlavorMarkupHelp] = useState(false);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(
+    null,
+  );
+  const [draftLimitInfo, setDraftLimitInfo] = useState<DraftLimitInfo | null>(
+    null,
+  );
 
   const { data: templates, isLoading: templatesLoading } = useQuery({
     queryKey: ["card-templates"],
@@ -86,6 +161,10 @@ export default function CardCreatePage() {
       flavorText: "",
       backgroundImage: "",
       foregroundImage: "",
+      customCss: {
+        bannerColor: "",
+        bannerForeground: "",
+      },
     },
   });
 
@@ -106,9 +185,33 @@ export default function CardCreatePage() {
 
   const mutation = useMutation({
     mutationFn: createCard,
+    onMutate: () => {
+      setSubmitErrorMessage(null);
+      setDraftLimitInfo(null);
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["cards"] });
       navigate("/app/dashboard");
+    },
+    onError: (error) => {
+      if (isAxiosError(error) && error.response?.status === 403) {
+        const responseData = error.response.data as
+          | {
+              response?: string;
+              draftCount?: number;
+              draftLimit?: number;
+            }
+          | undefined;
+        if (responseData?.response === "DRAFT_LIMIT_REACHED") {
+          setDraftLimitInfo({
+            draftCount: responseData.draftCount ?? 0,
+            draftLimit: responseData.draftLimit ?? 0,
+          });
+          return;
+        }
+      }
+
+      setSubmitErrorMessage("Failed to create card. Please try again.");
     },
   });
 
@@ -148,6 +251,7 @@ export default function CardCreatePage() {
       title: values.title,
       subtitle: values.subtitle,
       flavorText: convertFlavorMarkupToHtml(values.flavorText),
+      customCss: normalizeCustomCss(values.customCss),
       ...backgroundImagePayload,
       ...foregroundImagePayload,
     });
@@ -156,9 +260,14 @@ export default function CardCreatePage() {
   const bgValue = watch("backgroundImage");
   const fgValue = watch("foregroundImage");
   const selectedTemplateId = watch("templateId");
+  const selectedTemplateName =
+    templates?.find((template) => template.id === selectedTemplateId)?.name ||
+    "Template";
   const titleValue = watch("title");
   const subtitleValue = watch("subtitle");
   const flavorTextValue = watch("flavorText");
+  const bannerColorValue = watch("customCss.bannerColor");
+  const bannerForegroundValue = watch("customCss.bannerForeground");
   const totalUploadedImageBytes =
     estimateUploadedImageBytes(bgValue) + estimateUploadedImageBytes(fgValue);
   const canRunActions =
@@ -170,6 +279,16 @@ export default function CardCreatePage() {
 
   return (
     <div className="page-stack">
+      {draftLimitInfo ? (
+        <DraftLimitModal
+          info={draftLimitInfo}
+          onClose={() => setDraftLimitInfo(null)}
+          onUpgrade={() => {
+            setDraftLimitInfo(null);
+            navigate("/app/settings");
+          }}
+        />
+      ) : null}
       {showFlavorMarkupHelp && (
         <FlavorMarkupHelpModal onClose={() => setShowFlavorMarkupHelp(false)} />
       )}
@@ -201,7 +320,7 @@ export default function CardCreatePage() {
         {/* Left: form */}
         <section className="content-card create-form-panel">
           <div className="content-card-header">
-            <h2>Card details</h2>
+            <h2>Card Appearance</h2>
           </div>
 
           <form
@@ -221,119 +340,218 @@ export default function CardCreatePage() {
                 title: values.title,
                 subtitle: values.subtitle,
                 flavorText: convertFlavorMarkupToHtml(values.flavorText),
+                customCss: normalizeCustomCss(values.customCss),
                 ...backgroundImagePayload,
                 ...foregroundImagePayload,
               });
             })}
           >
-            {/* Template */}
-            <label>
-              <span className="label-required">
-                Template <span className="required-asterisk">*</span>
-              </span>
-              <select {...register("templateId")} disabled={templatesLoading}>
-                <option value="">
-                  {templatesLoading
-                    ? "Loading templates…"
-                    : "Select a template"}
-                </option>
-                {templates?.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              {errors.templateId ? (
-                <small className="field-error">
-                  {errors.templateId.message}
-                </small>
-              ) : null}
-            </label>
-
-            {/* Title */}
-            <label>
-              <span className="label-required">
-                Title <span className="required-asterisk">*</span>
-              </span>
-              <input {...register("title")} />
-              {errors.title ? (
-                <small className="field-error">{errors.title.message}</small>
-              ) : null}
-            </label>
-
-            {/* Subtitle */}
-            <label>
-              <span className="label-required">
-                Subtitle <span className="required-asterisk">*</span>
-              </span>
-              <input {...register("subtitle")} />
-              {errors.subtitle ? (
-                <small className="field-error">{errors.subtitle.message}</small>
-              ) : null}
-            </label>
-
-            {/* Flavor Text */}
-            <label>
-              <span className="label-required">
-                Flavor Text <span className="required-asterisk">*</span>
-              </span>
-              <FlavorMarkupInput
-                value={flavorTextValue}
-                onChange={(nextValue) =>
-                  setValue("flavorText", nextValue, { shouldValidate: true })
-                }
-                error={errors.flavorText?.message}
-                onHelp={() => setShowFlavorMarkupHelp(true)}
-              />
-            </label>
-
-            <div className="image-input-row">
-              <ImageInput
-                label="Background Image"
-                value={bgValue}
-                maxUploadBytes={Math.max(
-                  0,
-                  MAX_TOTAL_UPLOAD_BYTES - estimateUploadedImageBytes(fgValue),
-                )}
-                onChange={(url) =>
-                  setValue("backgroundImage", url, { shouldValidate: true })
-                }
-                onClear={() =>
-                  setValue("backgroundImage", "", { shouldValidate: true })
-                }
-                error={errors.backgroundImage?.message}
-              />
-
-              <ImageInput
-                label="Logo / Icon"
-                value={fgValue}
-                maxUploadBytes={Math.max(
-                  0,
-                  MAX_TOTAL_UPLOAD_BYTES - estimateUploadedImageBytes(bgValue),
-                )}
-                onChange={(url) =>
-                  setValue("foregroundImage", url, { shouldValidate: true })
-                }
-                onClear={() =>
-                  setValue("foregroundImage", "", { shouldValidate: true })
-                }
-                error={errors.foregroundImage?.message}
-              />
-            </div>
-
-            {mutation.isError ? (
-              <div className="alert-error">
-                Failed to create card. Please try again.
+            <section className="detail-config-section">
+              <div className="detail-config-section__header">
+                <h3>Card Appearance</h3>
+                <p>
+                  Update the main content and styling for the front of the card.
+                </p>
               </div>
+
+              <div className="detail-config-grid">
+                <label className="detail-config-grid__full">
+                  <span className="label-required">
+                    Template <span className="required-asterisk">*</span>
+                  </span>
+                  <select
+                    {...register("templateId")}
+                    disabled={templatesLoading}
+                  >
+                    <option value="">
+                      {templatesLoading
+                        ? "Loading templates..."
+                        : "Select a template"}
+                    </option>
+                    {templates?.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.templateId ? (
+                    <small className="field-error">
+                      {errors.templateId.message}
+                    </small>
+                  ) : null}
+                  {selectedTemplateId ? (
+                    <small className="id-copy-note">
+                      Selected: {selectedTemplateName}
+                    </small>
+                  ) : null}
+                </label>
+
+                <label>
+                  <span className="label-required">
+                    Title <span className="required-asterisk">*</span>
+                  </span>
+                  <input {...register("title")} />
+                  {errors.title ? (
+                    <small className="field-error">
+                      {errors.title.message}
+                    </small>
+                  ) : null}
+                </label>
+
+                <label>
+                  <span className="label-required">
+                    Subtitle <span className="required-asterisk">*</span>
+                  </span>
+                  <input {...register("subtitle")} />
+                  {errors.subtitle ? (
+                    <small className="field-error">
+                      {errors.subtitle.message}
+                    </small>
+                  ) : null}
+                </label>
+
+                <label className="detail-config-grid__full">
+                  <span className="label-required">
+                    Flavor Text <span className="required-asterisk">*</span>
+                  </span>
+                  <FlavorMarkupInput
+                    value={flavorTextValue}
+                    onChange={(nextValue) =>
+                      setValue("flavorText", nextValue, {
+                        shouldValidate: true,
+                      })
+                    }
+                    error={errors.flavorText?.message}
+                    onHelp={() => setShowFlavorMarkupHelp(true)}
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section className="detail-config-section" style={{ marginTop: 8 }}>
+              <div className="detail-config-section__header">
+                <h3>Custom Styling</h3>
+              </div>
+              <div className="detail-config-grid">
+                <label>
+                  <span>Banner Color</span>
+                  <div className="detail-color-input">
+                    <input
+                      type="color"
+                      value={bannerColorValue || "#336699"}
+                      onChange={(event) =>
+                        setValue("customCss.bannerColor", event.target.value, {
+                          shouldValidate: true,
+                        })
+                      }
+                      aria-label="Banner color"
+                    />
+                    Payment successful{" "}
+                    <span>{bannerColorValue || "#336699"}</span>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-xs"
+                      onClick={() =>
+                        setValue("customCss.bannerColor", "", {
+                          shouldValidate: true,
+                        })
+                      }
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </label>
+
+                <label>
+                  <span>Banner Foreground</span>
+                  <div className="detail-color-input">
+                    <input
+                      type="color"
+                      value={bannerForegroundValue || "#ffffff"}
+                      onChange={(event) =>
+                        setValue(
+                          "customCss.bannerForeground",
+                          event.target.value,
+                          {
+                            shouldValidate: true,
+                          },
+                        )
+                      }
+                      aria-label="Banner foreground color"
+                    />
+                    <span>{bannerForegroundValue || "#ffffff"}</span>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-xs"
+                      onClick={() =>
+                        setValue("customCss.bannerForeground", "", {
+                          shouldValidate: true,
+                        })
+                      }
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </label>
+              </div>
+            </section>
+
+            <section className="detail-config-section" style={{ marginTop: 8 }}>
+              <div className="detail-config-section__header">
+                <h3>Images</h3>
+                <p>Upload the art assets used to render the card preview.</p>
+              </div>
+
+              <div className="image-input-row">
+                <ImageInput
+                  label="Background Image"
+                  value={bgValue}
+                  maxUploadBytes={Math.max(
+                    0,
+                    MAX_TOTAL_UPLOAD_BYTES -
+                      estimateUploadedImageBytes(fgValue),
+                  )}
+                  onChange={(url) =>
+                    setValue("backgroundImage", url, { shouldValidate: true })
+                  }
+                  onClear={() =>
+                    setValue("backgroundImage", "", { shouldValidate: true })
+                  }
+                  error={errors.backgroundImage?.message}
+                />
+
+                <ImageInput
+                  label="Logo / Icon"
+                  value={fgValue}
+                  maxUploadBytes={Math.max(
+                    0,
+                    MAX_TOTAL_UPLOAD_BYTES -
+                      estimateUploadedImageBytes(bgValue),
+                  )}
+                  onChange={(url) =>
+                    setValue("foregroundImage", url, { shouldValidate: true })
+                  }
+                  onClear={() =>
+                    setValue("foregroundImage", "", { shouldValidate: true })
+                  }
+                  error={errors.foregroundImage?.message}
+                />
+              </div>
+            </section>
+
+            {submitErrorMessage ? (
+              <div className="alert-error">{submitErrorMessage}</div>
             ) : null}
 
             <div className="button-row">
-              <button
-                type="submit"
-                disabled={mutation.isPending || !canRunActions}
-              >
-                {mutation.isPending ? "Creating…" : "✦ Create Card"}
-              </button>
+              <div className="button-row__group button-row__group--right">
+                <button
+                  type="submit"
+                  disabled={mutation.isPending || !canRunActions}
+                >
+                  {mutation.isPending ? "Creating…" : "✦ Create Card"}
+                </button>
+              </div>
             </div>
           </form>
         </section>
