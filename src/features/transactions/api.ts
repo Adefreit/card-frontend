@@ -56,6 +56,7 @@ export interface CreateTransactionPayload {
   mint?: MintTransactionPayload;
   items?: PurchaseItemTransactionLine[];
   subscription?: SubscriptionTransactionPayload;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreateTransactionResponse {
@@ -76,6 +77,10 @@ export interface TransactionRecord {
   order_type?: string;
   status?: string;
   create_time?: string;
+  cancel_at_period_end?: boolean;
+  cancellation_requested_at?: string | null;
+  cancellation_effective_at?: string | null;
+  cancellation_source?: string | null;
   [key: string]: unknown;
 }
 
@@ -109,6 +114,13 @@ export async function getTransactions() {
 export async function cancelTransaction(id: string) {
   const { data } = await apiClient.post<ApiMessageResponse>(
     `/v1/transactions/${id}/cancel`,
+  );
+  return data;
+}
+
+export async function resumeTransaction(id: string) {
+  const { data } = await apiClient.post<ApiMessageResponse>(
+    `/v1/transactions/${id}/resume`,
   );
   return data;
 }

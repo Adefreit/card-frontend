@@ -18,6 +18,8 @@ import {
   getCheckoutRedirectUrl,
   getPricing,
   getTransactions,
+  resumeTransaction,
+  type TransactionRecord,
   type StripePriceSummary,
   type SubscriptionTypePricing,
 } from "../transactions/api";
@@ -113,6 +115,112 @@ function formatStripePrice(price: {
   }).format(price.unitAmountCents / 100);
 }
 
+function formatTransactionDate(value?: string) {
+  if (!value) {
+    return "Unavailable";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Unavailable";
+  }
+
+  return parsed.toLocaleString();
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getStringField(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function getNumberField(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function formatOrderAmount(order: TransactionRecord) {
+  const source = asRecord(order) ?? {};
+  const cents = getNumberField(source, [
+    "total_cents",
+    "totalCents",
+    "amount_total",
+    "amountTotal",
+    "amount",
+  ]);
+
+  if (typeof cents !== "number") {
+    return "Amount unavailable";
+  }
+
+  const currency = getStringField(source, ["currency", "currency_code"]);
+  const safeCurrency = (currency ?? "usd").toUpperCase();
+
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: safeCurrency,
+  }).format(cents / 100);
+}
+
+function formatOrderStatus(status?: string) {
+  if (!status) {
+    return "Unknown";
+  }
+
+  return status
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getOrderDescription(order: TransactionRecord) {
+  const source = asRecord(order) ?? {};
+  const items = Array.isArray(source.items) ? source.items : [];
+
+  for (const entry of items) {
+    const item = asRecord(entry);
+    if (!item) {
+      continue;
+    }
+
+    const itemType = getStringField(item, ["item_type", "itemType"]);
+    if (itemType !== "card_pack") {
+      continue;
+    }
+
+    const productId = getStringField(item, ["product_id", "productId"]);
+    if (productId) {
+      const match = productId.match(/card_pack_(\d+)/i);
+      if (match) {
+        const size = Number(match[1]);
+        return `Card Pack (${size.toLocaleString()} cards)`;
+      }
+    }
+
+    return "Card Pack Order";
+  }
+
+  return "Purchase Item Order";
+}
+
 function PlanModal({
   onClose,
   plans,
@@ -121,6 +229,9 @@ function PlanModal({
   selectedInterval,
   onSelectInterval,
   onStartSubscription,
+  onResumeSubscription,
+  isCancellationScheduled,
+  isResumePending,
   isStartPending,
   isSubscribed,
   mintPrice,
@@ -132,6 +243,9 @@ function PlanModal({
   selectedInterval: "month" | "year";
   onSelectInterval: (interval: "month" | "year") => void;
   onStartSubscription: () => void;
+  onResumeSubscription: () => void;
+  isCancellationScheduled: boolean;
+  isResumePending: boolean;
   isStartPending: boolean;
   isSubscribed: boolean;
   mintPrice?: StripePriceSummary | null;
@@ -156,6 +270,12 @@ function PlanModal({
         <p className="qr-modal-subtitle">
           Pick a model that fits your journey today.
         </p>
+        {isCancellationScheduled ? (
+          <p className="alert-success" style={{ margin: "8px 22px 0" }}>
+            Cancellation is scheduled. Resume to keep your current subscription
+            active and avoid duplicate billing.
+          </p>
+        ) : null}
         <PlanComparisonTable
           plans={plans}
           selectedPlanId={selectedPlanId}
@@ -168,14 +288,19 @@ function PlanModal({
           mintPrice={mintPrice}
         />
         <div className="qr-modal-footer">
+          {isCancellationScheduled ? (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={onResumeSubscription}
+              disabled={isResumePending}
+            >
+              {isResumePending ? "Resuming..." : "Resume Subscription"}
+            </button>
+          ) : null}
           {!selectedPlan ? (
             <p style={{ margin: 0, color: "var(--ui-muted)" }}>
               No subscription plans are currently available.
-            </p>
-          ) : null}
-          {isSubscribed ? (
-            <p style={{ margin: 0, color: "var(--ui-muted)" }}>
-              Your Founder Subscription is active.
             </p>
           ) : null}
         </div>
@@ -695,16 +820,16 @@ export default function DashboardPage() {
             itemType: "card_pack",
             productId: getCatalogProductId(quantity),
             quantity: 1,
-            metadata: {
-              cardsIncluded: [
-                {
-                  cardID: cardId,
-                  quantity,
-                },
-              ],
-            },
           },
         ],
+        metadata: {
+          cards: [
+            {
+              cardId,
+              quantity,
+            },
+          ],
+        },
       }),
     onMutate: () => {
       setPurchaseErrorMessage(null);
@@ -738,6 +863,38 @@ export default function DashboardPage() {
         return;
       }
 
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await refreshAccountProfile();
+    },
+  });
+
+  const latestSubscriptionTransaction = useMemo(() => {
+    const subscriptionTransactions = (transactionsQuery.data ?? []).filter(
+      (tx) => tx.order_type === "subscription",
+    );
+
+    return (
+      subscriptionTransactions.slice().sort((a, b) => {
+        const aTime = new Date(a.create_time ?? "").getTime();
+        const bTime = new Date(b.create_time ?? "").getTime();
+        return bTime - aTime;
+      })[0] ?? null
+    );
+  }, [transactionsQuery.data]);
+  const isCancellationScheduled =
+    (latestSubscriptionTransaction?.status ?? "").toLowerCase() === "paid" &&
+    latestSubscriptionTransaction?.cancel_at_period_end === true;
+
+  const resumeSubscriptionMutation = useMutation({
+    mutationFn: async () => {
+      if (!latestSubscriptionTransaction) {
+        throw new Error("No scheduled subscription transaction found.");
+      }
+
+      return resumeTransaction(latestSubscriptionTransaction.id);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await refreshAccountProfile();
     },
   });
@@ -787,6 +944,20 @@ export default function DashboardPage() {
     monthlyMintAllowance - monthlyMintsUsed,
     0,
   );
+  const purchaseItemOrders = useMemo(() => {
+    return (transactionsQuery.data ?? [])
+      .filter(
+        (tx) =>
+          tx.order_type === "purchase_item" &&
+          (tx.status ?? "").toLowerCase() === "paid",
+      )
+      .slice()
+      .sort((a, b) => {
+        const aTime = new Date(a.create_time ?? "").getTime();
+        const bTime = new Date(b.create_time ?? "").getTime();
+        return bTime - aTime;
+      });
+  }, [transactionsQuery.data]);
   const filteredCards =
     cards?.filter((card) => {
       const matchesSearch = card.data.title
@@ -888,8 +1059,20 @@ export default function DashboardPage() {
           onSelectPlan={setSelectedSubscriptionType}
           selectedInterval={subscriptionInterval}
           onSelectInterval={setSubscriptionInterval}
-          onStartSubscription={() => subscribeMutation.mutate()}
-          isStartPending={subscribeMutation.isPending}
+          onStartSubscription={() => {
+            if (isCancellationScheduled) {
+              resumeSubscriptionMutation.mutate();
+              return;
+            }
+
+            subscribeMutation.mutate();
+          }}
+          onResumeSubscription={() => resumeSubscriptionMutation.mutate()}
+          isCancellationScheduled={isCancellationScheduled}
+          isResumePending={resumeSubscriptionMutation.isPending}
+          isStartPending={
+            subscribeMutation.isPending || resumeSubscriptionMutation.isPending
+          }
           isSubscribed={isSubscribed}
           mintPrice={pricingQuery.data?.mint ?? null}
         />
@@ -1182,16 +1365,49 @@ export default function DashboardPage() {
           <div className="dash-panel">
             <div className="dash-panel-header">
               <h3 className="dash-panel-title">Orders</h3>
-              <span className="meta-pill">0 active</span>
+              <span className="meta-pill">
+                {purchaseItemOrders.length} orders
+              </span>
             </div>
-            <div className="dash-orders-empty">
-              <div className="dash-orders-empty-icon">📜</div>
-              <p>No active orders.</p>
-              <p>
-                When you order physical cards, your quests will appear here
-                along with tracking and delivery updates.
-              </p>
-            </div>
+            {transactionsQuery.isLoading ? (
+              <p className="dash-loading">Loading orders...</p>
+            ) : null}
+            {transactionsQuery.isError ? (
+              <p className="alert-error">Failed to load orders.</p>
+            ) : null}
+            {!transactionsQuery.isLoading &&
+            !transactionsQuery.isError &&
+            purchaseItemOrders.length === 0 ? (
+              <div className="dash-orders-empty">
+                <div className="dash-orders-empty-icon">📜</div>
+                <p>No purchase orders yet.</p>
+                <p>
+                  Card pack purchases will appear here with their current
+                  payment status.
+                </p>
+              </div>
+            ) : null}
+            {!transactionsQuery.isLoading &&
+            !transactionsQuery.isError &&
+            purchaseItemOrders.length > 0 ? (
+              <div className="dash-quick-list" aria-label="Purchase orders">
+                {purchaseItemOrders.map((order) => (
+                  <article key={order.id} className="dash-quick-item">
+                    <div className="dash-quick-icon">📦</div>
+                    <div>
+                      <span className="dash-quick-label">
+                        {getOrderDescription(order)}
+                      </span>
+                      <span className="dash-quick-sub">
+                        Paid {formatOrderAmount(order)} ·{" "}
+                        {formatTransactionDate(order.create_time)} · Status:{" "}
+                        {formatOrderStatus(order.status)}
+                      </span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
           </div>
         </aside>
       </div>
