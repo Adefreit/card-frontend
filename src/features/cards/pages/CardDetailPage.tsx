@@ -559,6 +559,12 @@ export default function CardDetailPage() {
   const [mintAcknowledgment, setMintAcknowledgment] = useState("");
   const autoPreviewedPreviewKeyRef = useRef<string | null>(null);
 
+  function revokeObjectUrlIfNeeded(value: string | null) {
+    if (value?.startsWith("blob:")) {
+      URL.revokeObjectURL(value);
+    }
+  }
+
   async function copyId(kind: "card" | "template", value?: string) {
     if (!value) {
       return;
@@ -726,36 +732,22 @@ export default function CardDetailPage() {
       return;
     }
 
-    const backgroundImagePayload = buildPreviewImagePayload(
-      data.data.backgroundImage || data.data.backgroundImageUrl || "",
-      "background",
-    );
-    const foregroundImagePayload = buildPreviewImagePayload(
-      data.data.foregroundImage || data.data.foregroundImageUrl || "",
-      "foreground",
-    );
-
     autoPreviewedPreviewKeyRef.current = previewKey;
-    previewMutation.mutate({
-      id: data.id,
-      templateId: data.template_id,
-      title: data.data.title,
-      subtitle: data.data.subtitle,
-      flavorText: data.data.flavorText,
-      side: previewSide,
-      contactInfo: data.data.contactInfo,
-      customCss: data.data.customCss,
-      premium: data.data.premium,
-      ...backgroundImagePayload,
-      ...foregroundImagePayload,
-    });
+
+    if (previewSide === "front" && data.last_render) {
+      setPreviewUrl((previous) => {
+        revokeObjectUrlIfNeeded(previous);
+        return data.last_render ?? null;
+      });
+      return;
+    }
+
+    triggerPreview(false);
   }, [data, previewSide]);
 
   useEffect(() => {
     return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
+      revokeObjectUrlIfNeeded(previewUrl);
     };
   }, [previewUrl]);
 
@@ -800,9 +792,7 @@ export default function CardDetailPage() {
   const previewMutation = useMutation({
     mutationFn: previewCard,
     onSuccess: (imageBlob) => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
+      revokeObjectUrlIfNeeded(previewUrl);
       const nextUrl = URL.createObjectURL(imageBlob);
       setPreviewUrl(nextUrl);
     },

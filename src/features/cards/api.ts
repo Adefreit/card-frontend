@@ -179,8 +179,11 @@ export async function deleteCard(id: string) {
 
 export async function previewCard(payload: CardPreviewRequest) {
   const { side = "front", ...requestBody } = payload;
+
+  const fileFormat = "svg"; // or "png", depending on your needs
+
   const { data } = await apiClient.post<Blob>(
-    `/v1/cards/render/preview?format=png&id=${payload.id}&side=${side}&showCutlines=true&showPreviewWatermark=true`,
+    `/v1/cards/render/preview?format=${fileFormat}&id=${payload.id}&side=${side}`,
     requestBody,
     {
       responseType: "blob",

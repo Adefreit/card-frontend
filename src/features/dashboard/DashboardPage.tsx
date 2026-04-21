@@ -1,18 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { Link } from "react-router-dom";
-import {
-  getCard,
-  getCards,
-  renderCardProof,
-  renderCardProofPrinterFriendly,
-} from "../cards/api";
-import MintCardModal from "../cards/components/MintCardModal";
+import { getCards } from "../cards/api";
 import { apiClient } from "../../lib/http";
 import { useAuth } from "../auth/auth-context";
 import {
-  type CardPackProductId,
   createIdempotencyKey,
   createTransaction,
   getCheckoutRedirectUrl,
@@ -51,68 +43,6 @@ function hasActiveSubscription(accountSubscriptionUntil?: string | null) {
   }
 
   return new Date(accountSubscriptionUntil) > new Date();
-}
-
-function getCatalogProductId(quantity: number): string {
-  switch (quantity) {
-    case 50:
-      return "card_pack_50";
-    case 100:
-      return "card_pack_100";
-    case 500:
-      return "card_pack_500";
-    case 1000:
-      return "card_pack_1000";
-    default:
-      throw new Error("Unsupported pack quantity selected.");
-  }
-}
-
-function getPurchaseTransactionErrorMessage(error: unknown): string {
-  if (!isAxiosError(error)) {
-    return "Unable to start checkout right now. Please try again.";
-  }
-
-  if (error.response?.status !== 400) {
-    return "Unable to start checkout right now. Please try again.";
-  }
-
-  const data = error.response.data;
-  const responseMessage =
-    typeof data === "object" && data !== null && "response" in data
-      ? (data.response as string | undefined)
-      : undefined;
-  const detailText = (responseMessage ?? "").toLowerCase();
-
-  if (
-    detailText.includes("itemtype") ||
-    detailText.includes("productid") ||
-    detailText.includes("quantity")
-  ) {
-    return "Checkout validation failed. Verify product type, product ID, and quantity.";
-  }
-
-  if (detailText.includes("unsupported") || detailText.includes("product")) {
-    return "This card pack is not available yet. Please choose a different pack size.";
-  }
-
-  if (detailText.includes("mismatch")) {
-    return "Selected product information did not pass validation. Please try again.";
-  }
-
-  return (
-    responseMessage || "Unable to start checkout right now. Please try again."
-  );
-}
-
-function formatStripePrice(price: {
-  unitAmountCents: number;
-  currency: string;
-}) {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: price.currency.toUpperCase(),
-  }).format(price.unitAmountCents / 100);
 }
 
 function formatTransactionDate(value?: string) {
@@ -387,295 +317,6 @@ function QrModal({ cardId, cardTitle, onClose }: QrModalProps) {
   );
 }
 
-interface ProofModalProps {
-  cardId: string;
-  cardTitle: string;
-  isMintedCard: boolean;
-  selectedQuantity: number;
-  packPrices?: Record<CardPackProductId, StripePriceSummary> | null;
-  onSelectQuantity: (quantity: number) => void;
-  onOrderConfirm: () => void;
-  onMintRequest: () => void;
-  isMintPending: boolean;
-  isOrderPending: boolean;
-  orderErrorMessage?: string | null;
-  onClose: () => void;
-}
-
-function getDownloadFileName(cardTitle: string, suffix: string) {
-  return `${cardTitle.replace(/\s+/g, "-").toLowerCase()}-${suffix}.png`;
-}
-
-function downloadBlobFile(blob: Blob, fileName: string) {
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = objectUrl;
-  anchor.download = fileName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(objectUrl);
-}
-
-function getPdfDownloadFileName(cardTitle: string) {
-  return `${cardTitle.replace(/\s+/g, "-").toLowerCase()}-printer-friendly.pdf`;
-}
-
-function ProofModal({
-  cardId,
-  cardTitle,
-  isMintedCard,
-  selectedQuantity,
-  packPrices,
-  onSelectQuantity,
-  onOrderConfirm,
-  onMintRequest,
-  isMintPending,
-  isOrderPending,
-  orderErrorMessage,
-  onClose,
-}: ProofModalProps) {
-  const quantities = [50, 100, 500, 1000] as const;
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const {
-    data: card,
-    isLoading: isCardLoading,
-    isError: isCardError,
-  } = useQuery({
-    queryKey: ["card-proof-source", cardId],
-    queryFn: () => getCard(cardId),
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: "always",
-  });
-  const {
-    data: proofBlob,
-    isLoading: isProofLoading,
-    isError: isProofError,
-  } = useQuery({
-    queryKey: ["card-proof", cardId],
-    queryFn: () => renderCardProof(cardId),
-    enabled: Boolean(card) && isMintedCard,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: "always",
-  });
-  const printerFriendlyMutation = useMutation({
-    mutationFn: () => renderCardProofPrinterFriendly(cardId),
-    onSuccess: (blob) => {
-      downloadBlobFile(blob, getPdfDownloadFileName(cardTitle));
-    },
-  });
-
-  const fallbackPreviewUrl = isMintedCard
-    ? (card?.last_proof ?? card?.last_render ?? null)
-    : (card?.last_render ?? card?.last_proof ?? null);
-
-  useEffect(() => {
-    if (!isMintedCard) {
-      setBlobUrl(fallbackPreviewUrl);
-      return;
-    }
-
-    if (proofBlob) {
-      const nextBlobUrl = URL.createObjectURL(proofBlob);
-      setBlobUrl(nextBlobUrl);
-
-      return () => {
-        URL.revokeObjectURL(nextBlobUrl);
-      };
-    }
-
-    setBlobUrl(fallbackPreviewUrl);
-  }, [fallbackPreviewUrl, isMintedCard, proofBlob]);
-
-  return (
-    <div className="qr-modal-backdrop" onClick={onClose}>
-      <div
-        className="qr-modal proof-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="qr-modal-header">
-          <h3>Get Cards</h3>
-          <button
-            type="button"
-            className="qr-modal-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-        <p
-          className={`proof-modal-status-note${isMintedCard ? " proof-modal-status-note--minted" : " proof-modal-status-note--draft"}`}
-        >
-          {isMintedCard
-            ? "High-resolution card image ready for production."
-            : "This card image is a low-resolution preview until the card is minted."}
-        </p>
-        <div className="qr-modal-body proof-modal-body">
-          <div className="proof-modal-preview-panel">
-            {(isCardLoading || isProofLoading) && !blobUrl ? (
-              <p className="dash-loading">
-                {isMintedCard ? "Rendering proof..." : "Loading preview..."}
-              </p>
-            ) : null}
-            {blobUrl && (
-              <img
-                className="proof-preview"
-                src={blobUrl}
-                alt={`Digital proof for ${cardTitle}`}
-                onError={() => {
-                  setBlobUrl(fallbackPreviewUrl);
-                }}
-              />
-            )}
-            {!blobUrl && !isCardLoading && !isProofLoading ? (
-              <div className="proof-modal-empty">
-                <p className="alert-error">
-                  {isMintedCard
-                    ? "Failed to render the digital proof. Try again."
-                    : "No preview is available yet for this draft."}
-                </p>
-              </div>
-            ) : null}
-          </div>
-          <div className="proof-modal-actions-panel">
-            {isCardError || isProofError ? (
-              <p className="alert-error">
-                Failed to render the digital proof. Try again.
-              </p>
-            ) : null}
-            {printerFriendlyMutation.isError ? (
-              <p className="alert-error">
-                Failed to generate the printable PDF. Try again.
-              </p>
-            ) : null}
-            <div className="proof-modal-actions-list">
-              {!isMintedCard ? (
-                <section className="proof-modal-action-section">
-                  <span className="proof-modal-section-label">Mint Card</span>
-                  <button
-                    type="button"
-                    className="btn-gold proof-order-cta"
-                    onClick={onMintRequest}
-                    disabled={isMintPending}
-                  >
-                    {isMintPending ? "Minting..." : "Mint This Card"}
-                  </button>
-                  <p className="proof-order-cta-note">
-                    Mint first to unlock digital proofs and QR-ready production
-                    output.
-                  </p>
-                </section>
-              ) : null}
-              <section className="proof-modal-action-section">
-                <span className="proof-modal-section-label">Order Packs</span>
-                <div
-                  className="proof-modal-pack-options"
-                  role="group"
-                  aria-label="Choose card pack size"
-                >
-                  {quantities.map((quantity) =>
-                    (() => {
-                      const productId = getCatalogProductId(
-                        quantity,
-                      ) as CardPackProductId;
-                      const packPrice = packPrices?.[productId];
-                      const buttonCopy = packPrice
-                        ? formatStripePrice(packPrice)
-                        : "Price unavailable";
-                      const isSelected = selectedQuantity === quantity;
-
-                      return (
-                        <button
-                          key={quantity}
-                          type="button"
-                          className={`proof-pack-option${isSelected ? " is-selected" : ""}`}
-                          onClick={() => onSelectQuantity(quantity)}
-                          disabled={isOrderPending}
-                          aria-pressed={isSelected}
-                        >
-                          <span className="proof-pack-option-copy">
-                            <strong>{quantity} cards</strong>
-                            <span>Deck + Free Minting</span>
-                          </span>
-                          <span className="proof-pack-option-price">
-                            {buttonCopy}
-                          </span>
-                        </button>
-                      );
-                    })(),
-                  )}
-                </div>
-                {orderErrorMessage ? (
-                  <p className="alert-error">{orderErrorMessage}</p>
-                ) : null}
-                <button
-                  type="button"
-                  className="btn-primary proof-order-cta"
-                  onClick={onOrderConfirm}
-                  disabled={isOrderPending}
-                >
-                  {isOrderPending
-                    ? "Redirecting to Checkout..."
-                    : "Proceed to Checkout"}
-                </button>
-              </section>
-              {isMintedCard ? (
-                <>
-                  <br />
-                  <section className="proof-modal-action-section">
-                    <span className="proof-modal-section-label">Digital</span>
-                    <a
-                      className="proof-download-link"
-                      href={blobUrl ?? "#"}
-                      download={getDownloadFileName(cardTitle, "proof")}
-                      aria-disabled={!blobUrl}
-                      onClick={(event) => {
-                        if (!blobUrl) {
-                          event.preventDefault();
-                        }
-                      }}
-                    >
-                      <span className="proof-download-link-copy">
-                        <strong>PNG Image</strong>
-                        <span>Download the current proof as a PNG image.</span>
-                      </span>
-                      <span className="proof-download-link-meta">PNG</span>
-                    </a>
-                  </section>
-                  <section className="proof-modal-action-section">
-                    <span className="proof-modal-section-label">Printable</span>
-                    <button
-                      type="button"
-                      className="proof-download-link proof-download-link--button"
-                      onClick={() => printerFriendlyMutation.mutate()}
-                      disabled={printerFriendlyMutation.isPending || !blobUrl}
-                    >
-                      <span className="proof-download-link-copy">
-                        <strong>
-                          {printerFriendlyMutation.isPending
-                            ? "Preparing PDF"
-                            : "Generate Labels"}
-                        </strong>
-                        <span>
-                          Compatible with Avery Presta Template 95272.
-                        </span>
-                      </span>
-                      <span className="proof-download-link-meta">PDF</span>
-                    </button>
-                  </section>
-                </>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ComingSoonModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="qr-modal-backdrop" onClick={onClose}>
@@ -714,22 +355,8 @@ export default function DashboardPage() {
   const [qrCard, setQrCard] = useState<{ id: string; title: string } | null>(
     null,
   );
-  const [proofCard, setProofCard] = useState<{
-    id: string;
-    title: string;
-    minted: boolean;
-  } | null>(null);
-  const [mintCard, setMintCard] = useState<{
-    id: string;
-    title: string;
-  } | null>(null);
-  const [mintAcknowledgment, setMintAcknowledgment] = useState("");
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [selectedPackQuantity, setSelectedPackQuantity] = useState(50);
-  const [purchaseErrorMessage, setPurchaseErrorMessage] = useState<
-    string | null
-  >(null);
   const [selectedSubscriptionType, setSelectedSubscriptionType] = useState("");
   const [subscriptionInterval, setSubscriptionInterval] = useState<
     "month" | "year"
@@ -788,62 +415,6 @@ export default function DashboardPage() {
       setSubscriptionInterval(selectedPlan.prices.monthly ? "month" : "year");
     }
   }, [selectedPlan, subscriptionInterval]);
-
-  const mintMutation = useMutation({
-    mutationFn: (cardId: string) =>
-      createTransaction({
-        transactionType: "mint",
-        idempotencyKey: createIdempotencyKey(),
-        currency: "usd",
-        mint: { cardId },
-      }),
-    onSuccess: async (result) => {
-      const checkoutUrl = getCheckoutRedirectUrl(result);
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl;
-        return;
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ["cards"] });
-      await refreshAccountProfile();
-    },
-  });
-
-  const purchasePackMutation = useMutation({
-    mutationFn: ({ quantity, cardId }: { quantity: number; cardId: string }) =>
-      createTransaction({
-        transactionType: "purchase_item",
-        idempotencyKey: createIdempotencyKey(),
-        currency: "usd",
-        items: [
-          {
-            itemType: "card_pack",
-            productId: getCatalogProductId(quantity),
-            quantity: 1,
-          },
-        ],
-        metadata: {
-          cards: [
-            {
-              cardId,
-              quantity,
-            },
-          ],
-        },
-      }),
-    onMutate: () => {
-      setPurchaseErrorMessage(null);
-    },
-    onSuccess: (result) => {
-      const checkoutUrl = getCheckoutRedirectUrl(result);
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl;
-      }
-    },
-    onError: (error) => {
-      setPurchaseErrorMessage(getPurchaseTransactionErrorMessage(error));
-    },
-  });
 
   const subscribeMutation = useMutation({
     mutationFn: () =>
@@ -940,10 +511,6 @@ export default function DashboardPage() {
     monthlyMintAllowance,
     monthlyMintTransactions,
   );
-  const monthlyMintsRemaining = Math.max(
-    monthlyMintAllowance - monthlyMintsUsed,
-    0,
-  );
   const purchaseItemOrders = useMemo(() => {
     return (transactionsQuery.data ?? [])
       .filter(
@@ -982,73 +549,6 @@ export default function DashboardPage() {
           cardId={qrCard.id}
           cardTitle={qrCard.title}
           onClose={() => setQrCard(null)}
-        />
-      )}
-      {proofCard && (
-        <ProofModal
-          cardId={proofCard.id}
-          cardTitle={proofCard.title}
-          isMintedCard={proofCard.minted}
-          selectedQuantity={selectedPackQuantity}
-          packPrices={pricingQuery.data?.cardPacks ?? null}
-          onSelectQuantity={(quantity) => {
-            setSelectedPackQuantity(quantity);
-            setPurchaseErrorMessage(null);
-          }}
-          onOrderConfirm={() =>
-            purchasePackMutation.mutate({
-              quantity: selectedPackQuantity,
-              cardId: proofCard.id,
-            })
-          }
-          onMintRequest={() => {
-            setProofCard(null);
-            setMintAcknowledgment("");
-            setMintCard({
-              id: proofCard.id,
-              title: proofCard.title,
-            });
-          }}
-          isMintPending={mintMutation.isPending}
-          isOrderPending={purchasePackMutation.isPending}
-          orderErrorMessage={purchaseErrorMessage}
-          onClose={() => {
-            setProofCard(null);
-            setPurchaseErrorMessage(null);
-          }}
-        />
-      )}
-      {mintCard && (
-        <MintCardModal
-          cardTitle={mintCard.title}
-          mintPrice={pricingQuery.data?.mint ?? null}
-          isSubscribed={isSubscribed}
-          mintDiscountPercent={selectedPlan?.mintDiscountPercent}
-          freeMintsRemaining={monthlyMintsRemaining}
-          acknowledgment={mintAcknowledgment}
-          onAcknowledgmentChange={setMintAcknowledgment}
-          onManageSubscriptions={() => {
-            setMintCard(null);
-            setMintAcknowledgment("");
-            setShowPlanModal(true);
-          }}
-          onClose={() => {
-            if (mintMutation.isPending) {
-              return;
-            }
-
-            setMintCard(null);
-            setMintAcknowledgment("");
-          }}
-          isPending={mintMutation.isPending}
-          onConfirm={() => {
-            mintMutation.mutate(mintCard.id, {
-              onSuccess: async () => {
-                setMintCard(null);
-                setMintAcknowledgment("");
-              },
-            });
-          }}
         />
       )}
       {showPlanModal ? (
@@ -1269,16 +769,9 @@ export default function DashboardPage() {
                           className={`dash-card-actions${minted ? " dash-card-actions--premium" : " dash-card-actions--draft"}`}
                           style={{ borderColor: cardBorderTint }}
                         >
-                          <button
-                            type="button"
+                          <Link
                             className="dash-action-btn dash-action-btn--proof"
-                            onClick={() =>
-                              setProofCard({
-                                id: card.id,
-                                title: card.data.title,
-                                minted,
-                              })
-                            }
+                            to={`/app/cards/${card.id}/get-cards`}
                           >
                             <span
                               className="dash-action-btn-icon"
@@ -1287,7 +780,7 @@ export default function DashboardPage() {
                               📦
                             </span>
                             Get Cards
-                          </button>
+                          </Link>
                           {minted ? (
                             <button
                               type="button"

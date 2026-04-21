@@ -9,6 +9,7 @@ import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
 import DashboardPage from "../features/dashboard/DashboardPage";
 import CardDetailPage from "../features/cards/pages/CardDetailPage";
 import CardCreatePage from "../features/cards/pages/CardCreatePage";
+import GetCardsPage from "../features/cards/pages/GetCardsPage";
 import CardViewerPage from "../features/cards/pages/CardViewerPage";
 import AppLayout from "../features/layout/AppLayout";
 import HomePage from "../features/home/HomePage";
@@ -94,6 +95,10 @@ export const router = createBrowserRouter([
       {
         path: "cards/:cardId",
         element: <CardDetailPage />,
+      },
+      {
+        path: "cards/:cardId/get-cards",
+        element: <GetCardsPage />,
       },
       {
         path: "settings",
