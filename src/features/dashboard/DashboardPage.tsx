@@ -714,6 +714,7 @@ export default function DashboardPage() {
                   const cardBorderTint =
                     CARD_TINT_BORDERS[i % CARD_TINT_BORDERS.length];
                   const minted = isMinted(card.minted);
+                  const previewImageUrl = card.last_proof ?? card.last_render;
 
                   return (
                     <article key={card.id} className="dash-card-item">
@@ -729,10 +730,10 @@ export default function DashboardPage() {
                             }}
                           >
                             <div className="dash-card-face">
-                              {card.last_render ? (
+                              {previewImageUrl ? (
                                 <img
                                   className="dash-card-render"
-                                  src={card.last_render}
+                                  src={previewImageUrl}
                                   alt={card.data.title}
                                   onError={(e) => {
                                     const target = e.currentTarget;
@@ -746,7 +747,7 @@ export default function DashboardPage() {
                               <span
                                 className="dash-card-initial"
                                 style={
-                                  card.last_render
+                                  previewImageUrl
                                     ? { display: "none" }
                                     : undefined
                                 }

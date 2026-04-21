@@ -734,10 +734,11 @@ export default function CardDetailPage() {
 
     autoPreviewedPreviewKeyRef.current = previewKey;
 
-    if (previewSide === "front" && data.last_render) {
+    const cachedFrontPreviewUrl = data.last_proof ?? data.last_render ?? null;
+    if (previewSide === "front" && cachedFrontPreviewUrl) {
       setPreviewUrl((previous) => {
         revokeObjectUrlIfNeeded(previous);
-        return data.last_render ?? null;
+        return cachedFrontPreviewUrl;
       });
       return;
     }
@@ -1981,14 +1982,16 @@ export default function CardDetailPage() {
                     Back
                   </button>
                 </div>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => triggerPreview(true)}
-                  disabled={isManualPreviewing || !canRunActions}
-                >
-                  {isManualPreviewing ? "Wait..." : "Refresh"}
-                </button>
+                {!isMintedCard ? (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => triggerPreview(true)}
+                    disabled={isManualPreviewing || !canRunActions}
+                  >
+                    {isManualPreviewing ? "Wait..." : "Refresh"}
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -2040,7 +2043,9 @@ export default function CardDetailPage() {
                 <p>
                   {previewMutation.isPending
                     ? "Generating preview.  This may take a bit..."
-                    : `Update fields and click Refresh to render the card ${previewSide}.`}
+                    : isMintedCard
+                      ? `No stored preview is available for the card ${previewSide}.`
+                      : `Update fields and click Refresh to render the card ${previewSide}.`}
                 </p>
               </div>
             )}
