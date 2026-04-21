@@ -446,7 +446,6 @@ export default function CardCreatePage() {
                       }
                       aria-label="Banner color"
                     />
-                    Payment successful{" "}
                     <span>{bannerColorValue || "#336699"}</span>
                     <button
                       type="button"

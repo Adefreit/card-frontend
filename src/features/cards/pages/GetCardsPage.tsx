@@ -1,13 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useAuth } from "../../auth/auth-context";
-import {
-  getCard,
-  renderCardProof,
-  renderCardProofPrinterFriendly,
-} from "../api";
+import { getCard, renderCardProofPrinterFriendly } from "../api";
 import MintCardModal from "../components/MintCardModal";
 import {
   type CardPackProductId,
@@ -118,8 +114,10 @@ export default function GetCardsPage() {
     string | null
   >(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [proofImageLoaded, setProofImageLoaded] = useState(false);
   const [mintAcknowledgment, setMintAcknowledgment] = useState("");
   const [showMintModal, setShowMintModal] = useState(false);
+  const packDropdownRef = useRef<HTMLDetailsElement | null>(null);
 
   const cardQuery = useQuery({
     queryKey: ["card-proof-source", cardId],
@@ -183,36 +181,35 @@ export default function GetCardsPage() {
     0,
   );
 
-  const proofQuery = useQuery({
-    queryKey: ["card-proof", cardId],
-    queryFn: () => renderCardProof(cardId as string),
-    enabled: Boolean(cardId) && isMintedCard && Boolean(cardQuery.data),
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: "always",
-  });
+  const resolvedPreviewUrl = isMintedCard
+    ? (cardQuery.data?.last_proof ?? null)
+    : (cardQuery.data?.last_render ?? null);
+  const packOptions = [50, 100, 500, 1000].map((quantity) => {
+    const productId = getCatalogProductId(quantity) as CardPackProductId;
+    const packPrice = pricingQuery.data?.cardPacks?.[productId] as
+      | StripePriceSummary
+      | undefined;
 
-  const fallbackPreviewUrl = isMintedCard
-    ? (cardQuery.data?.last_proof ?? cardQuery.data?.last_render ?? null)
-    : (cardQuery.data?.last_render ?? cardQuery.data?.last_proof ?? null);
+    return {
+      quantity,
+      subtitle: "Deck + Free Minting",
+      priceLabel: packPrice
+        ? formatStripePrice(packPrice)
+        : "Price unavailable",
+    };
+  });
+  const selectedPackOption =
+    packOptions.find((option) => option.quantity === selectedQuantity) ??
+    packOptions[0];
+  const canDownloadProofAssets = Boolean(blobUrl) && proofImageLoaded;
 
   useEffect(() => {
-    if (!isMintedCard) {
-      setBlobUrl(fallbackPreviewUrl);
-      return;
-    }
+    setBlobUrl(resolvedPreviewUrl);
+  }, [resolvedPreviewUrl]);
 
-    if (proofQuery.data) {
-      const nextBlobUrl = URL.createObjectURL(proofQuery.data);
-      setBlobUrl(nextBlobUrl);
-
-      return () => {
-        URL.revokeObjectURL(nextBlobUrl);
-      };
-    }
-
-    setBlobUrl(fallbackPreviewUrl);
-  }, [fallbackPreviewUrl, isMintedCard, proofQuery.data]);
+  useEffect(() => {
+    setProofImageLoaded(false);
+  }, [blobUrl]);
 
   const purchasePackMutation = useMutation({
     mutationFn: ({
@@ -358,7 +355,7 @@ export default function GetCardsPage() {
 
         <div className="proof-modal-body" style={{ marginTop: 14 }}>
           <div className="proof-modal-preview-panel">
-            {(cardQuery.isLoading || proofQuery.isLoading) && !blobUrl ? (
+            {cardQuery.isLoading && !blobUrl ? (
               <p className="dash-loading">
                 {isMintedCard ? "Rendering proof..." : "Loading preview..."}
               </p>
@@ -368,26 +365,40 @@ export default function GetCardsPage() {
                 className="proof-preview"
                 src={blobUrl}
                 alt={`Digital proof for ${cardTitle}`}
+                onLoad={() => {
+                  setProofImageLoaded(true);
+                }}
                 onError={() => {
-                  setBlobUrl(fallbackPreviewUrl);
+                  setProofImageLoaded(false);
+                  setBlobUrl(null);
                 }}
               />
             ) : null}
-            {!blobUrl && !cardQuery.isLoading && !proofQuery.isLoading ? (
+
+            {!blobUrl && !cardQuery.isLoading && isMintedCard ? (
+              <div
+                className="proof-loading-state"
+                role="status"
+                aria-live="polite"
+              >
+                <span className="proof-loading-spinner" aria-hidden="true" />
+                <p className="dash-loading">Proof is still being prepared...</p>
+              </div>
+            ) : null}
+
+            {!blobUrl && !cardQuery.isLoading && !isMintedCard ? (
               <div className="proof-modal-empty">
                 <p className="alert-error">
-                  {isMintedCard
-                    ? "Failed to render the digital proof. Try again."
-                    : "No preview is available yet for this draft."}
+                  No preview is available yet for this draft.
                 </p>
               </div>
             ) : null}
           </div>
 
           <div className="proof-modal-actions-panel">
-            {cardQuery.isError || proofQuery.isError ? (
+            {cardQuery.isError ? (
               <p className="alert-error">
-                Failed to render the digital proof. Try again.
+                Failed to load card preview data. Try again.
               </p>
             ) : null}
             {printerFriendlyMutation.isError ? (
@@ -412,54 +423,62 @@ export default function GetCardsPage() {
                     {mintMutation.isPending ? "Minting..." : "Mint This Card"}
                   </button>
                   <p className="proof-order-cta-note">
-                    Mint first to unlock digital proofs and QR-ready production
-                    output.
+                    Unlocks digital proofs and templates. Automatically obtained
+                    if you buy a card pack.
                   </p>
                 </section>
               ) : null}
 
               <section className="proof-modal-action-section">
                 <span className="proof-modal-section-label">Order Packs</span>
-                <div
-                  className="proof-modal-pack-options"
-                  role="group"
-                  aria-label="Choose card pack size"
-                >
-                  {[50, 100, 500, 1000].map((quantity) => {
-                    const productId = getCatalogProductId(
-                      quantity,
-                    ) as CardPackProductId;
-                    const packPrice = pricingQuery.data?.cardPacks?.[
-                      productId
-                    ] as StripePriceSummary | undefined;
-                    const buttonCopy = packPrice
-                      ? formatStripePrice(packPrice)
-                      : "Price unavailable";
-                    const isSelected = selectedQuantity === quantity;
+                <details className="proof-pack-dropdown" ref={packDropdownRef}>
+                  <summary className="proof-pack-dropdown-trigger">
+                    <span className="proof-pack-option-copy">
+                      <strong>{selectedPackOption.quantity} cards</strong>
+                      <span>{selectedPackOption.subtitle}</span>
+                    </span>
+                    <span className="proof-pack-dropdown-meta">
+                      <span className="proof-pack-option-price">
+                        {selectedPackOption.priceLabel}
+                      </span>
+                      <span className="proof-pack-dropdown-caret" aria-hidden>
+                        ▾
+                      </span>
+                    </span>
+                  </summary>
+                  <div
+                    className="proof-pack-dropdown-menu"
+                    role="listbox"
+                    aria-label="Choose card pack size"
+                  >
+                    {packOptions.map((option) => {
+                      const isSelected = option.quantity === selectedQuantity;
 
-                    return (
-                      <button
-                        key={quantity}
-                        type="button"
-                        className={`proof-pack-option${isSelected ? " is-selected" : ""}`}
-                        onClick={() => {
-                          setSelectedQuantity(quantity);
-                          setPurchaseErrorMessage(null);
-                        }}
-                        disabled={purchasePackMutation.isPending}
-                        aria-pressed={isSelected}
-                      >
-                        <span className="proof-pack-option-copy">
-                          <strong>{quantity} cards</strong>
-                          <span>Deck + Free Minting</span>
-                        </span>
-                        <span className="proof-pack-option-price">
-                          {buttonCopy}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                      return (
+                        <button
+                          key={option.quantity}
+                          type="button"
+                          className={`proof-pack-option${isSelected ? " is-selected" : ""}`}
+                          onClick={() => {
+                            setSelectedQuantity(option.quantity);
+                            setPurchaseErrorMessage(null);
+                            packDropdownRef.current?.removeAttribute("open");
+                          }}
+                          disabled={purchasePackMutation.isPending}
+                          aria-pressed={isSelected}
+                        >
+                          <span className="proof-pack-option-copy">
+                            <strong>{option.quantity} cards</strong>
+                            <span>{option.subtitle}</span>
+                          </span>
+                          <span className="proof-pack-option-price">
+                            {option.priceLabel}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </details>
 
                 {purchaseErrorMessage ? (
                   <p className="alert-error">{purchaseErrorMessage}</p>
@@ -486,41 +505,49 @@ export default function GetCardsPage() {
                 <>
                   <br />
                   <section className="proof-modal-action-section">
-                    <span className="proof-modal-section-label">Digital</span>
+                    <span className="proof-modal-section-label">
+                      Digital Proof
+                    </span>
                     <a
                       className="proof-download-link"
                       href={blobUrl ?? "#"}
                       download={getDownloadFileName(cardTitle, "proof")}
-                      aria-disabled={!blobUrl}
+                      aria-disabled={!canDownloadProofAssets}
                       onClick={(event) => {
-                        if (!blobUrl) {
+                        if (!canDownloadProofAssets) {
                           event.preventDefault();
                         }
                       }}
                     >
                       <span className="proof-download-link-copy">
                         <strong>PNG Image</strong>
-                        <span>Download the current proof as a PNG image.</span>
+                        <span>
+                          Download the current proof as a lossless image.
+                        </span>
                       </span>
                       <span className="proof-download-link-meta">PNG</span>
                     </a>
                   </section>
                   <section className="proof-modal-action-section">
-                    <span className="proof-modal-section-label">Printable</span>
+                    <span className="proof-modal-section-label"> Labels</span>
                     <button
                       type="button"
                       className="proof-download-link proof-download-link--button"
                       onClick={() => printerFriendlyMutation.mutate()}
-                      disabled={printerFriendlyMutation.isPending || !blobUrl}
+                      disabled={
+                        printerFriendlyMutation.isPending ||
+                        !canDownloadProofAssets
+                      }
                     >
                       <span className="proof-download-link-copy">
                         <strong>
                           {printerFriendlyMutation.isPending
                             ? "Preparing PDF"
-                            : "Generate Labels"}
+                            : "Avery 95272 Template"}
                         </strong>
                         <span>
-                          Compatible with Avery Presta Template 95272.
+                          Download a PDF containing 6 labels formatted for Avery
+                          95272 perforated sheets.
                         </span>
                       </span>
                       <span className="proof-download-link-meta">PDF</span>

@@ -2,9 +2,9 @@ import { Link } from "react-router-dom";
 
 const sectionImages = {
   hero: "",
+  "how-it-works": "",
   powers: "",
   game: "",
-  starting: "",
   future: "",
   adventure: "",
 } as const;
@@ -41,7 +41,12 @@ export default function HomePage() {
   return (
     <div className="marketing-page lp-page">
       <header className="lp-nav">
-        <div className="lp-brand">Legendary Profiles</div>
+        <div className="lp-brand">
+          <span className="lp-brand-mark" aria-hidden="true">
+            <img className="lp-brand-mark__image" src="/favicon.png" alt="" />
+          </span>
+          <span>Legendary Profiles</span>
+        </div>
         <div className="lp-nav-ctas">
           <Link className="lp-nav-link" to="/login">
             Sign in
@@ -55,20 +60,19 @@ export default function HomePage() {
       <main className="lp-scroll">
         <section id="hero" className="lp-section">
           <div className="lp-section-content">
-            <p className="lp-kicker">Legendary intro cards</p>
-            <h1>Become the hero of your own business card.</h1>
-            <p className="lp-tagline">Stand Out. Level Up.</p>
+            <p className="lp-kicker">Create, Collect, Compete</p>
+            <h1>Become the hero of your own legends.</h1>
             <p>
               Welcome to Legendary Profiles, where your business card does not
-              just introduce you, it summons you. Instead of handing someone a
-              plain card, hand them a fantasy-themed profile card that says,
-              yes, you are a professional and also awesome.
+              just introduce you, it <i>summons</i> you. Instead of handing
+              someone a plain card, hand them a stylish profile card that says,
+              "I'm Professional, but I also know how to have fun."
             </p>
             <p>
-              Each card keeps the classic 2.5&quot; x 3.5&quot; format, complete
-              with title, subtitle, and flavor text. It is everything people
-              love about trading cards, except now you are the legendary
-              creature.
+              Each card keeps the classic 2.5&quot; x 3.5&quot; format of
+              playing cards, complete with title, subtitle, and flavor text. It
+              is everything people love about trading cards, except now you are
+              the rare collectable.
             </p>
             <div className="lp-cta-row">
               <Link className="btn-primary btn-lg" to="/register">
@@ -83,20 +87,44 @@ export default function HomePage() {
           />
         </section>
 
+        <section id="how-it-works" className="lp-section">
+          <div className="lp-section-content">
+            <p className="lp-kicker">How it Works</p>
+            <h2>Draft it. Mint it. Make it real.</h2>
+            <p>
+              Legendary Profiles is built around a simple idea: your card should
+              feel magical, but the process should feel easy. Here&apos;s how it
+              works::
+            </p>
+            <p>
+              Draft your card for free. Create as many designs as you want and
+              experiment with titles, portraits, colors, and flavor text until
+              it feels right. When you’re ready to lock it in, mint the card to
+              unlock its features and share it with the world!
+            </p>
+          </div>
+          <SectionVisual
+            imageKey="how-it-works"
+            alt="QR feature image placeholder"
+            caption="QR and link-hub feature visual"
+          />
+        </section>
+
         <section id="powers" className="lp-section">
           <div className="lp-section-content">
             <p className="lp-kicker">A card with powers</p>
             <h2>A business card with actual powers, sort of.</h2>
             <p>
-              Every Legendary Profile includes a built-in QR code that works as
-              your personal digital portal. Scan it and your contact info can
-              pop into someone&apos;s phone with no typing and no awkward name
-              spelling moments.
+              Every Legendary Profile card includes a built-in QR code that
+              works as your personal digital portal. Scan it and your contact
+              info can pop into someone&apos;s phone with no typing. You also
+              get a custom page to distribute links to your portfolio, socials,
+              calendar, or anything else you want to show off.
             </p>
             <p>
-              If you want to go full wizard mode, a subscription unlocks a
-              customizable link hub for your portfolio, socials, calendar,
-              booking page, and more.
+              If you want to go full wizard mode, a subscription unlocks
+              additional features like analytics and custom designs (coming
+              soon!).
             </p>
           </div>
           <SectionVisual
@@ -108,16 +136,18 @@ export default function HomePage() {
 
         <section id="game" className="lp-section">
           <div className="lp-section-content">
-            <p className="lp-kicker">Yes, there is a game</p>
+            <p className="lp-kicker">It's Also a Game</p>
             <h2>But wait. There&apos;s a game.</h2>
             <p>
               Every card includes mysterious symbols and numbers. On their own,
-              they look fun. With a Game Pack, they become playable mechanics
-              for icebreaker, networking, and party games.
+              they look fun. With Game Packs, they transform into playable
+              characters for icebreaker, networking, and party games.
             </p>
             <p>
-              Your business card becomes a playable character sheet. Networking
-              with bragging rights is absolutely the point.
+              We view Game Packs as an ongoing adventure. We plan on releasing
+              both free and paid games regularly, and each pack will introduce
+              new mechanics and ways to play that make every card potentially
+              valuable.
             </p>
           </div>
           <SectionVisual
@@ -127,34 +157,21 @@ export default function HomePage() {
           />
         </section>
 
-        <section id="starting" className="lp-section">
-          <div className="lp-section-content">
-            <p className="lp-kicker">Where we are starting</p>
-            <h2>Simple, stylish, and already way cooler.</h2>
-            <ul className="lp-list">
-              <li>A handful of beautifully crafted card designs.</li>
-              <li>Printed cards or digital proofs you can print yourself.</li>
-              <li>Basic QR code contact-sharing magic.</li>
-              <li>One or two games to prove the symbols really work.</li>
-            </ul>
-          </div>
-          <SectionVisual
-            imageKey="starting"
-            alt="Launch offering image placeholder"
-            caption="Starter product lineup preview"
-          />
-        </section>
-
         <section id="future" className="lp-section">
           <div className="lp-section-content">
-            <p className="lp-kicker">Where we are going</p>
+            <p className="lp-kicker">This is Just the Beginning</p>
             <h2>This is just the first chapter.</h2>
+            <p>
+              Over the coming months, we will be adding new features, such as:
+            </p>
             <ul className="lp-list">
-              <li>More card designs from elegant to wildly epic.</li>
+              <li>More card designs from business formal to wildly epic.</li>
               <li>Enhanced QR features with analytics and custom pages.</li>
               <li>New Game Packs so card powers grow over time.</li>
-              <li>Community features, because heroes deserve a guild.</li>
-              <li>Foils, holographics, and plastic cards.</li>
+              <li>
+                Experience points for your cards so that they can level up and
+                gain rarity.
+              </li>
             </ul>
           </div>
           <SectionVisual

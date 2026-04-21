@@ -61,13 +61,22 @@ function getNumberField(record: Record<string, unknown>, keys: string[]) {
 }
 
 function getLatestTransaction(records: TransactionRecord[]) {
-  return [...records]
+  const sorted = [...records]
     .filter((tx) => Boolean(tx.create_time))
     .sort((a, b) => {
       const aTime = new Date(a.create_time ?? "").getTime();
       const bTime = new Date(b.create_time ?? "").getTime();
       return bTime - aTime;
-    })[0];
+    });
+
+  const latestCompleted = sorted.find((tx) => {
+    const status = (tx.status ?? "").toLowerCase();
+    return (
+      status === "paid" || status === "completed" || status === "succeeded"
+    );
+  });
+
+  return latestCompleted ?? sorted[0];
 }
 
 function formatOrderType(orderType?: string) {
@@ -83,6 +92,142 @@ function formatOrderType(orderType?: string) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function getItemDescription(transaction: TransactionRecord) {
+  const source = asRecord(transaction) ?? {};
+  const items = Array.isArray(source.items) ? source.items : [];
+
+  for (const entry of items) {
+    const item = asRecord(entry);
+    if (!item) {
+      continue;
+    }
+
+    const itemType = getStringField(item, ["item_type", "itemType"]);
+    const productId = getStringField(item, ["product_id", "productId"]);
+    const productName = getStringField(item, [
+      "product_name",
+      "productName",
+      "name",
+      "description",
+    ]);
+    const quantity = getNumberField(item, ["quantity"]) ?? 1;
+
+    if (itemType === "card_pack") {
+      const match = productId?.match(/card_pack_(\d+)/i);
+      if (match) {
+        const size = Number(match[1]).toLocaleString();
+        return `Card Pack (${size} cards) x${quantity}`;
+      }
+
+      return `Card Pack x${quantity}`;
+    }
+
+    if (productName) {
+      return quantity > 1 ? `${productName} x${quantity}` : productName;
+    }
+
+    if (productId) {
+      return quantity > 1 ? `${productId} x${quantity}` : productId;
+    }
+  }
+
+  if (transaction.order_type === "mint") {
+    return "Card Minting";
+  }
+
+  if (transaction.order_type === "subscription") {
+    return "Subscription";
+  }
+
+  return formatOrderType(transaction.order_type);
+}
+
+function getTransactionTotalCents(transaction: TransactionRecord) {
+  const source = asRecord(transaction) ?? {};
+  const topLevelCents = getNumberField(source, [
+    "total_cents",
+    "totalCents",
+    "amount_total",
+    "amountTotal",
+    "total_amount",
+    "totalAmount",
+    "amount_cents",
+    "amountCents",
+    "amount",
+  ]);
+
+  if (typeof topLevelCents === "number") {
+    return topLevelCents;
+  }
+
+  const items = Array.isArray(source.items) ? source.items : [];
+  let computedTotal = 0;
+  let hasItemAmount = false;
+
+  for (const entry of items) {
+    const item = asRecord(entry);
+    if (!item) {
+      continue;
+    }
+
+    const itemTotal = getNumberField(item, [
+      "total_cents",
+      "totalCents",
+      "amount_total",
+      "amountTotal",
+      "amount_cents",
+      "amountCents",
+    ]);
+
+    if (typeof itemTotal === "number") {
+      computedTotal += itemTotal;
+      hasItemAmount = true;
+      continue;
+    }
+
+    const unitAmount = getNumberField(item, [
+      "unit_amount_cents",
+      "unitAmountCents",
+      "unit_price_cents",
+      "unitPriceCents",
+      "price_cents",
+      "priceCents",
+      "amount",
+    ]);
+    const quantity = getNumberField(item, ["quantity"]) ?? 1;
+
+    if (typeof unitAmount === "number") {
+      computedTotal += unitAmount * quantity;
+      hasItemAmount = true;
+    }
+  }
+
+  return hasItemAmount ? computedTotal : undefined;
+}
+
+function getTransactionCurrency(transaction: TransactionRecord) {
+  const source = asRecord(transaction) ?? {};
+  const directCurrency = getStringField(source, ["currency", "currency_code"]);
+  if (directCurrency) {
+    return directCurrency;
+  }
+
+  const items = Array.isArray(source.items) ? source.items : [];
+  for (const entry of items) {
+    const item = asRecord(entry);
+    if (!item) {
+      continue;
+    }
+
+    const itemCurrency = getStringField(item, ["currency", "currency_code"]);
+    if (itemCurrency) {
+      return itemCurrency;
+    }
+  }
+
+  return undefined;
 }
 
 export default function PaymentSuccessPage() {
@@ -112,24 +257,9 @@ export default function PaymentSuccessPage() {
       return null;
     }
 
-    const source = asRecord(latest) ?? {};
-    const amountCents = getNumberField(source, [
-      "amount_total",
-      "amountTotal",
-      "total_amount",
-      "totalAmount",
-      "amount",
-    ]);
-    const currency = getStringField(source, ["currency", "currency_code"]);
-    const itemDescription = getStringField(source, [
-      "description",
-      "item_description",
-      "itemDescription",
-      "product_name",
-      "productName",
-      "product_id",
-      "productId",
-    ]);
+    const amountCents = getTransactionTotalCents(latest);
+    const currency = getTransactionCurrency(latest);
+    const itemDescription = getItemDescription(latest);
 
     return {
       id: latest.id,
@@ -137,7 +267,7 @@ export default function PaymentSuccessPage() {
       status: latest.status ?? "completed",
       createdAt: formatDate(latest.create_time),
       total: formatMoney(amountCents, currency),
-      itemDescription: itemDescription ?? "See transaction record",
+      itemDescription,
       rawCurrency: currency?.toUpperCase() ?? "USD",
     };
   }, [transactionsQuery.data]);
@@ -146,11 +276,8 @@ export default function PaymentSuccessPage() {
     <div className="page-stack payment-success-page">
       <section className="content-hero payment-success-hero">
         <div>
-          <h1>Payment successful</h1>
-          <p className="content-hero-copy">
-            Victory! Your payment is complete and your account is updated. A
-            purchase summary has also been emailed to you.
-          </p>
+          <h1>Legendary Profiles</h1>
+          <p className="content-hero-copy">Successful Transaction</p>
         </div>
       </section>
 
