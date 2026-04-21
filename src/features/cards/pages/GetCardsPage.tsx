@@ -3,7 +3,11 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useAuth } from "../../auth/auth-context";
-import { getCard, renderCardProofPrinterFriendly } from "../api";
+import {
+  getCard,
+  renderCardProof,
+  renderCardProofPrinterFriendly,
+} from "../api";
 import MintCardModal from "../components/MintCardModal";
 import {
   type CardPackProductId,
@@ -118,6 +122,7 @@ export default function GetCardsPage() {
   const [mintAcknowledgment, setMintAcknowledgment] = useState("");
   const [showMintModal, setShowMintModal] = useState(false);
   const packDropdownRef = useRef<HTMLDetailsElement | null>(null);
+  const generatedProofUrlRef = useRef<string | null>(null);
 
   const cardQuery = useQuery({
     queryKey: ["card-proof-source", cardId],
@@ -181,6 +186,17 @@ export default function GetCardsPage() {
     0,
   );
 
+  const shouldRenderMintedProof =
+    isMintedCard && !(cardQuery.data?.last_proof ?? null);
+  const proofQuery = useQuery({
+    queryKey: ["card-proof-fallback", cardId],
+    queryFn: () => renderCardProof(cardId as string),
+    enabled: Boolean(cardId) && shouldRenderMintedProof,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+  });
+
   const resolvedPreviewUrl = isMintedCard
     ? (cardQuery.data?.last_proof ?? null)
     : (cardQuery.data?.last_render ?? null);
@@ -204,8 +220,33 @@ export default function GetCardsPage() {
   const canDownloadProofAssets = Boolean(blobUrl) && proofImageLoaded;
 
   useEffect(() => {
+    if (proofQuery.data) {
+      if (generatedProofUrlRef.current) {
+        URL.revokeObjectURL(generatedProofUrlRef.current);
+      }
+
+      const nextBlobUrl = URL.createObjectURL(proofQuery.data);
+      generatedProofUrlRef.current = nextBlobUrl;
+      setBlobUrl(nextBlobUrl);
+      return;
+    }
+
+    if (generatedProofUrlRef.current) {
+      URL.revokeObjectURL(generatedProofUrlRef.current);
+      generatedProofUrlRef.current = null;
+    }
+
     setBlobUrl(resolvedPreviewUrl);
-  }, [resolvedPreviewUrl]);
+  }, [proofQuery.data, resolvedPreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (generatedProofUrlRef.current) {
+        URL.revokeObjectURL(generatedProofUrlRef.current);
+        generatedProofUrlRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setProofImageLoaded(false);
@@ -355,7 +396,9 @@ export default function GetCardsPage() {
 
         <div className="proof-modal-body" style={{ marginTop: 14 }}>
           <div className="proof-modal-preview-panel">
-            {cardQuery.isLoading && !blobUrl ? (
+            {(cardQuery.isLoading ||
+              (shouldRenderMintedProof && proofQuery.isLoading)) &&
+            !blobUrl ? (
               <p className="dash-loading">
                 {isMintedCard ? "Rendering proof..." : "Loading preview..."}
               </p>
@@ -396,7 +439,7 @@ export default function GetCardsPage() {
           </div>
 
           <div className="proof-modal-actions-panel">
-            {cardQuery.isError ? (
+            {cardQuery.isError || proofQuery.isError ? (
               <p className="alert-error">
                 Failed to load card preview data. Try again.
               </p>

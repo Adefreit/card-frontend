@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
 
 const sectionImages = {
-  hero: "",
-  "how-it-works": "",
-  powers: "",
-  game: "",
-  future: "",
-  adventure: "",
+  hero: "hero.jpg",
+  "how-it-works": "howitworks.jpg",
+  powers: "powers.jpg",
+  game: "game.jpg",
+  future: "future.jpg",
+  adventure: "adventure.jpg",
 } as const;
 
 type SectionImageKey = keyof typeof sectionImages;
@@ -14,17 +14,15 @@ type SectionImageKey = keyof typeof sectionImages;
 type SectionVisualProps = {
   imageKey: SectionImageKey;
   alt: string;
-  caption: string;
 };
 
-function SectionVisual({ imageKey, alt, caption }: SectionVisualProps) {
+function SectionVisual({ imageKey, alt }: SectionVisualProps) {
   const imageSrc = sectionImages[imageKey];
 
   if (imageSrc) {
     return (
       <figure className="lp-image-figure">
         <img className="lp-image" src={imageSrc} alt={alt} />
-        <figcaption>{caption}</figcaption>
       </figure>
     );
   }
@@ -32,7 +30,6 @@ function SectionVisual({ imageKey, alt, caption }: SectionVisualProps) {
   return (
     <div className="lp-image-placeholder" role="img" aria-label={alt}>
       <span>Image Placeholder</span>
-      <small>{caption}</small>
     </div>
   );
 }
@@ -65,8 +62,9 @@ export default function HomePage() {
             <p>
               Welcome to Legendary Profiles, where your business card does not
               just introduce you, it <i>summons</i> you. Instead of handing
-              someone a plain card, hand them a stylish profile card that says,
-              "I'm Professional, but I also know how to have fun."
+              someone a plain card that they will probably throw away, hand them
+              something that says, "I'm Professional, but I also know how to
+              have fun."
             </p>
             <p>
               Each card keeps the classic 2.5&quot; x 3.5&quot; format of
@@ -80,11 +78,7 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-          <SectionVisual
-            imageKey="hero"
-            alt="Hero image placeholder"
-            caption="Hero artwork or product photo"
-          />
+          <SectionVisual imageKey="hero" alt="Hero image placeholder" />
         </section>
 
         <section id="how-it-works" className="lp-section">
@@ -94,19 +88,25 @@ export default function HomePage() {
             <p>
               Legendary Profiles is built around a simple idea: your card should
               feel magical, but the process should feel easy. Here&apos;s how it
-              works::
+              works:
             </p>
-            <p>
-              Draft your card for free. Create as many designs as you want and
-              experiment with titles, portraits, colors, and flavor text until
-              it feels right. When you’re ready to lock it in, mint the card to
-              unlock its features and share it with the world!
-            </p>
+            <ul className="lp-list">
+              <li>
+                <b>Draft your card for free.</b> Experiment with titles,
+                portraits, colors, and flavor text until it feels right.
+              </li>
+              <li>
+                <b>Mint the card to unlock its final form.</b> You can then
+                print the card yourself or let us do it for you!
+              </li>
+              <li>
+                <b>Share your awesome card with the world!</b>
+              </li>
+            </ul>
           </div>
           <SectionVisual
             imageKey="how-it-works"
             alt="QR feature image placeholder"
-            caption="QR and link-hub feature visual"
           />
         </section>
 
@@ -115,29 +115,29 @@ export default function HomePage() {
             <p className="lp-kicker">A card with powers</p>
             <h2>A business card with actual powers, sort of.</h2>
             <p>
-              Every Legendary Profile card includes a built-in QR code that
-              works as your personal digital portal. Scan it and your contact
-              info can pop into someone&apos;s phone with no typing. You also
-              get a custom page to distribute links to your portfolio, socials,
-              calendar, or anything else you want to show off.
+              Every Legendary Profile includes a dynamic QR code that works as
+              your personal digital portal. Scan it and your contact info can
+              pop into someone&apos;s phone like magic. You also get a mobile
+              page to distribute links to your portfolio, socials, calendar, or
+              anything else you want to show off.
             </p>
             <p>
-              If you want to go full wizard mode, a subscription unlocks
-              additional features like analytics and custom designs (coming
-              soon!).
+              All cards come with the core QR features, so you can start sharing
+              and networking right away.
+            </p>
+            <p>
+              However, if you want to go full wizard mode, a subscription
+              unlocks additional features like analytics and custom designs
+              (coming soon!).
             </p>
           </div>
-          <SectionVisual
-            imageKey="powers"
-            alt="QR feature image placeholder"
-            caption="QR and link-hub feature visual"
-          />
+          <SectionVisual imageKey="powers" alt="QR feature image placeholder" />
         </section>
 
         <section id="game" className="lp-section">
           <div className="lp-section-content">
             <p className="lp-kicker">It's Also a Game</p>
-            <h2>But wait. There&apos;s a game.</h2>
+            <h2>But wait. There&apos;s More!</h2>
             <p>
               Every card includes mysterious symbols and numbers. On their own,
               they look fun. With Game Packs, they transform into playable
@@ -150,19 +150,16 @@ export default function HomePage() {
               valuable.
             </p>
           </div>
-          <SectionVisual
-            imageKey="game"
-            alt="Game pack image placeholder"
-            caption="Game pack and symbol examples"
-          />
+          <SectionVisual imageKey="game" alt="Game pack image placeholder" />
         </section>
 
         <section id="future" className="lp-section">
           <div className="lp-section-content">
             <p className="lp-kicker">This is Just the Beginning</p>
-            <h2>This is just the first chapter.</h2>
+            <h2>We're Just Getting Started.</h2>
             <p>
-              Over the coming months, we will be adding new features, such as:
+              As we evolve our platform, we will be adding new features, such
+              as:
             </p>
             <ul className="lp-list">
               <li>More card designs from business formal to wildly epic.</li>
@@ -177,7 +174,6 @@ export default function HomePage() {
           <SectionVisual
             imageKey="future"
             alt="Future roadmap image placeholder"
-            caption="Roadmap or teaser visuals"
           />
         </section>
 
@@ -206,7 +202,6 @@ export default function HomePage() {
           <SectionVisual
             imageKey="adventure"
             alt="Final call to action image placeholder"
-            caption="Final brand image or showcase card"
           />
         </section>
       </main>
