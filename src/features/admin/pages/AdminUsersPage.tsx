@@ -5,6 +5,11 @@ import { getAdminUsers } from "../api";
 
 const DEFAULT_PAGE_SIZE = 25;
 
+function shortId(value?: string) {
+  if (!value) return "-";
+  return value.length <= 10 ? value : `${value.slice(0, 10)}...`;
+}
+
 export default function AdminUsersPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -85,13 +90,21 @@ export default function AdminUsersPage() {
                   <th>Activated</th>
                   <th>Subscription Active</th>
                   <th>Permissions</th>
-                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((user) => (
                   <tr key={user.id}>
-                    <td>{user.id}</td>
+                    <td>
+                      <Link
+                        className="admin-copy-chip"
+                        to={`/app/admin/users/${user.id}`}
+                        title={user.id}
+                      >
+                        {shortId(user.id)}
+                        <span className="admin-copy-chip__icon">↗</span>
+                      </Link>
+                    </td>
                     <td>{user.email ?? "-"}</td>
                     <td>
                       <input
@@ -122,21 +135,16 @@ export default function AdminUsersPage() {
                             None
                           </span>
                         ) : (
-                          (user.permissions ?? []).map((permission) => (
-                            <span key={permission} className="admin-chip">
-                              {permission}
-                            </span>
-                          ))
+                          <span
+                            className={`admin-chip${(user.permissions ?? []).includes("ADMIN") ? " admin-chip--admin" : ""}`}
+                            title={(user.permissions ?? []).join(", ")}
+                            aria-label={`User permissions: ${(user.permissions ?? []).join(", ")}`}
+                          >
+                            {(user.permissions ?? []).length} permission
+                            {(user.permissions ?? []).length === 1 ? "" : "s"}
+                          </span>
                         )}
                       </div>
-                    </td>
-                    <td>
-                      <Link
-                        className="btn-secondary"
-                        to={`/app/admin/users/${user.id}`}
-                      >
-                        Open
-                      </Link>
                     </td>
                   </tr>
                 ))}

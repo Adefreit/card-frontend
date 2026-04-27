@@ -361,6 +361,17 @@ export async function resendAdminPasswordReset(userId: string) {
   return data;
 }
 
+export async function addAdminOrderFulfillmentNote(
+  orderId: string,
+  note: string,
+) {
+  const { data } = await apiClient.post<AdminOrderFulfillmentNote>(
+    `/v1/admin/orders/${orderId}/fulfillment-notes`,
+    { note },
+  );
+  return data;
+}
+
 export async function refundAdminOrder(
   orderId: string,
   refundCents: number,

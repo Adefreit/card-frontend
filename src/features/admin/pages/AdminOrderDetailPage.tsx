@@ -1,24 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import {
   type AdminFulfillmentStage,
-  getAdminOrder,
-  refundAdminOrder,
-  updateAdminOrderFulfillmentStage,
   type AdminOrderFulfillmentNote,
   type AdminOrderItem,
   type AdminOrderRecord,
+  addAdminOrderFulfillmentNote,
+  getAdminOrder,
+  refundAdminOrder,
+  updateAdminOrderFulfillmentStage,
 } from "../api";
-
-const STAGE_ORDER = [
-  "pending",
-  "preparing",
-  "on_hold",
-  "complete",
-  "cancelled",
-] as const;
+import StageAdvanceModal from "./StageAdvanceModal";
 
 type FulfillmentStage = AdminFulfillmentStage;
 
@@ -32,113 +26,6 @@ function formatDate(value?: string | null | Date) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "-";
   return parsed.toLocaleString();
-}
-
-function safeJsonStringify(value: unknown) {
-  const seen = new WeakSet<object>();
-
-  try {
-    return JSON.stringify(
-      value,
-      (_key, currentValue) => {
-        if (typeof currentValue === "bigint") {
-          return currentValue.toString();
-        }
-
-        if (typeof currentValue === "function") {
-          return `[Function ${currentValue.name || "anonymous"}]`;
-        }
-
-        if (currentValue instanceof Error) {
-          return {
-            name: currentValue.name,
-            message: currentValue.message,
-            stack: currentValue.stack,
-          };
-        }
-
-        if (typeof currentValue === "object" && currentValue !== null) {
-          if (seen.has(currentValue)) {
-            return "[Circular]";
-          }
-          seen.add(currentValue);
-        }
-
-        return currentValue;
-      },
-      2,
-    );
-  } catch (error) {
-    return JSON.stringify(
-      {
-        error: "Unable to serialize raw data safely.",
-        reason: error instanceof Error ? error.message : String(error),
-      },
-      null,
-      2,
-    );
-  }
-}
-
-function sanitizeForDisplay(
-  value: unknown,
-  depth = 0,
-  seen = new WeakSet<object>(),
-): unknown {
-  if (value === null || value === undefined) {
-    return value;
-  }
-
-  if (typeof value === "bigint") {
-    return value.toString();
-  }
-
-  if (typeof value === "string") {
-    return value.length > 2000
-      ? `${value.slice(0, 2000)}… [truncated ${value.length - 2000} chars]`
-      : value;
-  }
-
-  if (typeof value !== "object") {
-    return value;
-  }
-
-  if (seen.has(value)) {
-    return "[Circular]";
-  }
-
-  if (depth >= 6) {
-    return "[Max depth reached]";
-  }
-
-  seen.add(value);
-
-  if (Array.isArray(value)) {
-    const sanitizedItems = value
-      .slice(0, 50)
-      .map((item) => sanitizeForDisplay(item, depth + 1, seen));
-
-    if (value.length > 50) {
-      sanitizedItems.push(`[${value.length - 50} more items truncated]`);
-    }
-
-    return sanitizedItems;
-  }
-
-  const record = value as Record<string, unknown>;
-  const entries = Object.entries(record);
-  const limitedEntries = entries.slice(0, 60);
-  const result: Record<string, unknown> = {};
-
-  for (const [key, entryValue] of limitedEntries) {
-    result[key] = sanitizeForDisplay(entryValue, depth + 1, seen);
-  }
-
-  if (entries.length > 60) {
-    result.__truncated__ = `${entries.length - 60} more keys omitted`;
-  }
-
-  return result;
 }
 
 function formatCents(value?: number | null) {
@@ -156,25 +43,145 @@ function capitalize(value?: string | null) {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
+function shortId(value?: string | null) {
+  if (!value) return "-";
+  if (value.length <= 14) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
+function safeJsonStringify(value: unknown) {
+  const seen = new WeakSet<object>();
+
+  try {
+    return JSON.stringify(
+      value,
+      (_key, currentValue) => {
+        if (typeof currentValue === "bigint") return currentValue.toString();
+
+        if (typeof currentValue === "function") {
+          return `[Function ${currentValue.name || "anonymous"}]`;
+        }
+
+        if (currentValue instanceof Error) {
+          return {
+            name: currentValue.name,
+            message: currentValue.message,
+            stack: currentValue.stack,
+          };
+        }
+
+        if (typeof currentValue === "object" && currentValue !== null) {
+          if (seen.has(currentValue)) return "[Circular]";
+          seen.add(currentValue);
+        }
+
+        return currentValue;
+      },
+      2,
+    );
+  } catch (error) {
+    return JSON.stringify(
+      {
+        error: "Unable to serialize payload safely.",
+        reason: error instanceof Error ? error.message : String(error),
+      },
+      null,
+      2,
+    );
+  }
+}
+
+function sanitizeForDisplay(
+  value: unknown,
+  depth = 0,
+  seen = new WeakSet<object>(),
+): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "string") {
+    return value.length > 2000
+      ? `${value.slice(0, 2000)}... [truncated ${value.length - 2000} chars]`
+      : value;
+  }
+  if (typeof value !== "object") return value;
+
+  if (seen.has(value)) return "[Circular]";
+  if (depth >= 6) return "[Max depth reached]";
+
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    const sanitized = value
+      .slice(0, 60)
+      .map((entry) => sanitizeForDisplay(entry, depth + 1, seen));
+
+    if (value.length > 60) {
+      sanitized.push(`[${value.length - 60} more items truncated]`);
+    }
+
+    return sanitized;
+  }
+
+  const record = value as Record<string, unknown>;
+  const entries = Object.entries(record);
+  const limitedEntries = entries.slice(0, 80);
+  const result: Record<string, unknown> = {};
+
+  for (const [key, entryValue] of limitedEntries) {
+    result[key] = sanitizeForDisplay(entryValue, depth + 1, seen);
+  }
+
+  if (entries.length > 80) {
+    result.__truncated__ = `${entries.length - 80} more keys omitted`;
+  }
+
+  return result;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
-}
-
-function toQty(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0)
-    return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed) && parsed > 0) return parsed;
-  }
-  return 1;
 }
 
 function toLabel(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function toQty(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+
+  return 1;
+}
+
+function normalizeMatchKey(value?: string | null) {
+  if (!value) return "";
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function parseApiError(error: unknown, fallback: string): string {
+  if (isAxiosError(error)) {
+    const data = error.response?.data as
+      | { response?: string; message?: string; error?: string }
+      | undefined;
+
+    const apiMessage = data?.message ?? data?.response ?? data?.error;
+    if (apiMessage && apiMessage.trim().length > 0) return apiMessage;
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 function extractIncludedEntries(item: AdminOrderItem): ParsedIncludedEntry[] {
@@ -194,6 +201,7 @@ function extractIncludedEntries(item: AdminOrderItem): ParsedIncludedEntry[] {
     "contents",
     "items",
   ];
+
   const found: ParsedIncludedEntry[] = [];
 
   const tryPush = (label: string | null, quantityValue: unknown) => {
@@ -207,16 +215,20 @@ function extractIncludedEntries(item: AdminOrderItem): ParsedIncludedEntry[] {
         tryPush(toLabel(entry), 1);
         continue;
       }
+
       const entryRecord = asRecord(entry);
       if (!entryRecord) continue;
+
       const label =
         toLabel(entryRecord.title) ||
         toLabel(entryRecord.name) ||
         toLabel(entryRecord.card_name) ||
         toLabel(entryRecord.cardTitle) ||
         toLabel(entryRecord.cardId) ||
+        toLabel(entryRecord.card_id) ||
         toLabel(entryRecord.product_id) ||
         toLabel(entryRecord.id);
+
       tryPush(
         label,
         entryRecord.quantity ?? entryRecord.qty ?? entryRecord.count,
@@ -227,6 +239,7 @@ function extractIncludedEntries(item: AdminOrderItem): ParsedIncludedEntry[] {
   for (const container of candidateContainers) {
     const containerRecord = asRecord(container);
     if (!containerRecord) continue;
+
     for (const key of candidateArrayKeys) {
       const value = containerRecord[key];
       if (Array.isArray(value)) visitArray(value);
@@ -239,6 +252,7 @@ function extractIncludedEntries(item: AdminOrderItem): ParsedIncludedEntry[] {
     if (existing) existing.quantity += entry.quantity;
     else deduped.set(entry.label, { ...entry });
   }
+
   return [...deduped.values()];
 }
 
@@ -246,39 +260,16 @@ function getItemTitle(item: AdminOrderItem) {
   const itemRecord = item as Record<string, unknown>;
   const metadata = asRecord(itemRecord.metadata);
   const options = asRecord(itemRecord.options);
+
   return (
-    (toLabel(itemRecord.title) as string | null) ||
-    (toLabel(metadata?.title) as string | null) ||
-    (toLabel(metadata?.name) as string | null) ||
-    (toLabel(options?.title) as string | null) ||
-    (toLabel(options?.name) as string | null) ||
-    (toLabel(itemRecord.product_id) as string | null) ||
-    (toLabel(itemRecord.item_type) as string | null) ||
+    toLabel(itemRecord.title) ||
+    toLabel(metadata?.title) ||
+    toLabel(metadata?.name) ||
+    toLabel(options?.title) ||
+    toLabel(options?.name) ||
+    toLabel(itemRecord.product_id) ||
+    toLabel(itemRecord.item_type) ||
     "Order Item"
-  );
-}
-
-function CopyValue({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-
-  function handleCopy() {
-    void navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    });
-  }
-
-  return (
-    <span
-      className="admin-copy-value"
-      onClick={handleCopy}
-      title="Click to copy"
-    >
-      <span>{value}</span>
-      <span className="admin-copy-value__hint">
-        {copied ? "Copied" : "Click to copy"}
-      </span>
-    </span>
   );
 }
 
@@ -290,21 +281,17 @@ export default function AdminOrderDetailPage() {
     ?.order;
 
   const [mutationMessage, setMutationMessage] = useState<string | null>(null);
-  const [selectedStage, setSelectedStage] =
-    useState<FulfillmentStage>("pending");
-  const [confirmAdvance, setConfirmAdvance] = useState(false);
   const [orderFallback, setOrderFallback] = useState<AdminOrderRecord | null>(
     locationOrder ?? null,
   );
+  const [stageModalOpen, setStageModalOpen] = useState(false);
+  const [stageModalTarget, setStageModalTarget] =
+    useState<FulfillmentStage | null>(null);
+  const [fulfillmentNoteDraft, setFulfillmentNoteDraft] = useState("");
 
-  // Refund modal state
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundCents, setRefundCents] = useState<number>(0);
   const [refundReason, setRefundReason] = useState("");
-  const [stageNote, setStageNote] = useState("");
-  const [stageMetadataText, setStageMetadataText] = useState(
-    '{"source":"admin_ui"}',
-  );
 
   const orderQuery = useQuery({
     queryKey: ["admin", "order", orderId],
@@ -315,7 +302,7 @@ export default function AdminOrderDetailPage() {
 
   useEffect(() => {
     if (locationOrder) setOrderFallback(locationOrder);
-  }, [locationOrder, orderId]);
+  }, [locationOrder]);
 
   const order = orderQuery.data?.order ?? orderFallback;
   const relatedUser = orderQuery.data?.user ?? null;
@@ -324,61 +311,40 @@ export default function AdminOrderDetailPage() {
 
   useEffect(() => {
     if (!order) return;
-    const fallback = (order.fulfillment_stage as FulfillmentStage) ?? "pending";
-    setSelectedStage(fallback);
-    setConfirmAdvance(false);
-    setStageNote("");
-  }, [order]);
-
-  // Pre-fill refund amount when order loads
-  useEffect(() => {
-    if (!order) return;
     const remaining =
       (order.total_cents ?? 0) - (order.refund_total_cents ?? 0);
     setRefundCents(Math.max(0, remaining));
   }, [order]);
 
   const stageMutation = useMutation({
-    mutationFn: (stage: FulfillmentStage) => {
-      let parsedMetadata: Record<string, unknown> | undefined;
-
-      if (stageMetadataText.trim()) {
-        try {
-          const metadata = JSON.parse(stageMetadataText);
-          if (
-            metadata &&
-            typeof metadata === "object" &&
-            !Array.isArray(metadata)
-          ) {
-            parsedMetadata = metadata as Record<string, unknown>;
-          } else {
-            throw new Error("Metadata must be a JSON object.");
-          }
-        } catch {
-          throw new Error("Stage metadata must be valid JSON.");
-        }
-      }
-
-      return updateAdminOrderFulfillmentStage(
+    mutationFn: ({
+      stage,
+      note,
+      metadata,
+    }: {
+      stage: FulfillmentStage;
+      note: string;
+      metadata: Record<string, unknown>;
+    }) =>
+      updateAdminOrderFulfillmentStage(
         orderId as string,
         stage,
-        stageNote,
-        parsedMetadata,
-      );
-    },
-    onSuccess: async () => {
+        note || undefined,
+        Object.keys(metadata).length > 0 ? metadata : undefined,
+      ),
+    onSuccess: async (_data, variables) => {
       setMutationMessage("Order fulfillment stage updated successfully.");
-      setConfirmAdvance(false);
-      setStageNote("");
+      setStageModalOpen(false);
       setOrderFallback((prev) =>
         prev
           ? {
               ...prev,
-              fulfillment_stage: selectedStage,
+              fulfillment_stage: variables.stage,
               fulfillment_update_time: new Date().toISOString(),
             }
           : prev,
       );
+
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["admin", "order", orderId],
@@ -387,33 +353,30 @@ export default function AdminOrderDetailPage() {
       ]);
     },
     onError: (error) => {
-      if (isAxiosError(error)) {
-        const responseData = error.response?.data as
-          | { response?: string; message?: string; error?: string }
-          | undefined;
-        const apiMessage =
-          responseData?.message ??
-          responseData?.response ??
-          responseData?.error;
+      setMutationMessage(parseApiError(error, "Failed to update order stage."));
+    },
+  });
 
-        if (apiMessage) {
-          setMutationMessage(apiMessage);
-          return;
-        }
-      }
-
-      if (error instanceof Error) {
-        setMutationMessage(error.message);
-        return;
-      }
-
-      setMutationMessage("Failed to update order stage.");
+  const addNoteMutation = useMutation({
+    mutationFn: (note: string) =>
+      addAdminOrderFulfillmentNote(orderId as string, note),
+    onSuccess: async () => {
+      setMutationMessage("Fulfillment note added.");
+      setFulfillmentNoteDraft("");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "order", orderId],
+      });
+    },
+    onError: (error) => {
+      setMutationMessage(
+        parseApiError(error, "Failed to add fulfillment note."),
+      );
     },
   });
 
   const refundMutation = useMutation({
     mutationFn: () =>
-      refundAdminOrder(orderId as string, refundCents, refundReason),
+      refundAdminOrder(orderId as string, refundCents, refundReason.trim()),
     onSuccess: async () => {
       setMutationMessage("Refund issued successfully.");
       setRefundOpen(false);
@@ -425,43 +388,27 @@ export default function AdminOrderDetailPage() {
         queryClient.invalidateQueries({ queryKey: ["admin", "orders"] }),
       ]);
     },
-    onError: () => {
+    onError: (error) => {
       setMutationMessage(
-        "Refund failed. Please check the amount and try again.",
+        parseApiError(
+          error,
+          "Refund failed. Please check the amount and try again.",
+        ),
       );
     },
   });
 
   if (!orderId) return <Navigate to="/app/admin/orders" replace />;
 
-  // Parse metadata.cards if present
-  const metadataCards: Array<Record<string, unknown>> = (() => {
-    const meta = asRecord(order?.metadata);
-    if (!meta) return [];
-    const cards = meta.cards;
-    if (!Array.isArray(cards)) return [];
-    return cards
-      .map((c) => asRecord(c) ?? {})
-      .filter((c) => Object.keys(c).length > 0);
-  })();
-
-  const currentStageIdx = order
-    ? STAGE_ORDER.indexOf(
-        (order.fulfillment_stage ?? "pending") as FulfillmentStage,
-      )
-    : -1;
-
+  const currentStage = (order?.fulfillment_stage ??
+    "pending") as FulfillmentStage;
   const isTerminalStage =
-    order?.fulfillment_stage === "complete" ||
-    order?.fulfillment_stage === "cancelled";
-
+    currentStage === "complete" || currentStage === "cancelled";
   const isDigitalOrder =
     order?.order_type === "mint" || order?.order_type === "subscription";
 
   const allowedTargets = (() => {
-    if (!order?.fulfillment_stage) {
-      return new Set<FulfillmentStage>();
-    }
+    if (!order?.fulfillment_stage) return new Set<FulfillmentStage>();
 
     if (order.fulfillment_stage === "complete") {
       return new Set<FulfillmentStage>(["complete"]);
@@ -484,17 +431,20 @@ export default function AdminOrderDetailPage() {
     };
 
     return new Set<FulfillmentStage>(
-      transitions[order.fulfillment_stage as FulfillmentStage] ?? [],
+      transitions[order.fulfillment_stage] ?? [],
     );
   })();
 
   const canRefund =
     order?.status === "paid" || order?.status === "partially_refunded";
+  const remainingRefundable = Math.max(
+    0,
+    (order?.total_cents ?? 0) - (order?.refund_total_cents ?? 0),
+  );
 
   const cardsFromItems = (order?.items ?? []).flatMap((item) =>
     extractIncludedEntries(item),
   );
-
   const groupedCardsFromItems = Array.from(
     cardsFromItems.reduce((map, entry) => {
       map.set(entry.label, (map.get(entry.label) ?? 0) + entry.quantity);
@@ -507,82 +457,94 @@ export default function AdminOrderDetailPage() {
       ? "Subscription"
       : order?.order_type === "mint"
         ? "Minting"
-        : metadataCards.length > 0 || groupedCardsFromItems.length > 0
+        : groupedCardsFromItems.length > 0
           ? "Card Order"
           : humanizeText(order?.order_type);
 
-  const mintCardIdFromItemMetadata = (order?.items ?? []).find((item) => {
-    const metadata = asRecord(item.metadata);
-    return Boolean(toLabel(metadata?.cardId) ?? toLabel(metadata?.card_id));
-  });
+  const relatedProofMap = useMemo(() => {
+    const map = new Map<string, string>();
 
-  const resolvedMintCardId =
-    order?.mint_card_id ??
-    (mintCardIdFromItemMetadata
-      ? (() => {
-          const metadata = asRecord(mintCardIdFromItemMetadata.metadata);
-          return (
-            toLabel(metadata?.cardId) ?? toLabel(metadata?.card_id) ?? undefined
-          );
-        })()
-      : undefined);
+    for (const card of relatedCards) {
+      const proof = card.artifacts?.proof;
+      if (!proof) continue;
 
-  const rawSummary = {
-    hasResponse: Boolean(orderQuery.data),
-    orderType: order?.order_type ?? "-",
-    itemCount: order?.items?.length ?? 0,
-    relatedCardCount: relatedCards.length,
-    metadataCardCount: metadataCards.length,
-    responseKeys: orderQuery.data ? Object.keys(orderQuery.data) : [],
-  };
+      map.set(normalizeMatchKey(card.cardID), proof);
+
+      const record = asRecord(card.card);
+      const dataRecord = asRecord(record?.data);
+      const title = toLabel(dataRecord?.title) ?? toLabel(record?.title);
+      if (title) {
+        map.set(normalizeMatchKey(title), proof);
+      }
+    }
+
+    return map;
+  }, [relatedCards]);
+
+  const relatedPreviewMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    for (const card of relatedCards) {
+      const preview = card.artifacts?.preview;
+      if (!preview) continue;
+
+      map.set(normalizeMatchKey(card.cardID), preview);
+
+      const record = asRecord(card.card);
+      const dataRecord = asRecord(record?.data);
+      const title = toLabel(dataRecord?.title) ?? toLabel(record?.title);
+      if (title) {
+        map.set(normalizeMatchKey(title), preview);
+      }
+    }
+
+    return map;
+  }, [relatedCards]);
+
+  const rawPayloadText = useMemo(
+    () => safeJsonStringify(sanitizeForDisplay(orderQuery.data)),
+    [orderQuery.data],
+  );
 
   function handleCopyDebugPayload() {
-    const debugPayload = safeJsonStringify(sanitizeForDisplay(orderQuery.data));
-    void navigator.clipboard.writeText(debugPayload).then(() => {
-      setMutationMessage("Debug payload copied to clipboard.");
-    });
-  }
-
-  function handleLogDebugPayload() {
-    console.log(
-      "Admin order debug payload",
-      sanitizeForDisplay(orderQuery.data),
-    );
-    setMutationMessage("Debug payload logged to the browser console.");
+    void navigator.clipboard
+      .writeText(rawPayloadText)
+      .then(() => setMutationMessage("Raw data copied to clipboard."))
+      .catch(() => setMutationMessage("Unable to copy raw data."));
   }
 
   function handleDownloadDebugPayload() {
-    const debugPayload = safeJsonStringify(sanitizeForDisplay(orderQuery.data));
-    const blob = new Blob([debugPayload], { type: "application/json" });
+    const blob = new Blob([rawPayloadText], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `admin-order-${orderId ?? "unknown"}-debug.json`;
+    link.download = `admin-order-${orderId}-raw.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setMutationMessage("Debug payload downloaded.");
+    setMutationMessage("Raw data downloaded.");
   }
+
+  const railToneClass = `admin-order-rail-status admin-order-rail-status--${currentStage}`;
 
   return (
     <div className="page-stack admin-page">
-      {/* Header */}
       <section className="content-hero">
         <div>
-          <h1>Order Details</h1>
+          <h1>Order Detail</h1>
           <p className="content-hero-copy">
-            Review items, payment, and fulfillment for this order.
+            Fast operational view for fulfillment, payment, and card proofs.
           </p>
         </div>
         <Link className="btn-secondary" to="/app/admin/orders">
-          ← Back to Orders
+          &lt;- Back to Orders
         </Link>
       </section>
 
       <section className="dash-panel admin-card">
         {mutationMessage ? (
-          <p className="alert-success" style={{ marginBottom: 16 }}>
+          <p className="alert-success" style={{ marginBottom: 12 }}>
             {mutationMessage}
           </p>
         ) : null}
@@ -602,631 +564,445 @@ export default function AdminOrderDetailPage() {
         ) : null}
 
         {order ? (
-          <>
-            {/* ── Section 1: Order Summary ─────────────────────── */}
-            <div className="admin-order-section">
-              <div className="admin-order-section-header">
-                <p className="admin-order-section-title" style={{ margin: 0 }}>
-                  Order Summary
-                </p>
-                <span>
-                  <span
-                    className={`admin-order-chip admin-order-chip--${order.order_type ?? "other"}`}
-                    style={{ marginRight: 8 }}
-                  >
-                    {humanizeText(order.order_type)}
-                  </span>
-                  <span
-                    className={`admin-order-chip admin-order-chip--${order.status ?? "pending"}`}
-                  >
-                    {humanizeText(order.status)}
-                  </span>
-                </span>
-              </div>
-
-              <div className="detail-meta-grid">
-                <div className="detail-meta-item">
-                  <span>Order ID</span>
-                  <strong>
-                    <CopyValue value={order.id} />
-                  </strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>User</span>
-                  <strong>
-                    {order.user_id ? (
-                      <Link to={`/app/admin/users/${order.user_id}`}>
-                        {order.user_id}
-                      </Link>
-                    ) : (
-                      "-"
-                    )}
-                  </strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>Email</span>
-                  <strong>{relatedUser?.email ?? "-"}</strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>What Was Ordered</span>
-                  <strong>{summaryWhatWasOrdered}</strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>Cards</span>
-                  <strong>
-                    {metadataCards.length > 0
-                      ? metadataCards
-                          .map((card) => {
-                            const title =
-                              toLabel(card.title) ??
-                              toLabel(card.name) ??
-                              toLabel(card.id) ??
-                              "Card";
-                            const qty = toQty(card.quantity ?? card.qty ?? 1);
-                            return `${title} x${qty}`;
-                          })
-                          .join(", ")
-                      : groupedCardsFromItems.length > 0
-                        ? groupedCardsFromItems
-                            .map(([label, qty]) => `${label} x${qty}`)
-                            .join(", ")
-                        : "-"}
-                  </strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>Created</span>
-                  <strong>{formatDate(order.create_time)}</strong>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Section 2: Payment ──────────────────────────── */}
-            <div className="admin-order-section">
-              <div className="admin-order-section-header">
-                <p className="admin-order-section-title" style={{ margin: 0 }}>
-                  Payment
-                </p>
-                <strong className="admin-order-payment-total">
-                  {formatCents(order.total_cents)}
-                </strong>
-              </div>
-
-              <div className="detail-meta-grid" style={{ marginBottom: 14 }}>
-                <div className="detail-meta-item">
-                  <span>Provider</span>
-                  <strong>{capitalize(order.payment_provider)}</strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>Checkout ID</span>
-                  <strong>
-                    {order.provider_checkout_id ? (
-                      <CopyValue value={order.provider_checkout_id} />
-                    ) : (
-                      "-"
-                    )}
-                  </strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>Currency</span>
-                  <strong>{(order.currency ?? "-").toUpperCase()}</strong>
-                </div>
-                {canRefund ? (
-                  <button
-                    type="button"
-                    className="btn-danger"
-                    style={{ padding: "6px 16px", fontSize: "0.85rem" }}
-                    onClick={() => setRefundOpen(true)}
-                  >
-                    Issue Refund
-                  </button>
-                ) : null}
-              </div>
-
-              <details>
-                <summary className="admin-order-expand-summary">
-                  Show payment details
-                </summary>
+          <div className="admin-order-layout">
+            <div className="admin-order-main" style={{ minWidth: 0 }}>
+              <div className="admin-order-section">
+                <p className="admin-order-section-title">Order Summary</p>
                 <div
-                  className="admin-order-money-row"
-                  style={{ marginTop: 10 }}
+                  style={{
+                    display: "grid",
+                    gap: 10,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  }}
                 >
-                  <div className="admin-order-money-row__item">
-                    <span>Subtotal</span>
-                    <strong>{formatCents(order.subtotal_cents)}</strong>
-                  </div>
-                  <div className="admin-order-money-row__item">
-                    <span>Tax</span>
-                    <strong>{formatCents(order.tax_cents)}</strong>
-                  </div>
-                  <div className="admin-order-money-row__item">
-                    <span>Shipping</span>
-                    <strong>{formatCents(order.shipping_cents)}</strong>
-                  </div>
-                  <div className="admin-order-money-row__item admin-order-money-row__total">
-                    <span>Total</span>
-                    <strong>{formatCents(order.total_cents)}</strong>
-                  </div>
-                  {(order.refund_total_cents ?? 0) > 0 ? (
-                    <div className="admin-order-money-row__item admin-order-money-row__refunded">
-                      <span>Refunded</span>
-                      <strong>{formatCents(order.refund_total_cents)}</strong>
-                    </div>
-                  ) : null}
-                </div>
-                {order.provider_payment_intent_id ? (
-                  <div className="detail-meta-item" style={{ marginTop: 10 }}>
-                    <span>Payment Intent</span>
-                    <strong>
-                      <CopyValue value={order.provider_payment_intent_id} />
+                  <div className="detail-meta-item">
+                    <span>Order ID</span>
+                    <strong
+                      style={{
+                        fontSize: "0.78rem",
+                        wordBreak: "break-all",
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {order.id}
                     </strong>
                   </div>
-                ) : null}
-              </details>
-            </div>
-
-            {/* ── Section 3: Fulfillment ──────────────────────── */}
-            <div className="admin-order-section">
-              <p className="admin-order-section-title">Fulfillment</p>
-
-              <div className="admin-order-stage-track">
-                {STAGE_ORDER.map((stage, idx) => {
-                  const isDone = idx < currentStageIdx;
-                  const isActive = idx === currentStageIdx;
-                  let pillClass = `admin-order-stage-pill admin-order-stage-pill--${stage}`;
-                  if (isDone) pillClass += " admin-order-stage-pill--done";
-                  if (isActive) pillClass += " admin-order-stage-pill--active";
-                  return (
-                    <span key={stage} className={pillClass}>
-                      {isDone ? "✓ " : ""}
-                      {humanizeText(stage)}
-                    </span>
-                  );
-                })}
+                  <div className="detail-meta-item">
+                    <span>Customer</span>
+                    <strong>
+                      {order.user_id ? (
+                        <Link to={`/app/admin/users/${order.user_id}`}>
+                          {relatedUser?.email ?? shortId(order.user_id)}
+                        </Link>
+                      ) : (
+                        (relatedUser?.email ?? "-")
+                      )}
+                    </strong>
+                  </div>
+                  <div className="detail-meta-item">
+                    <span>Ordered</span>
+                    <strong>{summaryWhatWasOrdered}</strong>
+                  </div>
+                  <div className="detail-meta-item">
+                    <span>Created</span>
+                    <strong>{formatDate(order.create_time)}</strong>
+                  </div>
+                </div>
               </div>
 
-              <div className="admin-order-stage-panel">
-                <p className="admin-order-recommendation">
-                  <strong>Current:</strong>{" "}
-                  {humanizeText(order.fulfillment_stage)}
-                  <br />
-                  <strong>Order Date:</strong> {formatDate(order.create_time)}
-                  <br />
-                  <strong>Last Update:</strong>{" "}
-                  {formatDate(
-                    order.fulfillment_update_time ?? order.update_time,
-                  )}
-                </p>
-                <div className="admin-order-stage-controls">
-                  <select
-                    value={selectedStage}
-                    onChange={(e) => {
-                      setSelectedStage(e.target.value as FulfillmentStage);
-                      setConfirmAdvance(false);
-                    }}
-                  >
-                    {STAGE_ORDER.map((stage) => (
-                      <option
-                        key={stage}
-                        value={stage}
-                        disabled={!allowedTargets.has(stage)}
+              <div className="admin-order-section">
+                <p className="admin-order-section-title">What Was Ordered</p>
+
+                {order.items && order.items.length > 0 ? (
+                  <>
+                    <div className="admin-table-wrap">
+                      <table className="admin-table admin-order-items-grid-table">
+                        <thead>
+                          <tr>
+                            <th>Item</th>
+                            <th>Type</th>
+                            <th>Qty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {order.items.map((item, idx) => (
+                            <tr key={item.id ?? `item-${idx}`}>
+                              <td>{getItemTitle(item)}</td>
+                              <td>{humanizeText(item.item_type)}</td>
+                              <td>{item.quantity ?? 1}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {groupedCardsFromItems.length > 0 ? (
+                      <div style={{ marginTop: 16 }}>
+                        <p className="admin-order-subsection-title">
+                          Cards &amp; Proofs
+                        </p>
+                        <div className="admin-table-wrap">
+                          <table className="admin-table admin-order-items-grid-table">
+                            <thead>
+                              <tr>
+                                <th>Card</th>
+                                <th>Qty</th>
+                                <th>Proof</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {groupedCardsFromItems.map(
+                                ([label, quantity]) => {
+                                  const key = normalizeMatchKey(label);
+                                  const proof =
+                                    relatedProofMap.get(key) ?? null;
+                                  const preview =
+                                    relatedPreviewMap.get(key) ?? null;
+                                  return (
+                                    <tr key={label}>
+                                      <td>
+                                        <span className="admin-card-preview-wrap">
+                                          {label}
+                                          {preview ? (
+                                            <img
+                                              className="admin-card-preview-img"
+                                              src={preview}
+                                              alt={`${label} preview`}
+                                              loading="lazy"
+                                            />
+                                          ) : null}
+                                        </span>
+                                      </td>
+                                      <td>{quantity}</td>
+                                      <td>
+                                        {proof ? (
+                                          <a
+                                            className="btn-secondary btn-xs"
+                                            href={proof}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            download
+                                          >
+                                            Download
+                                          </a>
+                                        ) : (
+                                          <span>-</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                },
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="admin-order-empty">
+                    No line items for this order.
+                  </p>
+                )}
+              </div>
+
+              <div className="admin-order-section">
+                <div className="admin-order-section-header">
+                  <div className="admin-payment-title-row">
+                    <p
+                      className="admin-order-section-title"
+                      style={{ margin: 0 }}
+                    >
+                      Payment Details
+                    </p>
+                    <span className="admin-payment-provider-chip">
+                      {capitalize(order.payment_provider)}
+                    </span>
+                  </div>
+                  <strong className="admin-order-payment-total">
+                    {formatCents(order.total_cents)}{" "}
+                    {(order.currency ?? "-").toUpperCase()}
+                  </strong>
+                </div>
+
+                {order.provider_checkout_id ? (
+                  <div className="admin-payment-info-row">
+                    <span className="admin-payment-badge">
+                      <span className="admin-payment-badge__label">
+                        Checkout
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "monospace",
+                          fontSize: "0.68rem",
+                          letterSpacing: "-0.02em",
+                        }}
                       >
-                        {humanizeText(stage)}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => {
-                      if (confirmAdvance) stageMutation.mutate(selectedStage);
-                      else setConfirmAdvance(true);
-                    }}
-                    disabled={stageMutation.isPending || isTerminalStage}
+                        {order.provider_checkout_id}
+                      </span>
+                    </span>
+                  </div>
+                ) : null}
+
+                <table className="admin-payment-money-table">
+                  <tbody>
+                    <tr>
+                      <td>Subtotal</td>
+                      <td>{formatCents(order.subtotal_cents)}</td>
+                    </tr>
+                    <tr>
+                      <td>Tax</td>
+                      <td>{formatCents(order.tax_cents)}</td>
+                    </tr>
+                    <tr>
+                      <td>Shipping</td>
+                      <td>{formatCents(order.shipping_cents)}</td>
+                    </tr>
+                    <tr className="admin-payment-money-table__total">
+                      <td>Total</td>
+                      <td>{formatCents(order.total_cents)}</td>
+                    </tr>
+                    {(order.refund_total_cents ?? 0) > 0 ? (
+                      <tr className="admin-payment-money-table__refunded">
+                        <td>Refunded</td>
+                        <td>&#8722;{formatCents(order.refund_total_cents)}</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+
+                {canRefund ? (
+                  <div className="admin-order-payment-actions">
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={() => setRefundOpen(true)}
+                    >
+                      Issue Refund
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="admin-order-section">
+                <div className="admin-order-section-header">
+                  <p
+                    className="admin-order-section-title"
+                    style={{ margin: 0 }}
                   >
-                    {confirmAdvance
-                      ? stageMutation.isPending
-                        ? "Updating…"
-                        : `Confirm → ${humanizeText(selectedStage)}`
-                      : "Update"}
-                  </button>
-                  {confirmAdvance ? (
+                    Raw Data
+                  </p>
+                  <div className="admin-order-section-actions">
                     <button
                       type="button"
                       className="btn-secondary"
-                      onClick={() => setConfirmAdvance(false)}
+                      onClick={handleCopyDebugPayload}
                     >
-                      Cancel
+                      Copy Raw JSON
                     </button>
-                  ) : null}
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={handleDownloadDebugPayload}
+                    >
+                      Download Raw JSON
+                    </button>
+                  </div>
                 </div>
-                {confirmAdvance ? (
-                  <p
-                    className="admin-order-confirm-note"
-                    style={{ marginTop: 10 }}
-                  >
-                    This will move the order from{" "}
-                    <strong>
-                      {humanizeText(order.fulfillment_stage ?? "pending")}
-                    </strong>{" "}
-                    to <strong>{humanizeText(selectedStage)}</strong>.
-                  </p>
-                ) : null}
+                <details>
+                  <summary className="admin-order-expand-summary">
+                    Show raw payload
+                  </summary>
+                  <textarea
+                    readOnly
+                    value={rawPayloadText}
+                    style={{
+                      width: "100%",
+                      marginTop: 10,
+                      minHeight: 220,
+                      maxHeight: 420,
+                      resize: "vertical",
+                      fontFamily: "monospace",
+                      fontSize: "0.78rem",
+                      lineHeight: 1.45,
+                    }}
+                  />
+                </details>
+              </div>
+            </div>
 
-                <div style={{ marginTop: 12 }}>
-                  <label style={{ display: "block", marginBottom: 8 }}>
-                    <span style={{ display: "block", marginBottom: 6 }}>
-                      Stage Note (optional)
-                    </span>
-                    <textarea
-                      value={stageNote}
-                      onChange={(event) => setStageNote(event.target.value)}
-                      maxLength={2000}
-                      placeholder="Add context for this stage transition"
-                      rows={3}
-                      style={{ width: "100%" }}
-                    />
-                  </label>
+            <aside className="admin-order-section admin-order-rail">
+              <p
+                className="admin-order-section-title"
+                style={{ marginBottom: 8 }}
+              >
+                Fulfillment Status
+              </p>
 
-                  <label style={{ display: "block" }}>
-                    <span style={{ display: "block", marginBottom: 6 }}>
-                      Stage Metadata JSON (optional)
-                    </span>
-                    <textarea
-                      value={stageMetadataText}
-                      onChange={(event) =>
-                        setStageMetadataText(event.target.value)
-                      }
-                      placeholder='{"source":"admin_ui"}'
-                      rows={3}
-                      style={{ width: "100%", fontFamily: "monospace" }}
-                    />
-                  </label>
+              <div className={railToneClass}>
+                <div className="admin-order-rail-status__label">
+                  Current status
                 </div>
+                <div className="admin-order-rail-status__value">
+                  {humanizeText(currentStage)}
+                </div>
+                <div className="admin-order-rail-status__time">
+                  Last update{" "}
+                  {formatDate(
+                    order.fulfillment_update_time ?? order.update_time,
+                  )}
+                </div>
+              </div>
 
-                {isTerminalStage ? (
-                  <p
-                    className="admin-order-confirm-note"
-                    style={{ marginTop: 10 }}
-                  >
-                    This order is in a terminal stage and cannot be updated.
-                  </p>
+              <div
+                className="admin-order-stage-controls"
+                style={{ marginBottom: 10 }}
+              >
+                {!isTerminalStage && allowedTargets.size > 0 ? (
+                  <div className="admin-stage-btn-row">
+                    {[...allowedTargets].map((stage) => (
+                      <button
+                        key={stage}
+                        type="button"
+                        className={`admin-stage-transition-btn${stage === "cancelled" ? " admin-stage-transition-btn--danger" : stage === "complete" ? " admin-stage-transition-btn--success" : ""}`}
+                        onClick={() => {
+                          setStageModalTarget(stage);
+                          setStageModalOpen(true);
+                        }}
+                        disabled={stageMutation.isPending}
+                      >
+                        <span className="admin-stage-transition-btn__arrow">
+                          →
+                        </span>
+                        {humanizeText(stage)}
+                      </button>
+                    ))}
+                  </div>
                 ) : null}
+              </div>
+
+              <div className="admin-order-note-editor">
+                <label>
+                  <span>Add fulfillment note</span>
+                  <textarea
+                    value={fulfillmentNoteDraft}
+                    onChange={(event) =>
+                      setFulfillmentNoteDraft(event.target.value)
+                    }
+                    maxLength={2000}
+                    rows={3}
+                    placeholder="Add a note without changing status"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={
+                    addNoteMutation.isPending ||
+                    fulfillmentNoteDraft.trim().length === 0 ||
+                    !order
+                  }
+                  onClick={() =>
+                    addNoteMutation.mutate(fulfillmentNoteDraft.trim())
+                  }
+                >
+                  {addNoteMutation.isPending ? "Saving..." : "Add Note"}
+                </button>
               </div>
 
               <div
                 className="admin-order-stage-panel"
                 style={{ marginTop: 12 }}
               >
-                <p className="admin-order-section-title">
-                  Fulfillment Timeline
-                </p>
+                <p className="admin-order-section-title">Timeline</p>
                 {fulfillmentNotes.length === 0 ? (
                   <p className="admin-order-empty">
                     No fulfillment notes recorded yet.
                   </p>
                 ) : (
-                  <div className="admin-order-item-summary">
-                    {fulfillmentNotes.map((note: AdminOrderFulfillmentNote) => (
-                      <div key={note.id} style={{ marginBottom: 10 }}>
-                        <strong>
-                          {humanizeText(note.from_stage ?? "-")} →{" "}
-                          {humanizeText(note.to_stage)}
-                        </strong>
-                        <span>At: {formatDate(note.create_time)}</span>
-                        <span>Actor: {note.actor_user_id ?? "System"}</span>
-                        {note.note ? <span>Note: {note.note}</span> : null}
-                        {note.metadata &&
-                        Object.keys(note.metadata).length > 0 ? (
-                          <details>
-                            <summary>Metadata</summary>
-                            <pre>{safeJsonStringify(note.metadata)}</pre>
-                          </details>
-                        ) : null}
-                      </div>
-                    ))}
+                  <div className="admin-order-timeline">
+                    {fulfillmentNotes
+                      .slice(0, 8)
+                      .map((note: AdminOrderFulfillmentNote) => {
+                        const metaEntries = Object.entries(
+                          note.metadata ?? {},
+                        ).filter(([k]) => k !== "source");
+                        const sourceValue = (
+                          note.metadata as Record<string, unknown>
+                        )?.source;
+                        return (
+                          <div key={note.id} className="admin-timeline-entry">
+                            <span className="admin-timeline-entry__date">
+                              {formatDate(note.create_time)}
+                              {sourceValue ? (
+                                <span className="admin-timeline-entry__source">
+                                  {" "}
+                                  via {String(sourceValue)}
+                                </span>
+                              ) : null}
+                            </span>
+                            {note.from_stage !== note.to_stage ? (
+                              <p className="admin-timeline-entry__stage">
+                                <span
+                                  className={`admin-stage-badge admin-stage-badge--${note.from_stage ?? "pending"}`}
+                                >
+                                  {humanizeText(note.from_stage ?? "pending")}
+                                </span>
+                                {" → "}
+                                <span
+                                  className={`admin-stage-badge admin-stage-badge--${note.to_stage}`}
+                                >
+                                  {humanizeText(note.to_stage)}
+                                </span>
+                              </p>
+                            ) : null}
+                            {note.note ? (
+                              <p className="admin-timeline-entry__note">
+                                {note.note}
+                              </p>
+                            ) : null}
+                            {metaEntries.length > 0 ? (
+                              <details className="admin-timeline-meta-details">
+                                <summary className="admin-timeline-meta-summary">
+                                  {metaEntries.length}{" "}
+                                  {metaEntries.length === 1
+                                    ? "metadata key"
+                                    : "metadata keys"}
+                                </summary>
+                                <table className="admin-timeline-meta-table">
+                                  <tbody>
+                                    {metaEntries.map(([k, v]) => (
+                                      <tr key={k}>
+                                        <td className="admin-timeline-meta-table__key">
+                                          {k}
+                                        </td>
+                                        <td>{String(v)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </details>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* ── Section 4: What Was Ordered ─────────────────── */}
-            <div className="admin-order-section">
-              <p className="admin-order-section-title">What Was Ordered</p>
-
-              {/* Mint card (if mint order) */}
-              {order.order_type === "mint" && resolvedMintCardId ? (
-                <div style={{ marginBottom: 14 }}>
-                  <p
-                    style={{
-                      fontSize: "0.85rem",
-                      color: "var(--ui-muted)",
-                      marginBottom: 6,
-                    }}
-                  >
-                    Mint Card
-                  </p>
-                  <div className="admin-order-card-chip-wrap">
-                    <span className="admin-order-chip admin-order-chip--mint">
-                      Mint
-                    </span>
-                    <CopyValue value={resolvedMintCardId} />
-                    <Link
-                      className="btn-secondary btn-xs"
-                      to={`/app/admin/users/${order.user_id}/cards`}
-                    >
-                      View Card
-                    </Link>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Cards from order.metadata.cards */}
-              {metadataCards.length > 0 ? (
-                <div style={{ marginBottom: 16 }}>
-                  <p
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      marginBottom: 8,
-                    }}
-                  >
-                    Cards in Order
-                  </p>
-                  <div className="admin-table-wrap">
-                    <table className="admin-metadata-cards-table">
-                      <thead>
-                        <tr>
-                          <th>ID</th>
-                          <th>Title</th>
-                          <th>Qty</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {metadataCards.map((card, idx) => {
-                          const id =
-                            toLabel(card.id) ??
-                            toLabel(card.cardId) ??
-                            toLabel(card.card_id) ??
-                            `card-${idx}`;
-                          const title =
-                            toLabel(card.title) ?? toLabel(card.name) ?? "-";
-                          const qty = toQty(card.quantity ?? card.qty ?? 1);
-                          return (
-                            <tr key={id}>
-                              <td>
-                                <code style={{ fontSize: "0.8rem" }}>{id}</code>
-                              </td>
-                              <td>{title}</td>
-                              <td>{qty}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Order items table */}
-              {order.items && order.items.length > 0 ? (
-                <div className="admin-order-items-section">
-                  <p
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      marginBottom: 8,
-                    }}
-                  >
-                    Line Items
-                  </p>
-                  <div className="admin-table-wrap">
-                    <table className="admin-table admin-order-items-table">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <th>Item</th>
-                          <th>Pricing</th>
-                          <th>Includes</th>
-                          <th>Raw</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {order.items.map((item, idx) => {
-                          const included = extractIncludedEntries(item);
-                          return (
-                            <tr key={item.id ?? idx}>
-                              <td>{idx + 1}</td>
-                              <td>
-                                <div className="admin-order-item-summary">
-                                  <strong>{getItemTitle(item)}</strong>
-                                  <span>
-                                    Type: {humanizeText(item.item_type)}
-                                  </span>
-                                  <span>Qty: {item.quantity ?? 1}</span>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="admin-order-item-summary">
-                                  <span>
-                                    Unit: {formatCents(item.unit_price_cents)}
-                                  </span>
-                                  <span>
-                                    Sub: {formatCents(item.line_subtotal_cents)}
-                                  </span>
-                                  <span>
-                                    Tax: {formatCents(item.line_tax_cents)}
-                                  </span>
-                                  <strong>
-                                    Total: {formatCents(item.line_total_cents)}
-                                  </strong>
-                                </div>
-                              </td>
-                              <td>
-                                {included.length > 0 ? (
-                                  <div className="admin-order-item-summary">
-                                    {included.map((entry) => (
-                                      <span
-                                        key={`${entry.label}-${entry.quantity}`}
-                                      >
-                                        {entry.label} ×{entry.quantity}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span
-                                    style={{
-                                      color: "var(--ui-muted)",
-                                      fontSize: "0.82rem",
-                                    }}
-                                  >
-                                    —
-                                  </span>
-                                )}
-                              </td>
-                              <td>
-                                <details>
-                                  <summary>View</summary>
-                                  <pre>{safeJsonStringify(item)}</pre>
-                                </details>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                <p className="admin-order-empty">
-                  No line items for this order.
+              {isTerminalStage ? (
+                <p
+                  className="admin-order-confirm-note"
+                  style={{ marginTop: 8 }}
+                >
+                  This order is in a terminal stage and cannot be updated.
                 </p>
-              )}
-
-              {/* Related cards from API */}
-              {relatedCards.length > 0 ? (
-                <div style={{ marginTop: 16 }}>
-                  <p
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      marginBottom: 8,
-                    }}
-                  >
-                    Related Cards (API)
-                  </p>
-                  <div className="admin-order-card-chip-list">
-                    {relatedCards.map((entry) => {
-                      const card = (entry.card ?? {}) as Record<
-                        string,
-                        unknown
-                      >;
-                      const cardData =
-                        (card.data as Record<string, unknown>) ?? {};
-                      const title =
-                        (typeof cardData.title === "string" &&
-                          cardData.title) ||
-                        (typeof card.title === "string" && card.title) ||
-                        "Untitled card";
-                      return (
-                        <div
-                          key={entry.cardID}
-                          className="admin-order-card-chip-wrap"
-                        >
-                          <CopyValue value={entry.cardID} />
-                          <span
-                            style={{
-                              fontSize: "0.82rem",
-                              color: "var(--ui-muted)",
-                            }}
-                          >
-                            {title}
-                          </span>
-                          {entry.artifacts.preview ? (
-                            <a
-                              className="btn-secondary btn-xs"
-                              href={entry.artifacts.preview}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Preview
-                            </a>
-                          ) : null}
-                          {entry.artifacts.proof ? (
-                            <a
-                              className="btn-secondary btn-xs"
-                              href={entry.artifacts.proof}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Proof
-                            </a>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
               ) : null}
-            </div>
-
-            {/* ── Section 5: Raw Data ──────────────────────────── */}
-            <div className="admin-order-section">
-              <p className="admin-order-section-title">Raw Data</p>
-              <div className="detail-meta-grid" style={{ marginBottom: 14 }}>
-                <div className="detail-meta-item">
-                  <span>Order Type</span>
-                  <strong>{rawSummary.orderType}</strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>Items</span>
-                  <strong>{rawSummary.itemCount}</strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>Related Cards</span>
-                  <strong>{rawSummary.relatedCardCount}</strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>Metadata Cards</span>
-                  <strong>{rawSummary.metadataCardCount}</strong>
-                </div>
-                <div className="detail-meta-item">
-                  <span>Response Keys</span>
-                  <strong>
-                    {rawSummary.responseKeys.length > 0
-                      ? rawSummary.responseKeys.join(", ")
-                      : "-"}
-                  </strong>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleLogDebugPayload}
-                >
-                  Log Debug Payload
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleCopyDebugPayload}
-                >
-                  Copy Debug Payload
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleDownloadDebugPayload}
-                >
-                  Download Debug JSON
-                </button>
-              </div>
-            </div>
-          </>
+            </aside>
+          </div>
         ) : null}
       </section>
 
-      {/* ── Refund modal ──────────────────────────────────────── */}
       {refundOpen ? (
         <div
           className="admin-refund-modal-overlay"
@@ -1234,12 +1010,12 @@ export default function AdminOrderDetailPage() {
         >
           <div
             className="admin-refund-modal"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <h3>Issue Refund</h3>
 
             <div className="admin-refund-warning">
-              ⚠ This action is permanent and cannot be undone.
+              This action is permanent and cannot be undone.
             </div>
 
             <label htmlFor="refund-cents">Refund amount (cents)</label>
@@ -1247,17 +1023,25 @@ export default function AdminOrderDetailPage() {
               id="refund-cents"
               type="number"
               min={1}
-              max={order?.total_cents ?? undefined}
+              max={remainingRefundable || undefined}
               value={refundCents}
-              onChange={(e) => setRefundCents(Number(e.target.value))}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value);
+                if (Number.isNaN(nextValue)) {
+                  setRefundCents(0);
+                  return;
+                }
+                setRefundCents(Math.max(0, Math.floor(nextValue)));
+              }}
             />
 
             <label htmlFor="refund-reason">Reason</label>
             <textarea
               id="refund-reason"
-              placeholder="Describe the reason for this refund…"
+              placeholder="Describe the reason for this refund..."
               value={refundReason}
-              onChange={(e) => setRefundReason(e.target.value)}
+              onChange={(event) => setRefundReason(event.target.value)}
+              maxLength={2000}
             />
 
             {refundMutation.isError ? (
@@ -1275,23 +1059,38 @@ export default function AdminOrderDetailPage() {
               >
                 Cancel
               </button>
+
               <button
                 type="button"
                 className="btn-danger"
                 disabled={
                   refundMutation.isPending ||
                   refundCents <= 0 ||
+                  refundCents > remainingRefundable ||
                   refundReason.trim().length === 0
                 }
                 onClick={() => refundMutation.mutate()}
               >
                 {refundMutation.isPending
-                  ? "Processing…"
+                  ? "Processing..."
                   : `Refund ${formatCents(refundCents)}`}
               </button>
             </div>
           </div>
         </div>
+      ) : null}
+
+      {stageModalOpen && stageModalTarget ? (
+        <StageAdvanceModal
+          targetStage={stageModalTarget}
+          isPending={stageMutation.isPending}
+          onClose={() => {
+            if (!stageMutation.isPending) setStageModalOpen(false);
+          }}
+          onConfirm={(note, metadata) => {
+            stageMutation.mutate({ stage: stageModalTarget, note, metadata });
+          }}
+        />
       ) : null}
     </div>
   );

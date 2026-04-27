@@ -133,6 +133,8 @@ function getStatusChipClass(status?: string) {
 
 const DEFAULT_PAGE_SIZE = 25;
 
+const ACTIVE_STAGES = ["pending", "preparing", "on_hold"];
+
 const ORDER_TYPE_OPTIONS: { label: string; value: string }[] = [
   { label: "All types", value: "" },
   { label: "Purchase item", value: "purchase_item" },
@@ -140,14 +142,7 @@ const ORDER_TYPE_OPTIONS: { label: string; value: string }[] = [
   { label: "Mint", value: "mint" },
 ];
 
-const STAGE_OPTIONS: { label: string; value: string }[] = [
-  { label: "All stages", value: "" },
-  { label: "Pending", value: "pending" },
-  { label: "Preparing", value: "preparing" },
-  { label: "On hold", value: "on_hold" },
-  { label: "Complete", value: "complete" },
-  { label: "Cancelled", value: "cancelled" },
-];
+type ViewMode = "active" | "all";
 
 function OrderRow({ order }: { order: AdminOrderRecord }) {
   return (
@@ -185,6 +180,7 @@ function OrderRow({ order }: { order: AdminOrderRecord }) {
 }
 
 export default function AdminOrdersPage() {
+  const [viewMode, setViewMode] = useState<ViewMode>("active");
   const [userIdFilter, setUserIdFilter] = useState("");
   const [orderType, setOrderType] = useState("");
   const [fulfillmentStage, setFulfillmentStage] = useState("");
@@ -192,11 +188,31 @@ export default function AdminOrdersPage() {
   const [createdBefore, setCreatedBefore] = useState("");
   const [page, setPage] = useState(1);
 
+  // When switching view modes, reset the stage filter if it's no longer valid
+  function handleViewModeChange(mode: ViewMode) {
+    setViewMode(mode);
+    setPage(1);
+    if (
+      mode === "active" &&
+      fulfillmentStage &&
+      !ACTIVE_STAGES.includes(fulfillmentStage)
+    ) {
+      setFulfillmentStage("");
+    }
+  }
+
+  function handleStageChip(stage: string) {
+    setFulfillmentStage((current) => (current === stage ? "" : stage));
+    setPage(1);
+  }
+
+  const effectiveStage = fulfillmentStage || undefined;
+
   const filters = useMemo(
     () => ({
       userID: userIdFilter.trim() || undefined,
       orderType: orderType || undefined,
-      fulfillmentStage: fulfillmentStage || undefined,
+      fulfillmentStage: effectiveStage,
       createdAfter: createdAfter || undefined,
       createdBefore: createdBefore || undefined,
       page,
@@ -205,7 +221,7 @@ export default function AdminOrdersPage() {
     [
       userIdFilter,
       orderType,
-      fulfillmentStage,
+      effectiveStage,
       createdAfter,
       createdBefore,
       page,
@@ -218,8 +234,13 @@ export default function AdminOrdersPage() {
     placeholderData: (previous) => previous,
   });
 
-  const rows = ordersQuery.data?.orders ?? [];
-  const hasNextPage = rows.length >= DEFAULT_PAGE_SIZE;
+  const allRows = ordersQuery.data?.orders ?? [];
+  // In "active" view (no specific stage filter), exclude terminal stages client-side
+  const rows =
+    viewMode === "active" && !fulfillmentStage
+      ? allRows.filter((o) => ACTIVE_STAGES.includes(o.fulfillment_stage ?? ""))
+      : allRows;
+  const hasNextPage = allRows.length >= DEFAULT_PAGE_SIZE;
 
   return (
     <div className="page-stack admin-page">
@@ -234,6 +255,23 @@ export default function AdminOrdersPage() {
           Back to Admin
         </Link>
       </section>
+
+      <div className="adminTab-bar">
+        <button
+          type="button"
+          className={`adminTab-btn${viewMode === "active" ? " adminTab-btn--active" : ""}`}
+          onClick={() => handleViewModeChange("active")}
+        >
+          Active Queue
+        </button>
+        <button
+          type="button"
+          className={`adminTab-btn${viewMode === "all" ? " adminTab-btn--active" : ""}`}
+          onClick={() => handleViewModeChange("all")}
+        >
+          All Orders
+        </button>
+      </div>
 
       <section className="dash-panel admin-card">
         <div className="dash-panel-header">
@@ -271,23 +309,6 @@ export default function AdminOrdersPage() {
           </label>
 
           <label>
-            <span>Fulfillment Stage</span>
-            <select
-              value={fulfillmentStage}
-              onChange={(event) => {
-                setFulfillmentStage(event.target.value);
-                setPage(1);
-              }}
-            >
-              {STAGE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
             <span>Created After</span>
             <input
               type="datetime-local"
@@ -311,11 +332,42 @@ export default function AdminOrdersPage() {
             />
           </label>
         </div>
+
+        <div className="admin-orders-stage-chips">
+          <span className="admin-orders-stage-chips__label">Stage:</span>
+          {(viewMode === "active"
+            ? [
+                { label: "All active", value: "" },
+                { label: "Pending", value: "pending" },
+                { label: "Preparing", value: "preparing" },
+                { label: "On Hold", value: "on_hold" },
+              ]
+            : [
+                { label: "All", value: "" },
+                { label: "Pending", value: "pending" },
+                { label: "Preparing", value: "preparing" },
+                { label: "On Hold", value: "on_hold" },
+                { label: "Complete", value: "complete" },
+                { label: "Cancelled", value: "cancelled" },
+              ]
+          ).map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`admin-stage-chip${fulfillmentStage === opt.value ? " admin-stage-chip--active" : ""}${opt.value ? ` admin-stage-chip--${opt.value.replace("_", "-")}` : ""}`}
+              onClick={() => handleStageChip(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="dash-panel admin-card">
         <div className="dash-panel-header">
-          <h2 className="dash-panel-title">Order Queue</h2>
+          <h2 className="dash-panel-title">
+            {viewMode === "active" ? "Active Queue" : "All Orders"}
+          </h2>
           <span className="meta-pill">Page {page}</span>
         </div>
 
@@ -330,10 +382,6 @@ export default function AdminOrdersPage() {
         {!ordersQuery.isLoading && !ordersQuery.isError && rows.length === 0 ? (
           <div className="dash-empty">
             <p>No orders found for the current filters.</p>
-            <p style={{ fontSize: "0.85rem", color: "var(--ui-muted)" }}>
-              Active queue excludes terminal fulfillment stages (complete and
-              cancelled).
-            </p>
           </div>
         ) : null}
 
