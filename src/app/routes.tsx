@@ -16,12 +16,36 @@ import HomePage from "../features/home/HomePage";
 import PaymentSuccessPage from "../features/transactions/pages/PaymentSuccessPage";
 import PaymentCancelPage from "../features/transactions/pages/PaymentCancelPage";
 import SettingsPage from "../features/settings/SettingsPage";
+import AdminDashboardPage from "../features/admin/pages/AdminDashboardPage";
+import AdminUsersPage from "../features/admin/pages/AdminUsersPage";
+import AdminUserDetailPage from "../features/admin/pages/AdminUserDetailPage";
+import AdminAccessDeniedPage from "../features/admin/pages/AdminAccessDeniedPage";
+import AdminOrdersPage from "../features/admin/pages/AdminOrdersPage";
+import AdminOrderDetailPage from "../features/admin/pages/AdminOrderDetailPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+function AdminRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, userPermissions } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const isAdmin = userPermissions.some(
+    (permission) => permission.toUpperCase() === "ADMIN",
+  );
+
+  if (!isAdmin) {
+    return <Navigate to="/app/access-denied" replace />;
   }
 
   return children;
@@ -103,6 +127,50 @@ export const router = createBrowserRouter([
       {
         path: "settings",
         element: <SettingsPage />,
+      },
+      {
+        path: "access-denied",
+        element: <AdminAccessDeniedPage />,
+      },
+      {
+        path: "admin",
+        element: (
+          <AdminRoute>
+            <AdminDashboardPage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin/users",
+        element: (
+          <AdminRoute>
+            <AdminUsersPage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin/users/:userId",
+        element: (
+          <AdminRoute>
+            <AdminUserDetailPage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin/orders",
+        element: (
+          <AdminRoute>
+            <AdminOrdersPage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin/orders/:orderId",
+        element: (
+          <AdminRoute>
+            <AdminOrderDetailPage />
+          </AdminRoute>
+        ),
       },
     ],
   },

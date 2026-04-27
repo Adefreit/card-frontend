@@ -23,10 +23,35 @@ function decodeJwtPayload(token: string) {
     );
     const json = atob(padded);
 
-    return JSON.parse(json) as { exp?: number };
+    return JSON.parse(json) as {
+      exp?: number;
+      uid?: string;
+      userID?: string;
+      permissions?: string[];
+    };
   } catch {
     return null;
   }
+}
+
+function getTokenUserId(token: string) {
+  const payload = decodeJwtPayload(token);
+  return payload?.uid ?? payload?.userID ?? null;
+}
+
+function getTokenPermissions(token: string) {
+  const payload = decodeJwtPayload(token);
+  const permissions = payload?.permissions;
+
+  if (!Array.isArray(permissions)) {
+    return [];
+  }
+
+  return permissions
+    .filter(
+      (permission): permission is string => typeof permission === "string",
+    )
+    .map((permission) => permission.toUpperCase());
 }
 
 function getTokenExpirationTime(token: string) {
@@ -75,9 +100,11 @@ function getStoredSession() {
     };
   }
 
+  const tokenUserId = getTokenUserId(storedToken);
+
   return {
     token: storedToken,
-    userId: storedUserId,
+    userId: storedUserId ?? tokenUserId,
     accountSubscriptionUntil: storedAccountSubscriptionUntil,
   };
 }
@@ -114,7 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accountSubscriptionUntil, setAccountSubscriptionUntil] = useState<
     string | null
   >(storedSession.accountSubscriptionUntil ?? null);
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [userPermissions, setUserPermissions] = useState<string[]>(
+    storedSession.token ? getTokenPermissions(storedSession.token) : [],
+  );
 
   const clearSession = (reason?: "expired") => {
     if (reason === "expired") {
@@ -136,10 +165,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ) => {
     const activeToken = tokenOverride ?? token;
     const activeUserId = userIdOverride ?? userId;
+    const jwtPermissions = activeToken ? getTokenPermissions(activeToken) : [];
 
     if (!activeToken || !activeUserId) {
       setAccountSubscriptionUntil(null);
-      setUserPermissions([]);
+      setUserPermissions(jwtPermissions);
       authStorage.clearAccountSubscriptionUntil();
       return;
     }
@@ -147,13 +177,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const profile = await getCurrentUserProfile(activeUserId);
       const nextSubscriptionUntil = profile.account_subscription_until ?? null;
-      const nextPermissions = profile.permissions ?? [];
+      const nextPermissions = Array.isArray(profile.permissions)
+        ? profile.permissions
+            .filter(
+              (permission): permission is string =>
+                typeof permission === "string",
+            )
+            .map((permission) => permission.toUpperCase())
+        : jwtPermissions;
 
       authStorage.setAccountSubscriptionUntil(nextSubscriptionUntil);
       setAccountSubscriptionUntil(nextSubscriptionUntil);
       setUserPermissions(nextPermissions);
     } catch {
-      setUserPermissions([]);
+      setUserPermissions(jwtPermissions);
     }
   };
 
@@ -225,6 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.token);
     setUserId(data.userID);
     setAccountSubscriptionUntil(data.account_subscription_until ?? null);
+    setUserPermissions(getTokenPermissions(data.token));
     await refreshAccountProfile(data.token, data.userID);
   };
 

@@ -2,8 +2,11 @@ import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/auth-context";
 
 export default function AppLayout() {
-  const { logout } = useAuth();
+  const { logout, userPermissions } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = userPermissions.some(
+    (permission) => permission.toUpperCase() === "ADMIN",
+  );
 
   return (
     <div className="app-shell">
@@ -21,6 +24,7 @@ export default function AppLayout() {
         </div>
         <nav>
           <Link to="/app/dashboard">Home</Link>
+          {isAdmin ? <Link to="/app/admin">Admin</Link> : null}
           <Link to="/app/settings">Settings</Link>
           <button
             type="button"
