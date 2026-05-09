@@ -25,8 +25,9 @@ import {
 } from "../components/flavor-markup";
 import {
   buildImagePayload,
-  buildPreviewImagePayload,
+  buildOptimizedPreviewImagePayload,
   estimateUploadedImageBytes,
+  getPreviewImageBudget,
   ImageInput,
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
@@ -804,7 +805,7 @@ export default function CardDetailPage() {
 
   const resolvedCardId = data?.id ?? cardId ?? "";
 
-  function triggerPreview(isManual = true) {
+  async function triggerPreview(isManual = true) {
     if (!data || !resolvedCardId) {
       console.warn(
         "[CardDetailPage] Preview skipped because card id is missing",
@@ -822,13 +823,15 @@ export default function CardDetailPage() {
     }
 
     const values = getValues();
-    const backgroundImagePayload = buildPreviewImagePayload(
+    const backgroundImagePayload = await buildOptimizedPreviewImagePayload(
       values.backgroundImage,
       "background",
+      getPreviewImageBudget(values.backgroundImage, values.foregroundImage),
     );
-    const foregroundImagePayload = buildPreviewImagePayload(
+    const foregroundImagePayload = await buildOptimizedPreviewImagePayload(
       values.foregroundImage,
       "foreground",
+      getPreviewImageBudget(values.foregroundImage, values.backgroundImage),
     );
 
     previewMutation.mutate({

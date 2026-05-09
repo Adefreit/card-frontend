@@ -89,6 +89,38 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+function getImageFileName(value: string, mimeType: string) {
+  const fallbackExtension = mimeType.split("/")[1]?.toLowerCase() || "img";
+
+  if (value.startsWith("blob:")) {
+    return `preview-image.${fallbackExtension}`;
+  }
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    try {
+      const url = new URL(value);
+      const fileName = url.pathname.split("/").filter(Boolean).pop();
+      return fileName
+        ? decodeURIComponent(fileName)
+        : `preview-image.${fallbackExtension}`;
+    } catch {
+      return `preview-image.${fallbackExtension}`;
+    }
+  }
+
+  return `preview-image.${fallbackExtension}`;
+}
+
+async function fetchImageForPreview(value: string) {
+  const response = await fetch(value);
+
+  if (!response.ok) {
+    throw new Error("Failed to load the selected image for preview.");
+  }
+
+  return response.blob();
+}
+
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -240,6 +272,20 @@ export function estimateUploadedImageBytes(value: string) {
   return base64ToByteLength(parsed.base64);
 }
 
+export function getPreviewImageBudget(value: string, otherValue: string) {
+  const otherUploadedBytes = estimateUploadedImageBytes(otherValue);
+
+  if (otherUploadedBytes > 0) {
+    return Math.max(0, MAX_TOTAL_UPLOAD_BYTES - otherUploadedBytes);
+  }
+
+  if (value && otherValue) {
+    return Math.floor(MAX_TOTAL_UPLOAD_BYTES / 2);
+  }
+
+  return MAX_TOTAL_UPLOAD_BYTES;
+}
+
 export function buildImagePayload(
   value: string,
   prefix: "background" | "foreground",
@@ -284,6 +330,53 @@ export function buildPreviewImagePayload(
   return {
     [`${prefix}ImageUrl`]: value,
   };
+}
+
+export async function buildOptimizedPreviewImagePayload(
+  value: string,
+  prefix: "background" | "foreground",
+  maxBytes: number,
+) {
+  if (!value) {
+    return {};
+  }
+
+  const parsed = parseDataUrl(value);
+  if (parsed) {
+    const normalized = normalizeParsedDataUrl(parsed);
+    return {
+      [`${prefix}ImageBase64`]: normalized.base64,
+      [`${prefix}ImageMimeType`]: normalized.mimeType,
+    };
+  }
+
+  try {
+    const blob = await fetchImageForPreview(value);
+    const file = new File([blob], getImageFileName(value, blob.type), {
+      type: blob.type || "image/jpeg",
+    });
+    const optimizedDataUrl = await optimizeImageForUpload(file, maxBytes);
+    const optimizedParsed = parseDataUrl(optimizedDataUrl);
+
+    if (!optimizedParsed) {
+      throw new Error("Failed to process the selected image for preview.");
+    }
+
+    const normalized = normalizeParsedDataUrl(optimizedParsed);
+    return {
+      [`${prefix}ImageBase64`]: normalized.base64,
+      [`${prefix}ImageMimeType`]: normalized.mimeType,
+    };
+  } catch (error) {
+    console.warn("[ImageUpload] Falling back to image URL for preview", {
+      imageValue: value,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+
+    return {
+      [`${prefix}ImageUrl`]: value,
+    };
+  }
 }
 
 interface ImageInputProps {
