@@ -1,9 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import MarkdownRenderer from "../../../components/MarkdownRenderer";
-import {
-  LEGAL_DOCUMENTS,
-  type LegalDocumentId,
-} from "../legal-documents";
+import { LEGAL_DOCUMENTS, type LegalDocumentId } from "../legal-documents";
 
 function isLegalDocumentId(value: string): value is LegalDocumentId {
   return value in LEGAL_DOCUMENTS;
@@ -37,7 +34,8 @@ export default function LegalDocumentPage() {
     );
   }
 
-  const content = document.markdown.trim() || "_This document will be published soon._";
+  const content =
+    document.markdown.trim() || "_This document will be published soon._";
 
   return (
     <div className="legal-doc-page">
