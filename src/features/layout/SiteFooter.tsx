@@ -1,11 +1,8 @@
 import { Link } from "react-router-dom";
 
 const legalLinks = [
-  { label: "Privacy Policy", href: "/legal/privacy" },
-  { label: "Refund Policy", href: "/legal/refund" },
-  { label: "Subscription Policy", href: "/legal/subscription" },
-  { label: "Terms of Service", href: "/legal/terms" },
-  { label: "User Content Policy", href: "/legal/usercontent" },
+  { label: "Legal Documents", href: "/legal" },
+  { label: "Contact Us", href: "/contactus" },
 ];
 
 export default function SiteFooter() {
@@ -21,7 +18,6 @@ export default function SiteFooter() {
               {link.label}
             </Link>
           ))}
-          <a href="mailto:support@legendaryprofiles.com">Support</a>
         </nav>
         <p className="site-footer__copy">
           © {new Date().getFullYear()} Legendary Profiles

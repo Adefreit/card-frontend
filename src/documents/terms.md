@@ -1,6 +1,6 @@
 # Terms of Service
 
-_Last updated: May 2026_
+Last updated: May 2026
 
 ## 1. Acceptance of Terms
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../auth/auth-context";
@@ -28,6 +28,10 @@ type DetailTab =
   | "orders";
 
 const COMMON_PERMISSIONS = ["ADMIN", "FOUNDER"] as const;
+
+type EmailConfirmAction =
+  | { type: "resend-activation"; email: string }
+  | { type: "resend-password-reset"; email: string };
 
 function formatDate(value?: string | null) {
   if (!value) {
@@ -71,6 +75,13 @@ export default function AdminUserDetailPage() {
     cardId: string;
     action: "mint" | "unmint";
   } | null>(null);
+  const [emailModal, setEmailModal] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailTitle, setEmailTitle] = useState("");
+  const [emailHtmlBody, setEmailHtmlBody] = useState("");
+  const [emailConfirmAction, setEmailConfirmAction] =
+    useState<EmailConfirmAction | null>(null);
+  const emailEditorRef = useRef<HTMLDivElement | null>(null);
 
   const canLoad = Boolean(userId);
 
@@ -194,14 +205,24 @@ export default function AdminUserDetailPage() {
   });
 
   const sendEmailMutation = useMutation({
-    mutationFn: () =>
-      sendAdminUserEmail(
-        userId as string,
-        "Account Information",
-        "Hello,\n\nThis is an administrative message regarding your account.\n\nBest regards",
-      ),
+    mutationFn: ({
+      toAddress,
+      subject,
+      title,
+      htmlBody,
+    }: {
+      toAddress: string;
+      subject: string;
+      title: string;
+      htmlBody: string;
+    }) => sendAdminUserEmail(toAddress, subject, title, htmlBody),
     onSuccess: async () => {
       setMutationMessage("Email sent successfully.");
+      setEmailModal(false);
+      setEmailConfirmAction(null);
+      setEmailSubject("");
+      setEmailTitle("");
+      setEmailHtmlBody("");
       await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
     },
     onError: () => {
@@ -210,9 +231,10 @@ export default function AdminUserDetailPage() {
   });
 
   const resendActivationMutation = useMutation({
-    mutationFn: () => resendAdminActivationEmail(userId as string),
+    mutationFn: (email: string) => resendAdminActivationEmail(email),
     onSuccess: async () => {
       setMutationMessage("Activation email sent successfully.");
+      setEmailConfirmAction(null);
       await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
     },
     onError: () => {
@@ -221,9 +243,10 @@ export default function AdminUserDetailPage() {
   });
 
   const resendPasswordResetMutation = useMutation({
-    mutationFn: () => resendAdminPasswordReset(userId as string),
+    mutationFn: (email: string) => resendAdminPasswordReset(email),
     onSuccess: async () => {
       setMutationMessage("Password reset email sent successfully.");
+      setEmailConfirmAction(null);
       await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
     },
     onError: () => {
@@ -244,6 +267,28 @@ export default function AdminUserDetailPage() {
       minted: cards.filter((c) => c.minted).length,
     };
   }, [cardsQuery.data?.cards]);
+
+  const resetEmailComposer = () => {
+    setEmailModal(false);
+    setEmailSubject("");
+    setEmailTitle("");
+    setEmailHtmlBody("");
+    if (emailEditorRef.current) {
+      emailEditorRef.current.innerHTML = "";
+    }
+  };
+
+  const syncEmailHtmlBody = () => {
+    setEmailHtmlBody(emailEditorRef.current?.innerHTML ?? "");
+  };
+
+  const applyEmailFormat = (
+    command: "bold" | "italic" | "underline" | "insertUnorderedList",
+  ) => {
+    document.execCommand(command);
+    syncEmailHtmlBody();
+    emailEditorRef.current?.focus();
+  };
 
   if (!userId) {
     return <Navigate to="/app/admin/users" replace />;
@@ -366,39 +411,281 @@ export default function AdminUserDetailPage() {
               </div>
             </div>
 
-            <div
-              className="admin-inline-form admin-inline-form--spaced"
-              style={{ marginTop: 16 }}
-            >
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => sendEmailMutation.mutate()}
-                disabled={sendEmailMutation.isPending}
-              >
-                {sendEmailMutation.isPending ? "Sending..." : "Send Email"}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => resendActivationMutation.mutate()}
-                disabled={resendActivationMutation.isPending}
-              >
-                {resendActivationMutation.isPending
-                  ? "Sending..."
-                  : "Resend Activation"}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => resendPasswordResetMutation.mutate()}
-                disabled={resendPasswordResetMutation.isPending}
-              >
-                {resendPasswordResetMutation.isPending
-                  ? "Sending..."
-                  : "Resend Password Reset"}
-              </button>
+            <div className="admin-subsection" style={{ marginTop: 24 }}>
+              <h3 className="admin-subsection-title">Email & Communications</h3>
+              <div className="admin-inline-form admin-inline-form--spaced">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setEmailModal(true)}
+                  disabled={
+                    sendEmailMutation.isPending || !userQuery.data.email
+                  }
+                >
+                  Send Email
+                </button>
+                {!userQuery.data.activated ? (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      if (userQuery.data?.email) {
+                        setEmailConfirmAction({
+                          type: "resend-activation",
+                          email: userQuery.data.email,
+                        });
+                      }
+                    }}
+                    disabled={
+                      resendActivationMutation.isPending ||
+                      !userQuery.data.email
+                    }
+                  >
+                    {resendActivationMutation.isPending
+                      ? "Sending..."
+                      : "Resend Activation"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    if (userQuery.data?.email) {
+                      setEmailConfirmAction({
+                        type: "resend-password-reset",
+                        email: userQuery.data.email,
+                      });
+                    }
+                  }}
+                  disabled={
+                    resendPasswordResetMutation.isPending ||
+                    !userQuery.data.email
+                  }
+                >
+                  {resendPasswordResetMutation.isPending
+                    ? "Sending..."
+                    : "Resend Password Reset"}
+                </button>
+              </div>
+
+              {!userQuery.data.email ? (
+                <p className="dash-loading" style={{ marginTop: 10 }}>
+                  No email address is available for this user.
+                </p>
+              ) : null}
             </div>
+
+            {emailModal && userQuery.data.email ? (
+              <div className="admin-modal-overlay">
+                <div className="admin-modal" role="dialog" aria-modal="true">
+                  <div className="admin-modal-header">
+                    <h3>Send Email</h3>
+                    <button
+                      type="button"
+                      className="admin-modal-close"
+                      onClick={resetEmailComposer}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="admin-modal-body">
+                    <div className="admin-modal-section">
+                      <label htmlFor="admin-email-recipient">To</label>
+                      <input
+                        id="admin-email-recipient"
+                        type="text"
+                        value={userQuery.data.email}
+                        readOnly
+                      />
+                    </div>
+
+                    <div className="admin-modal-section">
+                      <label htmlFor="admin-email-subject">Subject</label>
+                      <input
+                        id="admin-email-subject"
+                        type="text"
+                        value={emailSubject}
+                        onChange={(event) =>
+                          setEmailSubject(event.target.value)
+                        }
+                        placeholder="An Email from Legendary Profiles"
+                      />
+                    </div>
+
+                    <div
+                      className="admin-modal-section"
+                      style={{ marginTop: 12 }}
+                    >
+                      <label htmlFor="admin-email-title">Title</label>
+                      <input
+                        id="admin-email-title"
+                        type="text"
+                        value={emailTitle}
+                        onChange={(event) => setEmailTitle(event.target.value)}
+                        placeholder="Email Title Goes Here"
+                      />
+                    </div>
+
+                    <div
+                      className="admin-modal-section"
+                      style={{ marginTop: 12 }}
+                    >
+                      <label htmlFor="admin-email-html-body-editor">
+                        Message
+                      </label>
+                      <div
+                        className="admin-wysiwyg-toolbar"
+                        role="toolbar"
+                        aria-label="Email formatting toolbar"
+                      >
+                        <button
+                          type="button"
+                          className="btn-secondary btn-xs"
+                          onClick={() => applyEmailFormat("bold")}
+                        >
+                          B
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-xs"
+                          onClick={() => applyEmailFormat("italic")}
+                        >
+                          I
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-xs"
+                          onClick={() => applyEmailFormat("underline")}
+                        >
+                          U
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-xs"
+                          onClick={() =>
+                            applyEmailFormat("insertUnorderedList")
+                          }
+                        >
+                          List
+                        </button>
+                      </div>
+                      <div
+                        id="admin-email-html-body-editor"
+                        ref={emailEditorRef}
+                        className="admin-wysiwyg-editor"
+                        contentEditable
+                        suppressContentEditableWarning
+                        data-placeholder="Type your message here..."
+                        onInput={syncEmailHtmlBody}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="admin-modal-footer">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={resetEmailComposer}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => {
+                        sendEmailMutation.mutate({
+                          toAddress: userQuery.data.email as string,
+                          subject: emailSubject.trim(),
+                          title: emailTitle.trim(),
+                          htmlBody: emailHtmlBody,
+                        });
+                      }}
+                      disabled={
+                        sendEmailMutation.isPending ||
+                        !emailSubject.trim() ||
+                        !emailTitle.trim() ||
+                        !emailHtmlBody.replace(/<[^>]+>/g, "").trim()
+                      }
+                    >
+                      {sendEmailMutation.isPending ? "Sending..." : "Send"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {emailConfirmAction ? (
+              <div className="admin-modal-overlay">
+                <div
+                  className="admin-modal admin-modal--small"
+                  role="dialog"
+                  aria-modal="true"
+                >
+                  <div className="admin-modal-header">
+                    <h3>Confirm Email Action</h3>
+                    <button
+                      type="button"
+                      className="admin-modal-close"
+                      onClick={() => setEmailConfirmAction(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="admin-modal-body">
+                    {emailConfirmAction.type === "resend-activation" ? (
+                      <p style={{ margin: 0 }}>
+                        Resend activation email to{" "}
+                        <strong>{emailConfirmAction.email}</strong>?
+                      </p>
+                    ) : null}
+
+                    {emailConfirmAction.type === "resend-password-reset" ? (
+                      <p style={{ margin: 0 }}>
+                        Resend password reset email to{" "}
+                        <strong>{emailConfirmAction.email}</strong>?
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="admin-modal-footer">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setEmailConfirmAction(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => {
+                        if (emailConfirmAction.type === "resend-activation") {
+                          resendActivationMutation.mutate(
+                            emailConfirmAction.email,
+                          );
+                          return;
+                        }
+
+                        resendPasswordResetMutation.mutate(
+                          emailConfirmAction.email,
+                        );
+                      }}
+                      disabled={
+                        sendEmailMutation.isPending ||
+                        resendActivationMutation.isPending ||
+                        resendPasswordResetMutation.isPending
+                      }
+                    >
+                      {sendEmailMutation.isPending ||
+                      resendActivationMutation.isPending ||
+                      resendPasswordResetMutation.isPending
+                        ? "Sending..."
+                        : "Confirm"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

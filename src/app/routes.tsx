@@ -1,5 +1,10 @@
-import { Navigate, Outlet, createBrowserRouter } from "react-router-dom";
-import type { ReactNode } from "react";
+import {
+  Navigate,
+  Outlet,
+  createBrowserRouter,
+  useLocation,
+} from "react-router-dom";
+import { useEffect, type ReactNode } from "react";
 import { useAuth } from "../features/auth/auth-context";
 import LoginPage from "../features/auth/pages/LoginPage";
 import RegisterPage from "../features/auth/pages/RegisterPage";
@@ -13,6 +18,7 @@ import GetCardsPage from "../features/cards/pages/GetCardsPage";
 import CardViewerPage from "../features/cards/pages/CardViewerPage";
 import AppLayout from "../features/layout/AppLayout";
 import HomePage from "../features/home/HomePage";
+import ContactUsPage from "../features/home/ContactUsPage";
 import PaymentSuccessPage from "../features/transactions/pages/PaymentSuccessPage";
 import PaymentCancelPage from "../features/transactions/pages/PaymentCancelPage";
 import SettingsPage from "../features/settings/SettingsPage";
@@ -24,6 +30,7 @@ import AdminOrdersPage from "../features/admin/pages/AdminOrdersPage";
 import AdminOrderDetailPage from "../features/admin/pages/AdminOrderDetailPage";
 import SiteFooter from "../features/layout/SiteFooter";
 import LegalDocumentPage from "../features/legal/pages/LegalDocumentPage";
+import LegalOverviewPage from "../features/legal/pages/LegalOverviewPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -54,6 +61,12 @@ function AdminRoute({ children }: { children: ReactNode }) {
 }
 
 function FooterLayout() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   return (
     <div className="site-shell">
       <div className="site-shell__content">
@@ -64,10 +77,29 @@ function FooterLayout() {
   );
 }
 
+function StandalonePageLayout() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return <Outlet />;
+}
+
 export const router = createBrowserRouter([
   {
-    path: "/legal/:documentId",
-    element: <LegalDocumentPage />,
+    element: <StandalonePageLayout />,
+    children: [
+      {
+        path: "/legal/:documentId",
+        element: <LegalDocumentPage />,
+      },
+      {
+        path: "/legal",
+        element: <LegalOverviewPage />,
+      },
+    ],
   },
   {
     element: <FooterLayout />,
@@ -83,6 +115,10 @@ export const router = createBrowserRouter([
       {
         path: "/register",
         element: <RegisterPage />,
+      },
+      {
+        path: "/contactus",
+        element: <ContactUsPage />,
       },
       {
         path: "/activate",

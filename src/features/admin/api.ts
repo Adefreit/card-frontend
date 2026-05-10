@@ -336,27 +336,32 @@ export interface AdminEmailResponse {
 }
 
 export async function sendAdminUserEmail(
-  userId: string,
+  toAddress: string,
   subject: string,
-  body: string,
+  title: string,
+  htmlBody: string,
 ) {
+  const { data } = await apiClient.post<AdminEmailResponse>(`/v1/emails`, {
+    toAddress,
+    subject,
+    title,
+    htmlBody,
+  });
+  return data;
+}
+
+export async function resendAdminActivationEmail(email: string) {
   const { data } = await apiClient.post<AdminEmailResponse>(
-    `/v1/admin/users/${userId}/send-email`,
-    { subject, body },
+    `/v1/users/resend-activation`,
+    { email },
   );
   return data;
 }
 
-export async function resendAdminActivationEmail(userId: string) {
+export async function resendAdminPasswordReset(email: string) {
   const { data } = await apiClient.post<AdminEmailResponse>(
-    `/v1/admin/users/${userId}/resend-activation`,
-  );
-  return data;
-}
-
-export async function resendAdminPasswordReset(userId: string) {
-  const { data } = await apiClient.post<AdminEmailResponse>(
-    `/v1/admin/users/${userId}/resend-password-reset`,
+    `/v1/users/requestPasswordReset`,
+    { email },
   );
   return data;
 }

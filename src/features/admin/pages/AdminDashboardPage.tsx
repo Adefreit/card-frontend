@@ -2,25 +2,14 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getAdminHealth } from "../api";
 
-function formatDate(value?: string) {
-  if (!value) {
-    return "Unavailable";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "Unavailable";
-  }
-
-  return parsed.toLocaleString();
-}
-
 export default function AdminDashboardPage() {
   const healthQuery = useQuery({
     queryKey: ["admin", "health"],
     queryFn: getAdminHealth,
     retry: 1,
   });
+
+  const isHealthy = !healthQuery.isError;
 
   return (
     <div className="page-stack admin-page">
@@ -31,64 +20,46 @@ export default function AdminDashboardPage() {
             Manage users, permissions, and card operations from one workspace.
           </p>
         </div>
-      </section>
-
-      <section className="dash-panel admin-card">
-        <div className="dash-panel-header">
-          <h2 className="dash-panel-title">API Health</h2>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => healthQuery.refetch()}
-            disabled={healthQuery.isFetching}
-          >
-            {healthQuery.isFetching ? "Refreshing..." : "Refresh"}
-          </button>
-        </div>
-
-        {healthQuery.isLoading ? (
-          <p className="dash-loading">Checking admin API status...</p>
-        ) : null}
-
-        {healthQuery.isError ? (
-          <p className="alert-error">
-            Unable to reach admin API right now. Please try again.
-          </p>
-        ) : null}
-
-        {healthQuery.data ? (
-          <div className="detail-meta-grid">
-            <div className="detail-meta-item">
-              <span>Status</span>
-              <strong>{healthQuery.data.response}</strong>
-            </div>
-            <div className="detail-meta-item">
-              <span>Timestamp</span>
-              <strong>{formatDate(healthQuery.data.timestamp)}</strong>
-            </div>
-          </div>
-        ) : null}
+        <button
+          type="button"
+          className="admin-health-button"
+          onClick={() => healthQuery.refetch()}
+          disabled={healthQuery.isFetching}
+          title={
+            healthQuery.isError ? "API is unavailable" : "API is operational"
+          }
+        >
+          <div
+            className={`admin-health-indicator ${isHealthy ? "admin-health-indicator--healthy" : "admin-health-indicator--error"}`}
+          />
+          {healthQuery.isFetching ? "Checking..." : "API Status"}
+        </button>
       </section>
 
       <section className="dash-panel admin-card">
         <div className="dash-panel-header">
           <h2 className="dash-panel-title">Quick Actions</h2>
-          <span className="meta-pill">Navigation</span>
         </div>
-        <div className="admin-actions-list">
-          <Link className="admin-actions-row" to="/app/admin/users">
-            <span className="admin-actions-row__title">Manage Users</span>
-            <span className="admin-actions-row__desc">
-              Search members, edit permissions, adjust subscriptions, and manage
-              cards.
-            </span>
+        <div className="admin-actions-grid">
+          <Link className="admin-action-card" to="/app/admin/users">
+            <div className="admin-action-card__icon">👥</div>
+            <div className="admin-action-card__content">
+              <span className="admin-action-card__title">Manage Users</span>
+              <span className="admin-action-card__desc">
+                Search members, edit permissions, and manage subscriptions.
+              </span>
+            </div>
           </Link>
-          <Link className="admin-actions-row" to="/app/admin/orders">
-            <span className="admin-actions-row__title">Fulfillment Orders</span>
-            <span className="admin-actions-row__desc">
-              Track order progress, review order details, and advance
-              fulfillment stages.
-            </span>
+          <Link className="admin-action-card" to="/app/admin/orders">
+            <div className="admin-action-card__icon">📦</div>
+            <div className="admin-action-card__content">
+              <span className="admin-action-card__title">
+                Fulfillment Orders
+              </span>
+              <span className="admin-action-card__desc">
+                Track progress and advance fulfillment stages.
+              </span>
+            </div>
           </Link>
         </div>
       </section>
