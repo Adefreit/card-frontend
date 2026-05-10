@@ -13,14 +13,14 @@ import {
   getFlavorMarkupPlainText,
 } from "../components/flavor-markup";
 import {
-  buildImagePayload,
-  buildOptimizedPreviewImagePayload,
+  buildCardImagePayloads,
+  buildCardPreviewImagePayloads,
   estimateUploadedImageBytes,
-  getPreviewImageBudget,
   ImageInput,
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
 
+// #region Validation
 // Allow regular URLs, data URLs (file uploads), and blob URLs
 const imageFieldSchema = z
   .string()
@@ -68,7 +68,9 @@ interface DraftLimitInfo {
   draftCount: number;
   draftLimit: number;
 }
+// #endregion
 
+// #region Helpers
 function normalizeCustomCss(value: CardCreateValues["customCss"]) {
   const bannerColor = value.bannerColor.trim();
   const bannerForeground = value.bannerForeground.trim();
@@ -82,7 +84,9 @@ function normalizeCustomCss(value: CardCreateValues["customCss"]) {
     bannerForeground: bannerForeground || undefined,
   };
 }
+// #endregion
 
+// #region Components
 function DraftLimitModal({
   info,
   onClose,
@@ -127,7 +131,9 @@ function DraftLimitModal({
     </div>
   );
 }
+// #endregion
 
+// #region Page
 export default function CardCreatePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -237,16 +243,11 @@ export default function CardCreatePage() {
     }
 
     const values = getValues();
-    const backgroundImagePayload = await buildOptimizedPreviewImagePayload(
-      values.backgroundImage,
-      "background",
-      getPreviewImageBudget(values.backgroundImage, values.foregroundImage),
-    );
-    const foregroundImagePayload = await buildOptimizedPreviewImagePayload(
-      values.foregroundImage,
-      "foreground",
-      getPreviewImageBudget(values.foregroundImage, values.backgroundImage),
-    );
+    // Preview uses the same optimized image pipeline for both slots.
+    const previewImagePayload = await buildCardPreviewImagePayloads({
+      backgroundImage: values.backgroundImage,
+      foregroundImage: values.foregroundImage,
+    });
 
     previewMutation.mutate({
       id: "preview",
@@ -255,8 +256,7 @@ export default function CardCreatePage() {
       subtitle: values.subtitle,
       flavorText: convertFlavorMarkupToHtml(values.flavorText),
       customCss: normalizeCustomCss(values.customCss),
-      ...backgroundImagePayload,
-      ...foregroundImagePayload,
+      ...previewImagePayload,
     });
   }
 
@@ -329,14 +329,10 @@ export default function CardCreatePage() {
           <form
             className="stack"
             onSubmit={handleSubmit((values) => {
-              const backgroundImagePayload = buildImagePayload(
-                values.backgroundImage,
-                "background",
-              );
-              const foregroundImagePayload = buildImagePayload(
-                values.foregroundImage,
-                "foreground",
-              );
+              const imagePayload = buildCardImagePayloads({
+                backgroundImage: values.backgroundImage,
+                foregroundImage: values.foregroundImage,
+              });
 
               mutation.mutate({
                 templateId: values.templateId,
@@ -344,8 +340,7 @@ export default function CardCreatePage() {
                 subtitle: values.subtitle,
                 flavorText: convertFlavorMarkupToHtml(values.flavorText),
                 customCss: normalizeCustomCss(values.customCss),
-                ...backgroundImagePayload,
-                ...foregroundImagePayload,
+                ...imagePayload,
               });
             })}
           >
@@ -601,3 +596,4 @@ export default function CardCreatePage() {
     </div>
   );
 }
+// #endregion

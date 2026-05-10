@@ -1,4 +1,4 @@
-import { Navigate, createBrowserRouter } from "react-router-dom";
+import { Navigate, Outlet, createBrowserRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth } from "../features/auth/auth-context";
 import LoginPage from "../features/auth/pages/LoginPage";
@@ -22,6 +22,8 @@ import AdminUserDetailPage from "../features/admin/pages/AdminUserDetailPage";
 import AdminAccessDeniedPage from "../features/admin/pages/AdminAccessDeniedPage";
 import AdminOrdersPage from "../features/admin/pages/AdminOrdersPage";
 import AdminOrderDetailPage from "../features/admin/pages/AdminOrderDetailPage";
+import SiteFooter from "../features/layout/SiteFooter";
+import LegalDocumentPage from "../features/legal/pages/LegalDocumentPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -51,126 +53,146 @@ function AdminRoute({ children }: { children: ReactNode }) {
   return children;
 }
 
+function FooterLayout() {
+  return (
+    <div className="site-shell">
+      <div className="site-shell__content">
+        <Outlet />
+      </div>
+      <SiteFooter />
+    </div>
+  );
+}
+
 export const router = createBrowserRouter([
   {
-    path: "/",
-    element: <HomePage />,
+    path: "/legal/:documentId",
+    element: <LegalDocumentPage />,
   },
   {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/register",
-    element: <RegisterPage />,
-  },
-  {
-    path: "/activate",
-    element: <ActivateAccountPage />,
-  },
-  {
-    path: "/request-password-reset",
-    element: <RequestPasswordResetPage />,
-  },
-  {
-    path: "/reset-password",
-    element: <ResetPasswordPage />,
-  },
-  {
-    path: "/cardviewer/:id",
-    element: <CardViewerPage />,
-  },
-  {
-    path: "/payment/success",
-    element: (
-      <ProtectedRoute>
-        <PaymentSuccessPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/payment/cancel",
-    element: (
-      <ProtectedRoute>
-        <PaymentCancelPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/app",
-    element: (
-      <ProtectedRoute>
-        <AppLayout />
-      </ProtectedRoute>
-    ),
+    element: <FooterLayout />,
     children: [
       {
-        index: true,
-        element: <Navigate to="dashboard" replace />,
+        path: "/",
+        element: <HomePage />,
       },
       {
-        path: "dashboard",
-        element: <DashboardPage />,
+        path: "/login",
+        element: <LoginPage />,
       },
       {
-        path: "cards/new",
-        element: <CardCreatePage />,
+        path: "/register",
+        element: <RegisterPage />,
       },
       {
-        path: "cards/:cardId",
-        element: <CardDetailPage />,
+        path: "/activate",
+        element: <ActivateAccountPage />,
       },
       {
-        path: "cards/:cardId/get-cards",
-        element: <GetCardsPage />,
+        path: "/request-password-reset",
+        element: <RequestPasswordResetPage />,
       },
       {
-        path: "settings",
-        element: <SettingsPage />,
+        path: "/reset-password",
+        element: <ResetPasswordPage />,
       },
       {
-        path: "access-denied",
-        element: <AdminAccessDeniedPage />,
+        path: "/cardviewer/:id",
+        element: <CardViewerPage />,
       },
       {
-        path: "admin",
+        path: "/payment/success",
         element: (
-          <AdminRoute>
-            <AdminDashboardPage />
-          </AdminRoute>
+          <ProtectedRoute>
+            <PaymentSuccessPage />
+          </ProtectedRoute>
         ),
       },
       {
-        path: "admin/users",
+        path: "/payment/cancel",
         element: (
-          <AdminRoute>
-            <AdminUsersPage />
-          </AdminRoute>
+          <ProtectedRoute>
+            <PaymentCancelPage />
+          </ProtectedRoute>
         ),
       },
       {
-        path: "admin/users/:userId",
+        path: "/app",
         element: (
-          <AdminRoute>
-            <AdminUserDetailPage />
-          </AdminRoute>
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
         ),
-      },
-      {
-        path: "admin/orders",
-        element: (
-          <AdminRoute>
-            <AdminOrdersPage />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "admin/orders/:orderId",
-        element: (
-          <AdminRoute>
-            <AdminOrderDetailPage />
-          </AdminRoute>
-        ),
+        children: [
+          {
+            index: true,
+            element: <Navigate to="dashboard" replace />,
+          },
+          {
+            path: "dashboard",
+            element: <DashboardPage />,
+          },
+          {
+            path: "cards/new",
+            element: <CardCreatePage />,
+          },
+          {
+            path: "cards/:cardId",
+            element: <CardDetailPage />,
+          },
+          {
+            path: "cards/:cardId/get-cards",
+            element: <GetCardsPage />,
+          },
+          {
+            path: "settings",
+            element: <SettingsPage />,
+          },
+          {
+            path: "access-denied",
+            element: <AdminAccessDeniedPage />,
+          },
+          {
+            path: "admin",
+            element: (
+              <AdminRoute>
+                <AdminDashboardPage />
+              </AdminRoute>
+            ),
+          },
+          {
+            path: "admin/users",
+            element: (
+              <AdminRoute>
+                <AdminUsersPage />
+              </AdminRoute>
+            ),
+          },
+          {
+            path: "admin/users/:userId",
+            element: (
+              <AdminRoute>
+                <AdminUserDetailPage />
+              </AdminRoute>
+            ),
+          },
+          {
+            path: "admin/orders",
+            element: (
+              <AdminRoute>
+                <AdminOrdersPage />
+              </AdminRoute>
+            ),
+          },
+          {
+            path: "admin/orders/:orderId",
+            element: (
+              <AdminRoute>
+                <AdminOrderDetailPage />
+              </AdminRoute>
+            ),
+          },
+        ],
       },
     ],
   },

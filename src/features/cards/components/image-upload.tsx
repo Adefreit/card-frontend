@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 
+// #region Constants and types
 export const MAX_TOTAL_UPLOAD_BYTES = 3 * 1024 * 1024;
 
 interface ParsedDataUrl {
@@ -7,6 +8,15 @@ interface ParsedDataUrl {
   base64: string;
 }
 
+interface ImagePayloadValues {
+  backgroundImage: string;
+  foregroundImage: string;
+}
+
+type ImagePayloadPrefix = "background" | "foreground";
+// #endregion
+
+// #region Data URL helpers
 function inferMimeTypeFromBase64(value: string): string | null {
   if (!value) {
     return null;
@@ -66,6 +76,17 @@ function base64ToByteLength(value: string) {
   return Math.floor((value.length * 3) / 4) - padding;
 }
 
+function toBase64Payload(parsed: ParsedDataUrl, prefix: ImagePayloadPrefix) {
+  const normalized = normalizeParsedDataUrl(parsed);
+
+  return {
+    [`${prefix}ImageBase64`]: normalized.base64,
+    [`${prefix}ImageMimeType`]: normalized.mimeType,
+  };
+}
+// #endregion
+
+// #region Image processing
 function getPreferredMimeTypes(fileType: string) {
   const mimeTypes = [fileType];
 
@@ -189,6 +210,7 @@ async function optimizeImageForUpload(file: File, maxBytes: number) {
   let bestBlob: Blob | null = null;
 
   for (const scaleStep of scaleSteps) {
+    // Walk through smaller render sizes until one fits the byte budget.
     const scale = Math.min(baseScale * scaleStep, 1);
     const width = Math.max(1, Math.round(image.naturalWidth * scale));
     const height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -235,6 +257,28 @@ async function optimizeImageForUpload(file: File, maxBytes: number) {
   );
 }
 
+async function optimizeImageValueForPreview(value: string, maxBytes: number) {
+  const parsed = parseDataUrl(value);
+  if (parsed) {
+    return parsed;
+  }
+
+  const blob = await fetchImageForPreview(value);
+  const file = new File([blob], getImageFileName(value, blob.type), {
+    type: blob.type || "image/jpeg",
+  });
+  const optimizedDataUrl = await optimizeImageForUpload(file, maxBytes);
+  const optimizedParsed = parseDataUrl(optimizedDataUrl);
+
+  if (!optimizedParsed) {
+    throw new Error("Failed to process the selected image for preview.");
+  }
+
+  return optimizedParsed;
+}
+// #endregion
+
+// #region Display helpers
 function getImageDisplayName(value: string): string {
   if (!value) {
     return "No file uploaded";
@@ -272,6 +316,26 @@ export function estimateUploadedImageBytes(value: string) {
   return base64ToByteLength(parsed.base64);
 }
 
+function createImagePayload(
+  value: string,
+  prefix: ImagePayloadPrefix,
+  emptyValue: Record<string, string>,
+  urlKey: "Image" | "ImageUrl",
+) {
+  if (!value) {
+    return emptyValue;
+  }
+
+  const parsed = parseDataUrl(value);
+  if (parsed) {
+    return toBase64Payload(parsed, prefix);
+  }
+
+  return {
+    [`${prefix}${urlKey}`]: value,
+  };
+}
+
 export function getPreviewImageBudget(value: string, otherValue: string) {
   const otherUploadedBytes = estimateUploadedImageBytes(otherValue);
 
@@ -286,87 +350,29 @@ export function getPreviewImageBudget(value: string, otherValue: string) {
   return MAX_TOTAL_UPLOAD_BYTES;
 }
 
-export function buildImagePayload(
-  value: string,
-  prefix: "background" | "foreground",
-) {
-  if (!value) {
-    return {
-      [`${prefix}ImageUrl`]: "",
-    };
-  }
-
-  const parsed = parseDataUrl(value);
-  if (parsed) {
-    const normalized = normalizeParsedDataUrl(parsed);
-    return {
-      [`${prefix}ImageBase64`]: normalized.base64,
-      [`${prefix}ImageMimeType`]: normalized.mimeType,
-    };
-  }
-
-  return {
-    [`${prefix}Image`]: value,
-  };
-}
-
-export function buildPreviewImagePayload(
-  value: string,
-  prefix: "background" | "foreground",
-) {
-  if (!value) {
-    return {};
-  }
-
-  const parsed = parseDataUrl(value);
-  if (parsed) {
-    const normalized = normalizeParsedDataUrl(parsed);
-    return {
-      [`${prefix}ImageBase64`]: normalized.base64,
-      [`${prefix}ImageMimeType`]: normalized.mimeType,
-    };
-  }
-
-  return {
-    [`${prefix}ImageUrl`]: value,
-  };
+export function buildImagePayload(value: string, prefix: ImagePayloadPrefix) {
+  return createImagePayload(
+    value,
+    prefix,
+    { [`${prefix}ImageUrl`]: "" },
+    "Image",
+  );
 }
 
 export async function buildOptimizedPreviewImagePayload(
   value: string,
-  prefix: "background" | "foreground",
+  prefix: ImagePayloadPrefix,
   maxBytes: number,
 ) {
   if (!value) {
     return {};
   }
 
-  const parsed = parseDataUrl(value);
-  if (parsed) {
-    const normalized = normalizeParsedDataUrl(parsed);
-    return {
-      [`${prefix}ImageBase64`]: normalized.base64,
-      [`${prefix}ImageMimeType`]: normalized.mimeType,
-    };
-  }
-
   try {
-    const blob = await fetchImageForPreview(value);
-    const file = new File([blob], getImageFileName(value, blob.type), {
-      type: blob.type || "image/jpeg",
-    });
-    const optimizedDataUrl = await optimizeImageForUpload(file, maxBytes);
-    const optimizedParsed = parseDataUrl(optimizedDataUrl);
-
-    if (!optimizedParsed) {
-      throw new Error("Failed to process the selected image for preview.");
-    }
-
-    const normalized = normalizeParsedDataUrl(optimizedParsed);
-    return {
-      [`${prefix}ImageBase64`]: normalized.base64,
-      [`${prefix}ImageMimeType`]: normalized.mimeType,
-    };
+    return toBase64Payload(
+      await optimizeImageValueForPreview(value, maxBytes),
+      prefix,
+    );
   } catch (error) {
     console.warn("[ImageUpload] Falling back to image URL for preview", {
       imageValue: value,
@@ -379,6 +385,41 @@ export async function buildOptimizedPreviewImagePayload(
   }
 }
 
+export function buildCardImagePayloads(values: ImagePayloadValues) {
+  return {
+    ...buildImagePayload(values.backgroundImage, "background"),
+    ...buildImagePayload(values.foregroundImage, "foreground"),
+  };
+}
+
+export async function buildCardPreviewImagePayloads(
+  values: ImagePayloadValues,
+) {
+  const backgroundImageBudget = getPreviewImageBudget(
+    values.backgroundImage,
+    values.foregroundImage,
+  );
+  const foregroundImageBudget = getPreviewImageBudget(
+    values.foregroundImage,
+    values.backgroundImage,
+  );
+
+  return {
+    ...(await buildOptimizedPreviewImagePayload(
+      values.backgroundImage,
+      "background",
+      backgroundImageBudget,
+    )),
+    ...(await buildOptimizedPreviewImagePayload(
+      values.foregroundImage,
+      "foreground",
+      foregroundImageBudget,
+    )),
+  };
+}
+// #endregion
+
+// #region Component
 interface ImageInputProps {
   label: string;
   value: string;
@@ -575,3 +616,4 @@ export function ImageInput({
     </div>
   );
 }
+// #endregion

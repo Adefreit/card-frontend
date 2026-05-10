@@ -24,10 +24,9 @@ import {
   getFlavorMarkupPlainText,
 } from "../components/flavor-markup";
 import {
-  buildImagePayload,
-  buildOptimizedPreviewImagePayload,
+  buildCardImagePayloads,
+  buildCardPreviewImagePayloads,
   estimateUploadedImageBytes,
-  getPreviewImageBudget,
   ImageInput,
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
@@ -41,6 +40,7 @@ import {
   getTransactions,
 } from "../../transactions/api";
 
+// #region Validation
 const imageFieldSchema = z
   .string()
   .refine(
@@ -181,7 +181,9 @@ type CardUpdateValues = z.infer<typeof cardUpdateSchema>;
 type CardPreviewSide = "front" | "back";
 type CardDetailTab = "general" | "contact" | "premium";
 type CardUpdateFieldErrors = FieldErrors<CardUpdateValues>;
+// #endregion
 
+// #region Field labels
 const GENERAL_FIELD_LABELS: Record<string, string> = {
   templateId: "Template",
   title: "Title",
@@ -218,7 +220,9 @@ const PREMIUM_FIELD_LABELS: Record<string, string> = {
   "premium.urlList.name": "Custom Link Name",
   "premium.urlList.url": "Custom Link URL",
 };
+// #endregion
 
+// #region Error helpers
 function formatFallbackFieldLabel(segment: string): string {
   const withSpaces = segment.replace(/([a-z])([A-Z])/g, "$1 $2").trim();
   return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
@@ -354,7 +358,9 @@ function collectFieldErrors(
 
   return results;
 }
+// #endregion
 
+// #region Normalizers
 function trimToUndefined(value: string): string | undefined {
   const trimmedValue = value.trim();
   return trimmedValue ? trimmedValue : undefined;
@@ -456,7 +462,9 @@ function mapSocialAccountsToNamedUrls(
     url,
   }));
 }
+// #endregion
 
+// #region Dialogs
 function ComingSoonModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="qr-modal-backdrop" onClick={onClose}>
@@ -539,7 +547,9 @@ function DeleteConfirmModal({
     </div>
   );
 }
+// #endregion
 
+// #region Page
 export default function CardDetailPage() {
   const { accountSubscriptionUntil, refreshAccountProfile } = useAuth();
   const { cardId } = useParams();
@@ -823,16 +833,11 @@ export default function CardDetailPage() {
     }
 
     const values = getValues();
-    const backgroundImagePayload = await buildOptimizedPreviewImagePayload(
-      values.backgroundImage,
-      "background",
-      getPreviewImageBudget(values.backgroundImage, values.foregroundImage),
-    );
-    const foregroundImagePayload = await buildOptimizedPreviewImagePayload(
-      values.foregroundImage,
-      "foreground",
-      getPreviewImageBudget(values.foregroundImage, values.backgroundImage),
-    );
+    // Preview keeps both image slots on the shared optimized path.
+    const previewImagePayload = await buildCardPreviewImagePayloads({
+      backgroundImage: values.backgroundImage,
+      foregroundImage: values.foregroundImage,
+    });
 
     previewMutation.mutate({
       id: resolvedCardId,
@@ -844,8 +849,7 @@ export default function CardDetailPage() {
       contactInfo: normalizeContactInfo(values.contactInfo),
       customCss: normalizeCustomCss(values.customCss),
       premium: normalizePremiumUrls(values.premium.urlList),
-      ...backgroundImagePayload,
-      ...foregroundImagePayload,
+      ...previewImagePayload,
     });
   }
 
@@ -1161,14 +1165,10 @@ export default function CardDetailPage() {
                 };
 
                 if (!isMintedCard) {
-                  const backgroundImagePayload = buildImagePayload(
-                    values.backgroundImage,
-                    "background",
-                  );
-                  const foregroundImagePayload = buildImagePayload(
-                    values.foregroundImage,
-                    "foreground",
-                  );
+                  const imagePayload = buildCardImagePayloads({
+                    backgroundImage: values.backgroundImage,
+                    foregroundImage: values.foregroundImage,
+                  });
 
                   updatePayload.templateId = values.templateId;
                   updatePayload.title = values.title;
@@ -1180,11 +1180,7 @@ export default function CardDetailPage() {
                     values.customCss,
                   );
 
-                  Object.assign(
-                    updatePayload,
-                    backgroundImagePayload,
-                    foregroundImagePayload,
-                  );
+                  Object.assign(updatePayload, imagePayload);
                 }
 
                 updateMutation.mutate(updatePayload);
@@ -2071,3 +2067,4 @@ export default function CardDetailPage() {
     </div>
   );
 }
+// #endregion
