@@ -276,6 +276,7 @@ export default function CardViewerPage() {
   });
 
   const card = cardQuery.data;
+  const isMintedCard = Boolean(card?.minted);
   const previewUrl = getViewerPreviewUrl(card);
   const premiumLinks = getViewerPremiumLinks(card);
   const viewerName = getViewerName(card?.data.contactInfo);
@@ -329,7 +330,7 @@ export default function CardViewerPage() {
   }, [card?.id]);
 
   useEffect(() => {
-    if (!card || isFlipped) {
+    if (!card || !isMintedCard || isFlipped) {
       setIsSwipeCueVisible(false);
       return undefined;
     }
@@ -353,7 +354,7 @@ export default function CardViewerPage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [card, isFlipped]);
+  }, [card, isMintedCard, isFlipped]);
 
   function handleToggleFlip() {
     setIsSwipeCueVisible(false);
@@ -423,7 +424,14 @@ export default function CardViewerPage() {
           </section>
         ) : null}
 
-        {card ? (
+        {card && !isMintedCard ? (
+          <section className="cardviewer-status cardviewer-status--error">
+            <h1>Card unavailable</h1>
+            <p>This card can be viewed here after it has been minted.</p>
+          </section>
+        ) : null}
+
+        {card && isMintedCard ? (
           <>
             <section className="cardviewer-stage">
               <div
