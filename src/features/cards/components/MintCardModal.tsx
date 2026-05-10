@@ -122,22 +122,21 @@ export default function MintCardModal({
                 </p>
                 {isSubscribed ? (
                   <>
-                    {discountedMintPrice ? (
-                      <p className="mint-modal-subscriber-note">
-                        Subscriber discount: {effectiveDiscountPercent}% off.
-                        Base price: <strong>{mintPriceLabel}</strong>.
-                        Discounted price:{" "}
-                        <strong>
-                          {formatStripePrice(discountedMintPrice)}
-                        </strong>
-                        .
-                      </p>
-                    ) : null}
                     <p className="mint-modal-subscriber-note">
                       {typeof freeMintsRemaining === "number" &&
-                      freeMintsRemaining > 0
-                        ? `You have ${freeMintsRemaining} free mint${freeMintsRemaining === 1 ? "" : "s"} remaining this month, so this mint should be free.`
-                        : "You have no free mints remaining this month, so this mint will be charged at checkout."}
+                      freeMintsRemaining > 0 ? (
+                        `You have ${freeMintsRemaining} free mint${freeMintsRemaining === 1 ? "" : "s"} remaining this month.`
+                      ) : discountedMintPrice ? (
+                        <p className="mint-modal-subscriber-note">
+                          Subscriber discount: {effectiveDiscountPercent}% off.
+                          Base price: <strong>{mintPriceLabel}</strong>.
+                          Discounted price:{" "}
+                          <strong>
+                            {formatStripePrice(discountedMintPrice)}
+                          </strong>
+                          .
+                        </p>
+                      ) : null}
                     </p>
                   </>
                 ) : null}
