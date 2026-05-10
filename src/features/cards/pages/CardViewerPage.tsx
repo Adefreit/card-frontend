@@ -394,7 +394,7 @@ export default function CardViewerPage() {
       return;
     }
 
-    setIsFlipped(deltaX < 0);
+    setIsFlipped((current) => !current);
   }
 
   function handleCardKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
@@ -436,8 +436,8 @@ export default function CardViewerPage() {
                 aria-pressed={isFlipped}
                 aria-label={
                   isFlipped
-                    ? "Swipe right to flip card to front"
-                    : "Swipe left to flip card to back"
+                    ? "Swipe left or right to flip card to front"
+                    : "Swipe left or right to flip card to back"
                 }
               >
                 <div
