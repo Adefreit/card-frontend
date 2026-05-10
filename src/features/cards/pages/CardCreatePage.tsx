@@ -540,6 +540,18 @@ export default function CardCreatePage() {
               <div className="alert-error">{submitErrorMessage}</div>
             ) : null}
 
+            <p className="legal-consent">
+              By creating this card, you agree to our{" "}
+              <a
+                href="/legal/usercontent"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                User Content Policy
+              </a>
+              .
+            </p>
+
             <div className="button-row">
               <div className="button-row__group button-row__group--right">
                 <button

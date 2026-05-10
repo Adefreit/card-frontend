@@ -527,6 +527,18 @@ export default function GetCardsPage() {
                   <p className="alert-error">{purchaseErrorMessage}</p>
                 ) : null}
 
+                <p className="legal-consent">
+                  By proceeding, you agree to our{" "}
+                  <a
+                    href="/legal/refund"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Refund Policy
+                  </a>
+                  .
+                </p>
+
                 <button
                   type="button"
                   className="btn-primary proof-order-cta"

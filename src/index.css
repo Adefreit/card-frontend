@@ -599,6 +599,18 @@ button:disabled {
   margin-top: 18px;
 }
 
+.legal-consent {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.legal-consent a {
+  color: var(--ui-brand);
+  font-weight: 600;
+}
+
 .auth-links {
   display: flex;
   flex-wrap: wrap;
@@ -2885,28 +2897,33 @@ button:disabled {
 }
 
 .mint-modal-ack {
-  grid-template-columns: auto 1fr;
-  display: grid;
-  gap: 10px;
-  align-items: start;
-  padding: 4px 2px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 2px 0;
   animation: mintModalLiftIn 320ms ease both;
 }
 
-.mint-modal-ack h4 {
-  margin: 0 0 4px;
-}
-
-.mint-modal-ack p {
+.mint-modal-ack__policy {
   margin: 0;
   color: var(--ui-muted);
-  line-height: 1.4;
+  font-size: 0.88rem;
+}
+
+.mint-modal-ack__policy a {
+  color: var(--ui-brand);
+  font-weight: 600;
+}
+
+.mint-modal-ack__prompt {
+  margin: 0;
+  color: var(--ui-ink);
+  font-size: 0.9rem;
 }
 
 .mint-modal-ack input {
-  grid-column: 1 / -1;
   width: 100%;
-  margin-top: 2px;
+  margin-top: 12px;
 }
 
 @keyframes mintModalLiftIn {

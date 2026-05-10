@@ -93,11 +93,12 @@ export default function MintCardModal({
             <section className="mint-modal-item">
               <img
                 src={LOCK_ICON}
-                alt="Visual lock after mint"
+                alt=""
+                aria-hidden="true"
                 className="mint-modal-item-icon"
               />
               <div>
-                <h4>Minting a Card Locks its Visual Appearance Forever</h4>
+                <h4>Visual Design Locks Forever After Minting</h4>
                 <p>
                   Make sure your card looks exactly how you want it before
                   minting. You can still update your contact info and any
@@ -105,13 +106,12 @@ export default function MintCardModal({
                 </p>
               </div>
             </section>
-          </div>
 
-          <div className="mint-modal-flow">
             <section className="mint-modal-item">
               <img
                 src={PRICE_ICON}
-                alt="Mint pricing"
+                alt=""
+                aria-hidden="true"
                 className="mint-modal-item-icon"
               />
               <div>
@@ -148,15 +148,16 @@ export default function MintCardModal({
               <section className="mint-modal-item mint-modal-item--subscription">
                 <img
                   src={SUBSCRIPTION_ICON}
-                  alt="Subscription savings"
+                  alt=""
+                  aria-hidden="true"
                   className="mint-modal-item-icon"
                 />
                 <div>
-                  <h4>Discounts Available</h4>
+                  <h4>Save With a Subscription</h4>
                   <p>Subscribe to receive free mints and monthly discounts.</p>
                   <p>
-                    Also, ordering a card pack will automatically mint your card
-                    AND give you a trial subscription.
+                    Ordering a card pack automatically mints your card and
+                    includes a trial subscription.
                   </p>
                 </div>
                 <button
@@ -171,13 +172,21 @@ export default function MintCardModal({
           </div>
 
           <section className="mint-modal-ack">
-            <br />
-            <div>
-              <center>
-                Type <strong>{requiredPhrase}</strong> to confirm you understand
-                these minting terms.
-              </center>
-            </div>
+            <p className="mint-modal-ack__policy">
+              By minting, you agree to our{" "}
+              <a
+                href="/legal/usercontent"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                User Content Policy
+              </a>
+              .
+            </p>
+            <p className="mint-modal-ack__prompt">
+              Type <strong>{requiredPhrase}</strong> below to confirm you
+              understand and agree to these minting terms.
+            </p>
             <input
               type="text"
               value={acknowledgment}

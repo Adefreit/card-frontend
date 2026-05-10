@@ -96,6 +96,14 @@ export default function RegisterPage() {
         {message ? <div className="alert-success">{message}</div> : null}
         {error ? <div className="alert-error">{error}</div> : null}
 
+        <p className="legal-consent">
+          By creating an account, you agree to our{" "}
+          <a href="/legal/terms" target="_blank" rel="noopener noreferrer">
+            Terms of Service
+          </a>
+          .
+        </p>
+
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Creating account..." : "Create Account"}
         </button>
