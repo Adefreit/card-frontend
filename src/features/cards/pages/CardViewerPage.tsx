@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type TouchEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type TouchEvent,
+} from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import {
@@ -8,13 +14,6 @@ import {
   type CardRecord,
   type CardNamedUrl,
 } from "../api";
-
-const CARDVIEWER_PANELS = ["Card", "Contact", "Links"] as const;
-const CARDVIEWER_PANEL_PREVIEW_COPY = [
-  "DIGITAL CARD",
-  "CONTACT INFO",
-  "USER HUB",
-] as const;
 
 function getViewerName(contactInfo?: CardContactInfo) {
   const fullName = [contactInfo?.firstName, contactInfo?.lastName]
@@ -26,11 +25,58 @@ function getViewerName(contactInfo?: CardContactInfo) {
 }
 
 function getViewerPreviewUrl(card?: CardRecord) {
-  return card?.last_render || "";
+  return card?.last_proof || card?.last_render || "";
 }
 
 function getViewerPremiumLinks(card?: CardRecord): CardNamedUrl[] {
   return card?.data.premium?.urlList || [];
+}
+
+function getViewerContactRows(contactInfo?: CardContactInfo) {
+  const addressText = getViewerAddress(contactInfo);
+
+  return [
+    contactInfo?.jobTitle
+      ? { label: "Title", value: contactInfo.jobTitle }
+      : null,
+    contactInfo?.organization
+      ? { label: "Company", value: contactInfo.organization }
+      : null,
+    contactInfo?.workEmail
+      ? {
+          label: "Email",
+          value: contactInfo.workEmail,
+          href: `mailto:${contactInfo.workEmail}`,
+        }
+      : contactInfo?.personalEmail
+        ? {
+            label: "Email",
+            value: contactInfo.personalEmail,
+            href: `mailto:${contactInfo.personalEmail}`,
+          }
+        : null,
+    contactInfo?.cellPhone
+      ? {
+          label: "Phone",
+          value: contactInfo.cellPhone,
+          href: `tel:${contactInfo.cellPhone}`,
+        }
+      : contactInfo?.homePhone
+        ? {
+            label: "Phone",
+            value: contactInfo.homePhone,
+            href: `tel:${contactInfo.homePhone}`,
+          }
+        : null,
+    contactInfo?.website
+      ? {
+          label: "Website",
+          value: contactInfo.website,
+          href: contactInfo.website,
+        }
+      : null,
+    addressText ? { label: "Address", value: addressText } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string; href?: string }>;
 }
 
 function getViewerAddress(contactInfo?: CardContactInfo) {
@@ -85,81 +131,39 @@ function ViewerEmptyState({
   );
 }
 
-function ContactBlock({
+function ContactSheet({
   card,
+  onClose,
   onDownloadVcard,
   isDownloadingVcard,
 }: {
   card: CardRecord;
+  onClose: () => void;
   onDownloadVcard: () => void;
   isDownloadingVcard: boolean;
 }) {
   const contactInfo = card.data.contactInfo;
   const fullName = getViewerName(contactInfo);
-  const addressText = getViewerAddress(contactInfo);
   const socialLinks = Object.entries(contactInfo?.socialAccounts || {});
-  const contactRows = [
-    contactInfo?.jobTitle
-      ? { label: "Title", value: contactInfo.jobTitle }
-      : null,
-    contactInfo?.organization
-      ? { label: "Company", value: contactInfo.organization }
-      : null,
-    contactInfo?.workEmail
-      ? {
-          label: "Email",
-          value: contactInfo.workEmail,
-          href: `mailto:${contactInfo.workEmail}`,
-        }
-      : contactInfo?.personalEmail
-        ? {
-            label: "Email",
-            value: contactInfo.personalEmail,
-            href: `mailto:${contactInfo.personalEmail}`,
-          }
-        : null,
-    contactInfo?.cellPhone
-      ? {
-          label: "Phone",
-          value: contactInfo.cellPhone,
-          href: `tel:${contactInfo.cellPhone}`,
-        }
-      : contactInfo?.homePhone
-        ? {
-            label: "Phone",
-            value: contactInfo.homePhone,
-            href: `tel:${contactInfo.homePhone}`,
-          }
-        : null,
-    contactInfo?.website
-      ? {
-          label: "Website",
-          value: contactInfo.website,
-          href: contactInfo.website,
-        }
-      : null,
-    addressText ? { label: "Address", value: addressText } : null,
-  ].filter(Boolean) as Array<{ label: string; value: string; href?: string }>;
-
-  if (!fullName && contactRows.length === 0 && socialLinks.length === 0) {
-    return (
-      <section className="cardviewer-slide cardviewer-slide--contact">
-        <div className="cardviewer-slide__body cardviewer-slide__body--centered">
-          <ViewerEmptyState
-            title="Contact Information"
-            message="No contact information has been added to this card yet."
-          />
-        </div>
-      </section>
-    );
-  }
+  const contactRows = getViewerContactRows(contactInfo);
 
   return (
-    <section className="cardviewer-slide cardviewer-slide--contact">
-      <div className="cardviewer-slide__body">
-        <div className="cardviewer-panel__toolbar">
-          <div className="cardviewer-panel__header">
-            {/* <h2>Contact Informations</h2> */}
+    <div className="cardviewer-sheet" onClick={onClose}>
+      <section
+        className="cardviewer-sheet__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="vCard details"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="cardviewer-sheet__header">
+          <div className="cardviewer-sheet__copy">
+            <p>{fullName || card.data.title || "Legendary Profile"}</p>
+          </div>
+        </div>
+
+        <div className="cardviewer-sheet__body">
+          <div className="cardviewer-panel__toolbar cardviewer-panel__toolbar--end">
             <button
               type="button"
               className="cardviewer-action-button cardviewer-action-button--compact"
@@ -171,68 +175,85 @@ function ContactBlock({
                 : "Add to Contacts"}
             </button>
           </div>
+
+          {!fullName && contactRows.length === 0 && socialLinks.length === 0 ? (
+            <ViewerEmptyState
+              title="Contact Information"
+              message="No contact information has been added to this card yet."
+            />
+          ) : (
+            <>
+              <div className="cardviewer-contact-list">
+                {fullName ? (
+                  <div className="cardviewer-contact-row">
+                    <span className="cardviewer-contact-label">Name</span>
+                    <span className="cardviewer-contact-value">{fullName}</span>
+                  </div>
+                ) : null}
+
+                {contactRows.map((row) => (
+                  <div
+                    key={`${row.label}:${row.value}`}
+                    className="cardviewer-contact-row"
+                  >
+                    <span className="cardviewer-contact-label">
+                      {row.label}
+                    </span>
+                    {row.href ? (
+                      <a
+                        className="cardviewer-contact-link"
+                        href={row.href}
+                        target={
+                          row.href.startsWith("http") ? "_blank" : undefined
+                        }
+                        rel={
+                          row.href.startsWith("http") ? "noreferrer" : undefined
+                        }
+                      >
+                        {row.value}
+                      </a>
+                    ) : (
+                      <span className="cardviewer-contact-value cardviewer-contact-value--multiline">
+                        {row.value}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {socialLinks.length > 0 ? (
+                <div className="cardviewer-socials">
+                  <h3>Social Links</h3>
+                  <div className="cardviewer-socials__list">
+                    {socialLinks.map(([platform, url]) => (
+                      <a
+                        key={platform}
+                        className="cardviewer-socials__chip"
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {platform}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
-
-        <div className="cardviewer-contact-list">
-          {fullName ? (
-            <div className="cardviewer-contact-row">
-              <span className="cardviewer-contact-label">Name</span>
-              <span className="cardviewer-contact-value">{fullName}</span>
-            </div>
-          ) : null}
-
-          {contactRows.map((row) => (
-            <div
-              key={`${row.label}:${row.value}`}
-              className="cardviewer-contact-row"
-            >
-              <span className="cardviewer-contact-label">{row.label}</span>
-              {row.href ? (
-                <a
-                  className="cardviewer-contact-link"
-                  href={row.href}
-                  target={row.href.startsWith("http") ? "_blank" : undefined}
-                  rel={row.href.startsWith("http") ? "noreferrer" : undefined}
-                >
-                  {row.value}
-                </a>
-              ) : (
-                <span className="cardviewer-contact-value cardviewer-contact-value--multiline">
-                  {row.value}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {socialLinks.length > 0 ? (
-          <div className="cardviewer-socials">
-            <h3>Social Links</h3>
-            <div className="cardviewer-socials__list">
-              {socialLinks.map(([platform, url]) => (
-                <a
-                  key={platform}
-                  className="cardviewer-socials__chip"
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {platform}
-                </a>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
 export default function CardViewerPage() {
   const { id } = useParams();
-  const swimlaneRef = useRef<HTMLElement | null>(null);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const [activePanelIndex, setActivePanelIndex] = useState(0);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isContactSheetOpen, setIsContactSheetOpen] = useState(false);
   const [isSwipeCueVisible, setIsSwipeCueVisible] = useState(false);
 
   const cardQuery = useQuery({
@@ -260,51 +281,55 @@ export default function CardViewerPage() {
   const viewerName = getViewerName(card?.data.contactInfo);
 
   useEffect(() => {
-    const swimlane = swimlaneRef.current;
-    if (!swimlane || !card) {
+    if (!isMenuOpen) {
       return undefined;
     }
 
-    const slides = Array.from(swimlane.children) as HTMLElement[];
-    if (slides.length === 0) {
-      return undefined;
+    function handlePointerDown(event: MouseEvent) {
+      if (!actionMenuRef.current?.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibleEntries = entries.filter((entry) => entry.isIntersecting);
-        if (visibleEntries.length === 0) {
-          return;
-        }
-
-        const mostVisibleEntry = visibleEntries.reduce((current, candidate) => {
-          return candidate.intersectionRatio > current.intersectionRatio
-            ? candidate
-            : current;
-        });
-
-        const nextIndex = slides.indexOf(
-          mostVisibleEntry.target as HTMLElement,
-        );
-        if (nextIndex >= 0) {
-          setActivePanelIndex(nextIndex);
-        }
-      },
-      {
-        root: swimlane,
-        threshold: [0.55, 0.7, 0.9],
-      },
-    );
-
-    slides.forEach((slide) => observer.observe(slide));
+    document.addEventListener("mousedown", handlePointerDown);
 
     return () => {
-      observer.disconnect();
+      document.removeEventListener("mousedown", handlePointerDown);
     };
-  }, [card]);
+  }, [isMenuOpen]);
 
   useEffect(() => {
-    if (!card || activePanelIndex !== 0) {
+    if (!isMenuOpen && !isContactSheetOpen) {
+      return undefined;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+        setIsContactSheetOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMenuOpen, isContactSheetOpen]);
+
+  useEffect(() => {
+    if (!card) {
+      return;
+    }
+
+    setIsFlipped(false);
+    setIsMenuOpen(false);
+    setIsContactSheetOpen(false);
+    setIsSwipeCueVisible(false);
+  }, [card?.id]);
+
+  useEffect(() => {
+    if (!card || isFlipped) {
       setIsSwipeCueVisible(false);
       return undefined;
     }
@@ -320,28 +345,26 @@ export default function CardViewerPage() {
     }
 
     setIsSwipeCueVisible(true);
+
     const timeoutId = window.setTimeout(() => {
       setIsSwipeCueVisible(false);
-    }, 1500);
+    }, 2400);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [activePanelIndex, card]);
+  }, [card, isFlipped]);
 
-  function scrollToPanel(index: number) {
-    const swimlane = swimlaneRef.current;
-    const slide = swimlane?.children[index] as HTMLElement | undefined;
+  function handleToggleFlip() {
+    setIsSwipeCueVisible(false);
+    setIsFlipped((current) => !current);
+    setIsMenuOpen(false);
+  }
 
-    if (!slide) {
-      return;
-    }
-
-    slide.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "start",
-    });
+  function handleOpenContactSheet() {
+    setIsSwipeCueVisible(false);
+    setIsMenuOpen(false);
+    setIsContactSheetOpen(true);
   }
 
   function handleTouchStart(event: TouchEvent<HTMLElement>) {
@@ -350,16 +373,17 @@ export default function CardViewerPage() {
       return;
     }
 
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    setIsSwipeCueVisible(false);
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
   }
 
   function handleTouchEnd(event: TouchEvent<HTMLElement>) {
-    const touchStart = touchStartRef.current;
     const touch = event.changedTouches[0];
+    const touchStart = swipeStartRef.current;
 
-    touchStartRef.current = null;
+    swipeStartRef.current = null;
 
-    if (!touchStart || !touch) {
+    if (!touch || !touchStart) {
       return;
     }
 
@@ -370,14 +394,16 @@ export default function CardViewerPage() {
       return;
     }
 
-    const nextIndex =
-      deltaX < 0
-        ? Math.min(activePanelIndex + 1, CARDVIEWER_PANELS.length - 1)
-        : Math.max(activePanelIndex - 1, 0);
+    setIsFlipped(deltaX < 0);
+  }
 
-    if (nextIndex !== activePanelIndex) {
-      scrollToPanel(nextIndex);
+  function handleCardKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
     }
+
+    event.preventDefault();
+    handleToggleFlip();
   }
 
   return (
@@ -399,57 +425,25 @@ export default function CardViewerPage() {
 
         {card ? (
           <>
-            <div
-              className="cardviewer-page-indicator"
-              aria-label={`Page ${activePanelIndex + 1} of ${CARDVIEWER_PANELS.length}`}
-              aria-live="polite"
-            >
-              <a
-                className="cardviewer-page-indicator__brand"
-                href="https://legendaryprofiles.com"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <span
-                  className="cardviewer-page-indicator__brand-mark"
-                  aria-hidden="true"
-                >
-                  <img
-                    className="cardviewer-page-indicator__brand-logo"
-                    src="/favicon.png"
-                    alt=""
-                  />
-                </span>
-                <span className="cardviewer-page-indicator__brand-text">
-                  Legendary Profiles
-                </span>
-              </a>
+            <section className="cardviewer-stage">
               <div
-                className="cardviewer-page-indicator__track"
-                aria-hidden="true"
+                className={`cardviewer-card-trigger${isSwipeCueVisible ? " is-swipe-cued" : ""}`}
+                role="button"
+                tabIndex={0}
+                onKeyDown={handleCardKeyDown}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                aria-pressed={isFlipped}
+                aria-label={
+                  isFlipped
+                    ? "Swipe right to flip card to front"
+                    : "Swipe left to flip card to back"
+                }
               >
-                {CARDVIEWER_PANELS.map((panel, index) => (
-                  <span
-                    key={panel}
-                    className={`cardviewer-page-indicator__segment${activePanelIndex === index ? " is-active" : ""}`}
-                  />
-                ))}
-              </div>
-              <p className="cardviewer-page-indicator__preview">
-                {CARDVIEWER_PANEL_PREVIEW_COPY[activePanelIndex]}
-              </p>
-            </div>
-
-            <section
-              ref={swimlaneRef}
-              className={`cardviewer-swimlane${isSwipeCueVisible ? " is-swipe-cued" : ""}`}
-              aria-label="Card viewer panels"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-            >
-              <section className="cardviewer-slide cardviewer-slide--main">
-                <div className="cardviewer-slide__body cardviewer-slide__body--main">
-                  <div className="cardviewer-art">
+                <div
+                  className={`cardviewer-card${isFlipped ? " is-flipped" : ""}`}
+                >
+                  <section className="cardviewer-card__face cardviewer-card__face--front">
                     {previewUrl ? (
                       <img
                         className="cardviewer-image"
@@ -465,43 +459,122 @@ export default function CardViewerPage() {
                         Preview unavailable
                       </div>
                     )}
-                  </div>
-                </div>
-              </section>
 
-              <ContactBlock
+                    {isSwipeCueVisible ? (
+                      <div className="cardviewer-swipe-cue" aria-hidden="true">
+                        <span className="cardviewer-swipe-cue__arrows">
+                          &larr; &rarr;
+                        </span>
+                        <span className="cardviewer-swipe-cue__text">
+                          Swipe to flip
+                        </span>
+                      </div>
+                    ) : null}
+                  </section>
+
+                  <section className="cardviewer-card__face cardviewer-card__face--back">
+                    <div className="cardviewer-card__backdrop" />
+                    <div className="cardviewer-card__back-content">
+                      <div className="cardviewer-card__back-copy">
+                        <p>{card.data.title || "Legendary Profile"}</p>
+                      </div>
+
+                      {premiumLinks.length > 0 ? (
+                        <div className="cardviewer-hub-list">
+                          {premiumLinks.map((link) => (
+                            <a
+                              key={`${link.name}:${link.url}`}
+                              className="cardviewer-hub-item"
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <span className="cardviewer-hub-item__name">
+                                {link.name}
+                              </span>
+                              <span className="cardviewer-hub-item__url">
+                                {link.url}
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <ViewerEmptyState
+                          title="User Hub"
+                          message="No links or user hub content are available for this card yet."
+                        />
+                      )}
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </section>
+
+            <div
+              ref={actionMenuRef}
+              className={`cardviewer-fab-group${isMenuOpen ? " is-open" : ""}`}
+            >
+              {isMenuOpen ? (
+                <div
+                  className="cardviewer-fab-menu"
+                  role="menu"
+                  aria-label="Card viewer options"
+                >
+                  <div className="cardviewer-fab-menu__title">
+                    <img src="/favicon.png" alt="" />
+                    <span>Legendary Profiles</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="cardviewer-fab-menu__item"
+                    role="menuitem"
+                    onClick={handleToggleFlip}
+                  >
+                    {isFlipped ? "View Front" : "Flip Card"}
+                  </button>
+                  <button
+                    type="button"
+                    className="cardviewer-fab-menu__item"
+                    role="menuitem"
+                    onClick={handleOpenContactSheet}
+                  >
+                    View Contact Info
+                  </button>
+                  <button
+                    type="button"
+                    className="cardviewer-fab-menu__item"
+                    role="menuitem"
+                    onClick={() => vcardMutation.mutate(card.id)}
+                    disabled={vcardMutation.isPending}
+                  >
+                    {vcardMutation.isPending
+                      ? "Preparing vCard..."
+                      : "Add to Contacts"}
+                  </button>
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                className="cardviewer-fab"
+                aria-haspopup="menu"
+                aria-expanded={isMenuOpen}
+                aria-label="Open card options"
+                onClick={() => setIsMenuOpen((current) => !current)}
+              >
+                <img src="/favicon.png" alt="" />
+              </button>
+            </div>
+
+            {isContactSheetOpen ? (
+              <ContactSheet
                 card={card}
+                onClose={() => setIsContactSheetOpen(false)}
                 onDownloadVcard={() => vcardMutation.mutate(card.id)}
                 isDownloadingVcard={vcardMutation.isPending}
               />
-
-              <section className="cardviewer-slide cardviewer-slide--premium">
-                <div
-                  className={`cardviewer-slide__body${premiumLinks.length === 0 ? " cardviewer-slide__body--centered" : ""}`}
-                >
-                  {premiumLinks.length > 0 ? (
-                    <div className="cardviewer-links cardviewer-links--stacked">
-                      {premiumLinks.map((link) => (
-                        <a
-                          key={`${link.name}:${link.url}`}
-                          className="cardviewer-link-button"
-                          href={link.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {link.name}
-                        </a>
-                      ))}
-                    </div>
-                  ) : (
-                    <ViewerEmptyState
-                      title="User Hub"
-                      message="No links or user hub content are available for this card yet."
-                    />
-                  )}
-                </div>
-              </section>
-            </section>
+            ) : null}
           </>
         ) : null}
       </main>

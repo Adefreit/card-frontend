@@ -99,6 +99,10 @@ export const router = createBrowserRouter([
         path: "/legal",
         element: <LegalOverviewPage />,
       },
+      {
+        path: "/cardviewer/:id",
+        element: <CardViewerPage />,
+      },
     ],
   },
   {
@@ -131,10 +135,6 @@ export const router = createBrowserRouter([
       {
         path: "/reset-password",
         element: <ResetPasswordPage />,
-      },
-      {
-        path: "/cardviewer/:id",
-        element: <CardViewerPage />,
       },
       {
         path: "/payment/success",

@@ -5453,237 +5453,240 @@ select:disabled {
    ========================================================= */
 
 .cardviewer-page {
-  min-height: 100vh;
-  padding: 0 0 12px;
-  background: #eef2fb;
-}
-
-.cardviewer-header,
-.cardviewer-shell {
-  width: min(1120px, 100%);
-  margin: 0 auto;
-}
-
-.cardviewer-header {
-  margin-bottom: 20px;
-}
-
-.cardviewer-backlink {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: rgba(248, 250, 255, 0.9);
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.cardviewer-shell {
-  display: grid;
-  gap: 0;
-  position: relative;
   min-height: 100svh;
-  --cardviewer-top-offset: 110px;
+  background:
+    radial-gradient(circle at top, rgba(240, 180, 41, 0.22), rgba(240, 180, 41, 0) 30%),
+    linear-gradient(180deg, #06111c 0%, #0b1520 45%, #101926 100%);
 }
 
-.cardviewer-status,
-.cardviewer-topbar,
-.cardviewer-slide {
-  border: 1px solid rgba(223, 228, 255, 0.14);
-  border-radius: 26px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 18px 40px rgba(19, 27, 63, 0.14);
+.cardviewer-shell {
+  width: 100%;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+  position: relative;
 }
 
 .cardviewer-status {
+  width: min(100%, 32rem);
   padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  background: rgba(10, 19, 30, 0.82);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.32);
   text-align: center;
+  backdrop-filter: blur(22px);
 }
 
 .cardviewer-status h1,
-.cardviewer-copy h1,
-.cardviewer-panel__header h2 {
+.cardviewer-sheet__copy h2,
+.cardviewer-card__back-copy h1,
+.cardviewer-empty-state strong {
   margin: 0;
   font-family: "Fraunces", Georgia, serif;
-  color: var(--ui-ink);
+  color: #f7f2e8;
 }
 
 .cardviewer-status p,
-.cardviewer-description,
-.cardviewer-panel__header p,
-.cardviewer-subtitle {
+.cardviewer-sheet__copy p,
+.cardviewer-card__back-copy p,
+.cardviewer-card__back-copy span,
+.cardviewer-empty-state p {
   margin: 0;
-  color: var(--ui-muted);
+  color: rgba(239, 234, 223, 0.78);
 }
 
-.cardviewer-topbar {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px;
-}
-
-.cardviewer-topbar__meta {
+.cardviewer-stage {
+  position: relative;
+  width: min(100%, 1200px);
+  min-height: calc(100svh - 36px);
   display: grid;
-  gap: 10px;
-  justify-items: end;
+  place-items: center;
 }
 
-.cardviewer-copy {
-  display: grid;
-  gap: 8px;
-}
-
-.cardviewer-kicker {
-  color: var(--ui-brand-strong);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.cardviewer-copy h1 {
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  line-height: 1.02;
-}
-
-.cardviewer-page-indicator {
-  display: grid;
-  gap: 6px;
-  width: min(100% - 20px, 560px);
-  padding: 8px 12px 9px;
-  border: 1px solid rgba(223, 228, 255, 0.88);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 12px 28px rgba(19, 27, 63, 0.12);
+.cardviewer-stage__brand {
   position: absolute;
-  top: max(8px, env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(9, 16, 25, 0.56);
+  color: rgba(247, 242, 232, 0.92);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  backdrop-filter: blur(18px);
+}
+
+.cardviewer-stage__brand img {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+}
+
+.cardviewer-card-trigger {
+  width: min(100%, 520px);
+  height: min(calc(100svh - 84px), 820px);
+  min-height: 560px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  perspective: 1800px;
+  cursor: grab;
+  touch-action: pan-y pinch-zoom;
+  outline: none;
+}
+
+.cardviewer-card-trigger:active {
+  cursor: grabbing;
+}
+
+.cardviewer-card-trigger.is-swipe-cued .cardviewer-card {
+  animation: cardviewerSwipeCue 1.35s ease-in-out 2;
+}
+
+.cardviewer-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cardviewer-card.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.cardviewer-card__face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 32px;
+  backface-visibility: hidden;
+  background: #111820;
+  box-shadow:
+    0 30px 72px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.cardviewer-card__face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: inherit;
   pointer-events: none;
 }
 
-.cardviewer-page-indicator__brand {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.cardviewer-card__face--front {
+  display: grid;
+  background: #04070d;
+}
+
+.cardviewer-card__face--back {
+  display: grid;
+  align-items: stretch;
+  padding: 26px;
+  transform: rotateY(180deg);
+  background:
+    radial-gradient(circle at top right, rgba(240, 180, 41, 0.28), rgba(240, 180, 41, 0) 26%),
+    linear-gradient(180deg, #15202f 0%, #0b121b 100%);
+}
+
+.cardviewer-card__backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent 38%),
+    linear-gradient(180deg, rgba(240, 180, 41, 0.14), transparent 50%);
+}
+
+.cardviewer-card__back-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 22px;
+  align-content: start;
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+.cardviewer-card__back-copy {
+  display: grid;
   gap: 8px;
-  width: fit-content;
-  margin-inline: auto;
-  padding: 7px 12px;
-  border-radius: 999px;
-  font-family: "Fraunces", Georgia, serif;
-  font-size: 1rem;
+}
+
+.cardviewer-card__back-copy p {
+  font-size: 0.76rem;
   font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.03em;
-  text-align: center;
-  color: #2a345f;
-  text-decoration: none;
-  text-shadow: none;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 249, 255, 0.96) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
-  pointer-events: auto;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(240, 180, 41, 0.92);
 }
 
-.cardviewer-page-indicator__brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(245, 248, 255, 0.96) 100%);
-  box-shadow: 0 6px 14px rgba(63, 75, 155, 0.12);
-  overflow: hidden;
+.cardviewer-card__back-copy h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 0.98;
 }
 
-.cardviewer-page-indicator__brand-logo {
+.cardviewer-card__back-copy span {
+  max-width: 30ch;
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.cardviewer-image {
   width: 100%;
   height: 100%;
+  border-radius: inherit;
   object-fit: cover;
+  background: #04070d;
 }
 
-.cardviewer-page-indicator__brand-text {
-  color: #2d396a;
+.cardviewer-image--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(239, 234, 223, 0.7);
+  border: 1px dashed rgba(240, 180, 41, 0.28);
+  background: linear-gradient(180deg, rgba(8, 13, 21, 0.82), rgba(13, 19, 30, 0.94));
 }
 
-.cardviewer-page-indicator__brand:hover {
-  color: #23305d;
-  transform: none;
-  box-shadow: none;
-}
-
-.cardviewer-page-indicator__slogan {
-  margin: -3px 0 0;
-  text-align: center;
-  color: #7b849f;
-  font-size: 0.67rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.cardviewer-page-indicator__brand:focus-visible {
-  outline: 2px solid rgba(91, 99, 255, 0.28);
-  outline-offset: 4px;
-  border-radius: 8px;
-}
-
-.cardviewer-page-indicator__track {
+.cardviewer-swipe-cue {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.cardviewer-page-indicator__segment {
-  height: 4px;
+  justify-items: center;
+  gap: 4px;
+  min-width: 168px;
+  padding: 10px 16px;
   border-radius: 999px;
-  background: rgba(83, 93, 135, 0.18);
-  transition: background 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
-  opacity: 0.8;
+  background: rgba(8, 13, 21, 0.74);
+  color: #f8f1e4;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
 }
 
-.cardviewer-page-indicator__segment.is-active {
-  background: rgba(91, 99, 255, 0.78);
-  transform: scaleY(1.15);
-  opacity: 1;
+.cardviewer-swipe-cue__arrows {
+  font-size: 1rem;
+  letter-spacing: 0.24em;
+  color: rgba(240, 180, 41, 0.94);
+  animation: cardviewerSwipeCueText 1.35s ease-in-out infinite;
 }
 
-.cardviewer-page-indicator__preview {
-  margin: 0;
-  color: #0037ff;
-  font-size: 0.75rem;
-  font-weight: bolder;
-  letter-spacing: 0.02em;
-  line-height: 1.25;
-  text-align: center;
-}
-
-.cardviewer-swimlane {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 100%;
-  gap: 16px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding-top: 98px;
-  margin-top: 12px;
-  padding-bottom: 0;
-  scrollbar-width: none;
-  min-height: calc(100svh - var(--cardviewer-top-offset));
-}
-
-.cardviewer-swimlane.is-swipe-cued {
-  animation: cardviewerSwipeCue 1.15s ease-out;
-}
-
-.cardviewer-swimlane::-webkit-scrollbar {
-  display: none;
+.cardviewer-swipe-cue__text {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 @keyframes cardviewerSwipeCue {
@@ -5692,48 +5695,237 @@ select:disabled {
     transform: translateX(0);
   }
 
-  32% {
-    transform: translateX(-18px);
+  30% {
+    transform: translateX(-12px);
   }
 
-  58% {
-    transform: translateX(-10px);
+  60% {
+    transform: translateX(12px);
   }
 }
 
-.cardviewer-slide {
-  display: block;
-  min-height: calc(100svh - var(--cardviewer-top-offset));
-  max-height: calc(100svh - var(--cardviewer-top-offset));
-  overflow: hidden;
-  scroll-snap-align: start;
+@keyframes cardviewerSwipeCueText {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: translateX(6px);
+    opacity: 1;
+  }
 }
 
-.cardviewer-slide__body {
+.cardviewer-card__caption {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  max-width: min(70%, 280px);
+  border-radius: 20px;
+  background: rgba(8, 13, 21, 0.62);
+  backdrop-filter: blur(20px);
+  color: #f8f1e4;
+  text-align: left;
+}
+
+.cardviewer-card__caption p,
+.cardviewer-card__caption strong,
+.cardviewer-card__caption span {
+  margin: 0;
+}
+
+.cardviewer-card__caption p {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(240, 180, 41, 0.92);
+}
+
+.cardviewer-card__caption strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.28rem;
+  line-height: 1;
+}
+
+.cardviewer-card__caption span {
+  font-size: 0.78rem;
+  color: rgba(239, 234, 223, 0.76);
+}
+
+.cardviewer-hub-list {
+  display: grid;
+  gap: 12px;
+}
+
+.cardviewer-hub-item {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(240, 180, 41, 0.18);
+  background: rgba(6, 12, 19, 0.52);
+  color: #f6efdf;
+  text-decoration: none;
+  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+
+.cardviewer-hub-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(240, 180, 41, 0.42);
+  background: rgba(10, 18, 28, 0.72);
+}
+
+.cardviewer-hub-item__name {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.cardviewer-hub-item__url {
+  color: rgba(239, 234, 223, 0.66);
+  font-size: 0.82rem;
+  word-break: break-word;
+}
+
+.cardviewer-fab-group {
+  position: fixed;
+  right: max(18px, calc(env(safe-area-inset-right) + 18px));
+  bottom: max(18px, calc(env(safe-area-inset-bottom) + 18px));
+  z-index: 7;
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+}
+
+.cardviewer-fab-menu {
+  min-width: 220px;
+  padding: 10px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 13, 21, 0.92);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(22px);
+}
+
+.cardviewer-fab-menu__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f8f1e4;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.cardviewer-fab-menu__title img {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+}
+
+.cardviewer-fab-menu__item {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: #f8f1e4;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.cardviewer-fab-menu__item:hover,
+.cardviewer-fab-menu__item:focus-visible {
+  background: rgba(240, 180, 41, 0.16);
+}
+
+.cardviewer-fab-menu__item:disabled {
+  opacity: 0.6;
+}
+
+.cardviewer-fab {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(240, 180, 41, 0.96), rgba(217, 147, 10, 0.96));
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34);
+}
+
+.cardviewer-fab img {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+}
+
+.cardviewer-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  align-items: end;
+  padding: 18px;
+  background: rgba(3, 7, 12, 0.56);
+  backdrop-filter: blur(10px);
+}
+
+.cardviewer-sheet__panel {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 20px;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(12, 20, 31, 0.98), rgba(8, 13, 21, 0.98));
+  box-shadow: 0 28px 56px rgba(0, 0, 0, 0.34);
+}
+
+.cardviewer-sheet__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.cardviewer-sheet__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.cardviewer-sheet__copy p {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(240, 180, 41, 0.9);
+}
+
+.cardviewer-sheet__close {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 180, 41, 0.24);
+  background: rgba(240, 180, 41, 0.08);
+  color: #f8f1e4;
+  font-weight: 700;
+}
+
+.cardviewer-sheet__body {
   display: grid;
   gap: 18px;
-  align-content: start;
-  padding: 16px 18px 18px;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  height: 100%;
-  -webkit-overflow-scrolling: touch;
-}
-
-.cardviewer-slide__body--centered {
-  align-content: center;
-  justify-items: center;
-  text-align: center;
-}
-
-.cardviewer-slide__body--main {
-  grid-template-rows: none;
-  align-content: start;
-  padding-top: 0;
-  gap: 0;
-  overflow-y: auto;
-  padding-bottom: 8px;
 }
 
 .cardviewer-panel__toolbar {
@@ -5743,63 +5935,8 @@ select:disabled {
   gap: 12px;
 }
 
-.cardviewer-panel__toolbar--stacked {
-  flex-direction: column;
-  align-items: center;
-}
-
 .cardviewer-panel__toolbar--end {
   justify-content: flex-end;
-}
-
-.cardviewer-art {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  width: 100%;
-  min-height: 800;
-}
-
-.cardviewer-image {
-  width: 100%;
-  max-width: min(100%, 380px);
-  min-height: 450px;
-  max-height: min(72svh, 760px);
-  border-radius: 8px;
-  box-shadow: 0 18px 36px rgba(19, 27, 63, 0.22);
-  object-fit: contain;
-  background: black;
-}
-
-.cardviewer-slide--main .cardviewer-art {
-  position: relative;
-  height: auto;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 4px 4px 6px;
-}
-
-.cardviewer-slide--main .cardviewer-image,
-.cardviewer-slide--main .cardviewer-image--placeholder {
-  width: 100%;
-  height: auto;
-  max-width: 100%;
-  max-height: min(72svh, 760px);
-  object-position: center top;
-}
-
-.cardviewer-image--placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: min(70vh, 560px);
-  color: var(--ui-muted);
-  border: 1px dashed rgba(103, 120, 207, 0.3);
-}
-
-.cardviewer-panel__header {
-  display: grid;
-  gap: 6px;
 }
 
 .cardviewer-contact-list {
@@ -5815,16 +5952,16 @@ select:disabled {
 }
 
 .cardviewer-contact-label {
-  color: #5c6790;
-  font-size: 0.8rem;
+  color: rgba(240, 180, 41, 0.84);
+  font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .cardviewer-contact-value,
 .cardviewer-contact-link {
-  color: var(--ui-ink);
+  color: #f8f1e4;
   font-size: 0.98rem;
   line-height: 1.55;
   word-break: break-word;
@@ -5836,7 +5973,6 @@ select:disabled {
 
 .cardviewer-contact-link:hover,
 .cardviewer-socials__chip:hover,
-.cardviewer-link-button:hover,
 .cardviewer-action-button:hover {
   transform: translateY(-1px);
 }
@@ -5849,38 +5985,28 @@ select:disabled {
 .cardviewer-socials h3 {
   margin: 0;
   font-size: 0.92rem;
-  color: var(--ui-ink);
+  color: #f8f1e4;
 }
 
-.cardviewer-socials__list,
-.cardviewer-links {
+.cardviewer-socials__list {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.cardviewer-links--stacked {
-  display: grid;
-}
-
-.cardviewer-socials__chip,
-.cardviewer-link-button {
+.cardviewer-socials__chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 44px;
   padding: 0 16px;
   border-radius: 999px;
-  border: 1px solid rgba(91, 99, 255, 0.18);
-  background: rgba(91, 99, 255, 0.08);
-  color: var(--ui-brand-strong);
+  border: 1px solid rgba(240, 180, 41, 0.22);
+  background: rgba(240, 180, 41, 0.12);
+  color: #f5d57b;
   font-size: 0.92rem;
   font-weight: 700;
   transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
-}
-
-.cardviewer-link-button {
-  background: linear-gradient(135deg, rgba(91, 99, 255, 0.14), rgba(47, 210, 187, 0.14));
 }
 
 .cardviewer-action-button {
@@ -5891,12 +6017,12 @@ select:disabled {
   min-height: 52px;
   border: 0;
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--ui-brand) 0%, var(--ui-brand-strong) 100%);
-  color: #fff;
+  background: linear-gradient(135deg, #f0b429 0%, #d9930a 100%);
+  color: #fffdf8;
   font-size: 0.96rem;
   font-weight: 800;
   letter-spacing: 0.01em;
-  box-shadow: 0 16px 30px rgba(36, 45, 112, 0.28);
+  box-shadow: 0 16px 30px rgba(130, 80, 0, 0.28);
 }
 
 .cardviewer-action-button--compact {
@@ -5926,25 +6052,78 @@ select:disabled {
   min-height: 160px;
   padding: 18px;
   border-radius: 18px;
-  border: 1px dashed rgba(103, 120, 207, 0.24);
-  color: var(--ui-muted);
+  border: 1px dashed rgba(240, 180, 41, 0.22);
+  color: rgba(239, 234, 223, 0.76);
   text-align: center;
-  background: rgba(244, 246, 253, 0.86);
-}
-
-.cardviewer-empty-state strong {
-  font-family: "Fraunces", Georgia, serif;
-  font-size: 1rem;
-  color: var(--ui-ink);
-}
-
-.cardviewer-empty-state p {
-  margin: 0;
-  max-width: 32ch;
-  line-height: 1.5;
+  background: rgba(6, 12, 19, 0.44);
 }
 
 @media (max-width: 860px) {
+  .cardviewer-shell {
+    padding-inline: 12px;
+  }
+
+  .cardviewer-stage {
+    min-height: calc(100svh - 24px);
+  }
+
+  .cardviewer-stage__brand {
+    top: 4px;
+    left: 4px;
+    padding: 8px 12px;
+    font-size: 0.72rem;
+  }
+
+  .cardviewer-card-trigger {
+    width: 100%;
+    height: min(calc(100svh - 96px), 760px);
+    min-height: 500px;
+  }
+
+  .cardviewer-card__face {
+    border-radius: 28px;
+  }
+
+  .cardviewer-card__face--back {
+    padding: 20px;
+  }
+
+  .cardviewer-card__caption {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    max-width: none;
+  }
+
+  .cardviewer-swipe-cue {
+    bottom: 14px;
+    min-width: 152px;
+    padding-inline: 14px;
+  }
+
+  .cardviewer-fab {
+    width: 58px;
+    height: 58px;
+  }
+
+  .cardviewer-fab img {
+    width: 30px;
+    height: 30px;
+  }
+
+  .cardviewer-sheet {
+    padding: 10px;
+  }
+
+  .cardviewer-sheet__panel {
+    padding: 16px;
+    border-radius: 24px;
+  }
+
+  .cardviewer-sheet__header {
+    flex-direction: column;
+  }
+
   .cardviewer-panel__toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -5959,87 +6138,19 @@ select:disabled {
     align-self: flex-end;
   }
 
-  .cardviewer-slide--main .cardviewer-slide__body {
-    padding: 8px 8px 8px;
-  }
-
-  .cardviewer-slide--main .cardviewer-art {
-    align-items: flex-start;
-    padding: 4px 0 0;
-  }
-
   .cardviewer-contact-row {
     grid-template-columns: 1fr;
     gap: 4px;
   }
 }
 
-@media (min-width: 980px) {
-  .cardviewer-page {
-    padding: 10px 10px 36px;
-    padding-bottom: 36px;
-  }
-
-  .cardviewer-shell {
-    gap: 18px;
-    min-height: auto;
-  }
-
-  .cardviewer-page-indicator {
-    position: relative;
-    top: auto;
-    left: auto;
-    transform: none;
-    margin: 0 auto 8px;
-    border-color: rgba(223, 228, 255, 0.78);
-    background: rgba(255, 255, 255, 0.94);
-  }
-
-  .cardviewer-swimlane {
-    grid-auto-columns: minmax(0, 1fr);
-    overflow: visible;
-    padding-bottom: 6px;
-    padding-top: 0;
-    margin-top: 10px;
-    min-height: auto;
-  }
-
-  .cardviewer-slide {
-    min-height: 480px;
-    max-height: none;
-  }
-
-  .cardviewer-slide__body {
-    padding: 22px;
-    overflow: visible;
-    padding-bottom: 22px;
-    height: auto;
-  }
-
-  .cardviewer-slide__body--main {
-    align-content: start;
-    grid-template-rows: none;
-    padding-top: 22px;
-    padding-bottom: 22px;
-    overflow: visible;
-  }
-
-  .cardviewer-slide--main .cardviewer-art {
-    height: auto;
-    padding: 0;
-  }
-
-  .cardviewer-slide--main .cardviewer-image,
-  .cardviewer-slide--main .cardviewer-image--placeholder {
-    width: 100%;
-    height: auto;
-    max-width: min(100%, 380px);
-    max-height: min(72svh, 760px);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .cardviewer-swimlane.is-swipe-cued {
+  .cardviewer-card {
+    transition: none;
+  }
+
+  .cardviewer-card-trigger.is-swipe-cued .cardviewer-card,
+  .cardviewer-swipe-cue__arrows {
     animation: none;
   }
 }
