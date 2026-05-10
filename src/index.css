@@ -1943,6 +1943,88 @@ button:disabled {
   color: #fff;
 }
 
+.dash-subscribe-cta {
+  position: relative;
+  overflow: hidden;
+  margin-left: auto;
+}
+
+.dash-subscribe-cta::after {
+  content: "";
+  position: absolute;
+  top: -140%;
+  left: -45%;
+  width: 42%;
+  height: 380%;
+  transform: rotate(18deg);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.7) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: dashSubscribeShimmer 1.9s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes dashSubscribeShimmer {
+  from {
+    left: -45%;
+  }
+  to {
+    left: 130%;
+  }
+}
+
+.tutorial-modal {
+  max-width: min(680px, calc(100vw - 28px));
+}
+
+.tutorial-modal__body {
+  display: grid;
+  gap: 10px;
+}
+
+.tutorial-modal .qr-modal-subtitle,
+.tutorial-modal .qr-modal-body {
+  text-align: left;
+}
+
+.tutorial-step {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: rgba(249, 251, 255, 0.92);
+}
+
+.tutorial-step__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #eceeff 0%, #dfe4ff 100%);
+  font-size: 1.25rem;
+}
+
+.tutorial-step h4 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1rem;
+  color: #1f2340;
+}
+
+.tutorial-step p {
+  margin: 6px 0 0;
+  color: var(--ui-muted);
+  line-height: 1.5;
+  font-size: 0.86rem;
+}
+
 /* Panels */
 .dash-panel {
   border: 1px solid var(--ui-border);
@@ -2274,6 +2356,41 @@ button:disabled {
   background: rgba(240, 180, 41, 0.2);
   border-color: #d9930a;
   color: #5a3800;
+}
+
+.dash-action-btn--activate {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f0b429 0%, #d9930a 100%);
+  border-color: rgba(217, 147, 10, 0.72);
+  color: #fff;
+  font-weight: 800;
+  text-shadow: 0 1px 0 rgba(60, 40, 0, 0.18);
+  box-shadow: 0 6px 14px rgba(240, 180, 41, 0.32);
+}
+
+.dash-action-btn--activate:hover {
+  background: linear-gradient(135deg, #f3bd45 0%, #e09a11 100%);
+  border-color: rgba(217, 147, 10, 0.86);
+  color: #fff;
+}
+
+.dash-action-btn--activate::after {
+  content: "";
+  position: absolute;
+  top: -140%;
+  left: -45%;
+  width: 42%;
+  height: 380%;
+  transform: rotate(18deg);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.7) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: dashSubscribeShimmer 1.9s linear infinite;
+  pointer-events: none;
 }
 
 /* Card premium/draft tier badge */

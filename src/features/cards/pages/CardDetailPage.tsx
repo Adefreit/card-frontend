@@ -2037,14 +2037,14 @@ export default function CardDetailPage() {
                     <strong>How to Interpret the Guide Lines</strong>
                   </center>
                   <span>
-                    The green line marks the trim edge. This is where the card
-                    will be cut during manufacturing. <br />
+                    <b>TRIM EDGE</b> - This is where the card will be
+                    approximately cut during manufacturing. <br />
                     <br />
-                    The red line marks the safe area. We automatically keep
-                    details like text and logos within so they look their best.
+                    <b>MARGIN</b> - We automatically keep details like text and
+                    logos within so they look centered and at their best.
                     <br />
                     <br />
-                    These guides are temporary preview overlays and will not
+                    These guides are only for planning purposes and will not
                     appear on the final rendered or printed card.
                   </span>
                 </div>

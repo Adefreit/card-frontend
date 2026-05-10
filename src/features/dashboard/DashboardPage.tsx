@@ -33,6 +33,8 @@ const CARD_TINT_BORDERS = [
   "rgba(126, 34, 206, 0.34)",
 ] as const;
 
+const DASHBOARD_TUTORIAL_SEEN_KEY = "lp.dashboard.tutorialSeen";
+
 function isMinted(minted?: boolean): boolean {
   return Boolean(minted);
 }
@@ -349,6 +351,79 @@ function ComingSoonModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+function TutorialModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="qr-modal-backdrop" onClick={onClose}>
+      <div
+        className="qr-modal tutorial-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="qr-modal-header">
+          <h3>Quick Tutorial</h3>
+          <button
+            type="button"
+            className="qr-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <p className="qr-modal-subtitle">Three easy steps to get started.</p>
+
+        <div className="qr-modal-body tutorial-modal__body">
+          <article className="tutorial-step">
+            <div className="tutorial-step__icon" aria-hidden="true">
+              🃏
+            </div>
+            <div>
+              <h4>
+                <Link to="/app/cards/new">Create a Draft Card</Link>
+              </h4>
+              <p>Use our free designer to build your Legendary Profile card.</p>
+            </div>
+          </article>
+
+          <article className="tutorial-step">
+            <div className="tutorial-step__icon" aria-hidden="true">
+              ⚡
+            </div>
+            <div>
+              <h4>Activate Your Card</h4>
+              <p>
+                When the design is ready, mint it or order card packs. Either
+                option locks the card appearance and activates digital and game
+                services.
+              </p>
+            </div>
+          </article>
+
+          <article className="tutorial-step">
+            <div className="tutorial-step__icon" aria-hidden="true">
+              📦
+            </div>
+            <div>
+              <h4>Share Your Card with Others!</h4>
+              <p>
+                Activated cards are yours forever! Download the proof / label
+                templates, and order cards and game packs (for an additional
+                fee).
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <div className="qr-modal-footer">
+          <button type="button" className="btn-secondary" onClick={onClose}>
+            Got It
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const queryClient = useQueryClient();
   const { accountSubscriptionUntil, refreshAccountProfile } = useAuth();
@@ -357,6 +432,7 @@ export default function DashboardPage() {
   );
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [selectedSubscriptionType, setSelectedSubscriptionType] = useState("");
   const [subscriptionInterval, setSubscriptionInterval] = useState<
     "month" | "year"
@@ -542,6 +618,29 @@ export default function DashboardPage() {
       return cardStatusFilter === "minted" ? minted : !minted;
     }) ?? [];
 
+  useEffect(() => {
+    try {
+      const hasSeenTutorial =
+        window.localStorage.getItem(DASHBOARD_TUTORIAL_SEEN_KEY) === "1";
+
+      if (!hasSeenTutorial) {
+        setShowTutorialModal(true);
+      }
+    } catch {
+      // Ignore storage errors and continue without persistence.
+    }
+  }, []);
+
+  const closeTutorialModal = () => {
+    setShowTutorialModal(false);
+
+    try {
+      window.localStorage.setItem(DASHBOARD_TUTORIAL_SEEN_KEY, "1");
+    } catch {
+      // Ignore storage errors and keep UI functional.
+    }
+  };
+
   return (
     <div className="page-stack">
       {qrCard && (
@@ -580,6 +679,7 @@ export default function DashboardPage() {
       {showUpgradeModal && (
         <ComingSoonModal onClose={() => setShowUpgradeModal(false)} />
       )}
+      {showTutorialModal && <TutorialModal onClose={closeTutorialModal} />}
 
       {/* ── Hero Banner ── */}
       <section className="content-hero">
@@ -594,9 +694,9 @@ export default function DashboardPage() {
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => setShowPlanModal(true)}
+          onClick={() => setShowTutorialModal(true)}
         >
-          Compare Plans
+          View Tutorial
         </button>
       </section>
 
@@ -623,6 +723,13 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
+            <button
+              type="button"
+              className="btn-gold dash-subscribe-cta"
+              onClick={() => setShowPlanModal(true)}
+            >
+              Subscribe
+            </button>
           </div>
 
           {/* My Cards */}
@@ -771,7 +878,7 @@ export default function DashboardPage() {
                           style={{ borderColor: cardBorderTint }}
                         >
                           <Link
-                            className="dash-action-btn dash-action-btn--proof"
+                            className={`dash-action-btn dash-action-btn--proof${minted ? "" : " dash-action-btn--activate"}`}
                             to={`/app/cards/${card.id}/get-cards`}
                           >
                             <span
@@ -780,7 +887,7 @@ export default function DashboardPage() {
                             >
                               📦
                             </span>
-                            Get Cards
+                            {minted ? "Get Cards" : "Activate Your Card"}
                           </Link>
                           {minted ? (
                             <button
