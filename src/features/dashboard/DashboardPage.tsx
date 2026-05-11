@@ -723,13 +723,15 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              className="btn-gold dash-subscribe-cta"
-              onClick={() => setShowPlanModal(true)}
-            >
-              Subscribe
-            </button>
+            {!isSubscribed ? (
+              <button
+                type="button"
+                className="btn-gold dash-subscribe-cta"
+                onClick={() => setShowPlanModal(true)}
+              >
+                Subscribe
+              </button>
+            ) : null}
           </div>
 
           {/* My Cards */}

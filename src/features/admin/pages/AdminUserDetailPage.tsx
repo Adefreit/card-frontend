@@ -17,47 +17,21 @@ import {
   revokeAdminUserPermission,
   unmintAdminCard,
   type AdminCardArtifactType,
-  type AdminOrderRecord,
 } from "../api";
-
-type DetailTab =
-  | "summary"
-  | "permissions"
-  | "subscription"
-  | "cards"
-  | "orders";
+import AdminUserCardsTab from "../components/user-detail/AdminUserCardsTab";
+import { AdminUserDetailContextProvider } from "../components/user-detail/AdminUserDetailContext";
+import AdminUserDetailTabs from "../components/user-detail/AdminUserDetailTabs";
+import AdminUserOrdersTab from "../components/user-detail/AdminUserOrdersTab";
+import AdminUserPermissionsTab from "../components/user-detail/AdminUserPermissionsTab";
+import AdminUserSubscriptionTab from "../components/user-detail/AdminUserSubscriptionTab";
+import AdminUserSummaryTab from "../components/user-detail/AdminUserSummaryTab";
+import type {
+  CardConfirmAction,
+  DetailTab,
+  EmailConfirmAction,
+} from "../components/user-detail/types";
 
 const COMMON_PERMISSIONS = ["ADMIN", "FOUNDER"] as const;
-
-type EmailConfirmAction =
-  | { type: "resend-activation"; email: string }
-  | { type: "resend-password-reset"; email: string };
-
-function formatDate(value?: string | null) {
-  if (!value) {
-    return "-";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "-";
-  }
-
-  return parsed.toLocaleString();
-}
-
-function isSubscriptionActive(value?: string | null) {
-  if (!value) {
-    return false;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return false;
-  }
-
-  return parsed.getTime() > Date.now();
-}
 
 export default function AdminUserDetailPage() {
   const { userId } = useParams<{ userId: string }>();
@@ -71,19 +45,28 @@ export default function AdminUserDetailPage() {
   const [subscriptionCustomDate, setSubscriptionCustomDate] = useState("");
   const [subscriptionUseCustom, setSubscriptionUseCustom] = useState(false);
   const [subscriptionConfirm, setSubscriptionConfirm] = useState(false);
-  const [cardConfirmAction, setCardConfirmAction] = useState<{
-    cardId: string;
-    action: "mint" | "unmint";
-  } | null>(null);
+  const [cardConfirmAction, setCardConfirmAction] =
+    useState<CardConfirmAction | null>(null);
   const [emailModal, setEmailModal] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailTitle, setEmailTitle] = useState("");
   const [emailHtmlBody, setEmailHtmlBody] = useState("");
   const [emailConfirmAction, setEmailConfirmAction] =
     useState<EmailConfirmAction | null>(null);
+  const [loadedCardPreviews, setLoadedCardPreviews] = useState<Set<string>>(
+    new Set(),
+  );
   const emailEditorRef = useRef<HTMLDivElement | null>(null);
 
   const canLoad = Boolean(userId);
+
+  function handleCardPreviewHover(cardId: string) {
+    setLoadedCardPreviews((prev) => {
+      const next = new Set(prev);
+      next.add(cardId);
+      return next;
+    });
+  }
 
   const userQuery = useQuery({
     queryKey: ["admin", "user", userId],
@@ -153,11 +136,7 @@ export default function AdminUserDetailPage() {
     onSuccess: async () => {
       setMutationMessage("Subscription extended.");
       await refreshUserData();
-      setSubscriptionModal(false);
-      setSubscriptionConfirm(false);
-      setSubscriptionDays(30);
-      setSubscriptionCustomDate("");
-      setSubscriptionUseCustom(false);
+      closeSubscriptionModal();
     },
     onError: () => {
       setMutationMessage("Failed to extend subscription.");
@@ -218,11 +197,8 @@ export default function AdminUserDetailPage() {
     }) => sendAdminUserEmail(toAddress, subject, title, htmlBody),
     onSuccess: async () => {
       setMutationMessage("Email sent successfully.");
-      setEmailModal(false);
+      resetEmailComposer();
       setEmailConfirmAction(null);
-      setEmailSubject("");
-      setEmailTitle("");
-      setEmailHtmlBody("");
       await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
     },
     onError: () => {
@@ -268,6 +244,18 @@ export default function AdminUserDetailPage() {
     };
   }, [cardsQuery.data?.cards]);
 
+  const resetSubscriptionForm = () => {
+    setSubscriptionConfirm(false);
+    setSubscriptionDays(30);
+    setSubscriptionCustomDate("");
+    setSubscriptionUseCustom(false);
+  };
+
+  const closeSubscriptionModal = () => {
+    setSubscriptionModal(false);
+    resetSubscriptionForm();
+  };
+
   const resetEmailComposer = () => {
     setEmailModal(false);
     setEmailSubject("");
@@ -290,6 +278,40 @@ export default function AdminUserDetailPage() {
     emailEditorRef.current?.focus();
   };
 
+  const handleConfirmEmailAction = () => {
+    if (!emailConfirmAction) {
+      return;
+    }
+
+    if (emailConfirmAction.type === "resend-activation") {
+      resendActivationMutation.mutate(emailConfirmAction.email);
+      return;
+    }
+
+    resendPasswordResetMutation.mutate(emailConfirmAction.email);
+  };
+
+  const handleSendEmail = () => {
+    if (!userQuery.data?.email) {
+      return;
+    }
+
+    sendEmailMutation.mutate({
+      toAddress: userQuery.data.email,
+      subject: emailSubject.trim(),
+      title: emailTitle.trim(),
+      htmlBody: emailHtmlBody,
+    });
+  };
+
+  const handleConfirmCardAction = () => {
+    if (!cardConfirmAction) {
+      return;
+    }
+
+    cardActionMutation.mutate(cardConfirmAction);
+  };
+
   if (!userId) {
     return <Navigate to="/app/admin/users" replace />;
   }
@@ -310,932 +332,103 @@ export default function AdminUserDetailPage() {
       </section>
 
       <section className="dash-panel admin-card">
-        <div
-          className="admin-tabs"
-          role="tablist"
-          aria-label="Admin user detail tabs"
+        <AdminUserDetailContextProvider
+          value={{
+            permissions,
+            commonPermissions: COMMON_PERMISSIONS,
+            permissionInput,
+            currentUserId,
+            targetUserId: userId,
+            isGrantPending: grantPermissionMutation.isPending,
+            isRevokePending: revokePermissionMutation.isPending,
+            onPermissionInputChange: setPermissionInput,
+            onGrantPermission: (permission) =>
+              grantPermissionMutation.mutate(permission),
+            onRevokePermission: (permission) =>
+              revokePermissionMutation.mutate(permission),
+            emailModal,
+            emailSubject,
+            emailTitle,
+            emailHtmlBody,
+            emailConfirmAction,
+            emailEditorRef,
+            isSendEmailPending: sendEmailMutation.isPending,
+            isResendActivationPending: resendActivationMutation.isPending,
+            isResendPasswordResetPending: resendPasswordResetMutation.isPending,
+            onOpenEmailModal: () => setEmailModal(true),
+            onCloseEmailModal: resetEmailComposer,
+            onEmailSubjectChange: setEmailSubject,
+            onEmailTitleChange: setEmailTitle,
+            onSyncEmailHtmlBody: syncEmailHtmlBody,
+            onApplyEmailFormat: applyEmailFormat,
+            onSendEmail: handleSendEmail,
+            onSetEmailConfirmAction: setEmailConfirmAction,
+            onConfirmEmailAction: handleConfirmEmailAction,
+            subscriptionModal,
+            subscriptionDays,
+            subscriptionCustomDate,
+            subscriptionUseCustom,
+            subscriptionConfirm,
+            isExtendPending: extendSubscriptionMutation.isPending,
+            onOpenSubscriptionModal: () => setSubscriptionModal(true),
+            onCloseSubscriptionModal: closeSubscriptionModal,
+            onSetSubscriptionDays: setSubscriptionDays,
+            onSetSubscriptionCustomDate: setSubscriptionCustomDate,
+            onSetSubscriptionUseCustom: setSubscriptionUseCustom,
+            onSetSubscriptionConfirm: setSubscriptionConfirm,
+            onExtendSubscription: () =>
+              extendSubscriptionMutation.mutate(subscriptionDays),
+            loadedCardPreviews,
+            cardConfirmAction,
+            isArtifactPending: artifactMutation.isPending,
+            isCardActionPending: cardActionMutation.isPending,
+            onHoverCardPreview: handleCardPreviewHover,
+            onDownloadArtifact: (cardId, type) =>
+              artifactMutation.mutate({ cardId, type }),
+            onRequestCardAction: setCardConfirmAction,
+            onClearCardAction: () => setCardConfirmAction(null),
+            onConfirmCardAction: handleConfirmCardAction,
+          }}
         >
-          <button
-            type="button"
-            className={`admin-tab${activeTab === "summary" ? " is-active" : ""}`}
-            onClick={() => setActiveTab("summary")}
-            aria-selected={activeTab === "summary"}
-          >
-            Summary
-          </button>
-          <button
-            type="button"
-            className={`admin-tab${activeTab === "permissions" ? " is-active" : ""}`}
-            onClick={() => setActiveTab("permissions")}
-            aria-selected={activeTab === "permissions"}
-          >
-            Permissions
-          </button>
-          <button
-            type="button"
-            className={`admin-tab${activeTab === "subscription" ? " is-active" : ""}`}
-            onClick={() => setActiveTab("subscription")}
-            aria-selected={activeTab === "subscription"}
-          >
-            Subscription
-          </button>
-          <button
-            type="button"
-            className={`admin-tab${activeTab === "cards" ? " is-active" : ""}`}
-            onClick={() => setActiveTab("cards")}
-            aria-selected={activeTab === "cards"}
-          >
-            Cards
-          </button>
-          <button
-            type="button"
-            className={`admin-tab${activeTab === "orders" ? " is-active" : ""}`}
-            onClick={() => setActiveTab("orders")}
-            aria-selected={activeTab === "orders"}
-          >
-            Orders
-          </button>
-        </div>
+          <AdminUserDetailTabs activeTab={activeTab} onChange={setActiveTab} />
 
-        {mutationMessage ? (
-          <p className="alert-success">{mutationMessage}</p>
-        ) : null}
+          {mutationMessage ? (
+            <p className="alert-success">{mutationMessage}</p>
+          ) : null}
 
-        {(userQuery.isLoading ||
-          permissionsQuery.isLoading ||
-          cardsQuery.isLoading) && (
-          <p className="dash-loading">Loading user data...</p>
-        )}
+          {(userQuery.isLoading ||
+            permissionsQuery.isLoading ||
+            cardsQuery.isLoading) && (
+            <p className="dash-loading">Loading user data...</p>
+          )}
 
-        {userQuery.isError ? (
-          <p className="alert-error">Failed to load user detail.</p>
-        ) : null}
+          {userQuery.isError ? (
+            <p className="alert-error">Failed to load user detail.</p>
+          ) : null}
 
-        {activeTab === "summary" && userQuery.data ? (
-          <div className="admin-tab-panel">
-            <div className="detail-meta-grid">
-              <div className="detail-meta-item">
-                <span>User ID</span>
-                <strong>{userQuery.data.id}</strong>
-              </div>
-              <div className="detail-meta-item">
-                <span>Email</span>
-                <strong>{userQuery.data.email ?? "-"}</strong>
-              </div>
-              <div className="detail-meta-item">
-                <span>Activated</span>
-                <strong>{userQuery.data.activated ? "Yes" : "No"}</strong>
-              </div>
-              <div className="detail-meta-item">
-                <span>Subscription Status</span>
-                <strong>
-                  {isSubscriptionActive(
-                    userQuery.data.account_subscription_until,
-                  )
-                    ? "Active subscription"
-                    : "Free plan"}
-                </strong>
-              </div>
-              <div className="detail-meta-item">
-                <span>Subscription Until</span>
-                <strong>
-                  {formatDate(userQuery.data.account_subscription_until)}
-                </strong>
-              </div>
-              <div className="detail-meta-item">
-                <span>Cards</span>
-                <strong>
-                  {cardStats.total} ({cardStats.drafted} drafted,{" "}
-                  {cardStats.minted} minted)
-                </strong>
-              </div>
-            </div>
+          {activeTab === "summary" && userQuery.data ? (
+            <AdminUserSummaryTab user={userQuery.data} cardStats={cardStats} />
+          ) : null}
 
-            <div className="admin-subsection" style={{ marginTop: 24 }}>
-              <h3 className="admin-subsection-title">Email & Communications</h3>
-              <div className="admin-inline-form admin-inline-form--spaced">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setEmailModal(true)}
-                  disabled={
-                    sendEmailMutation.isPending || !userQuery.data.email
-                  }
-                >
-                  Send Email
-                </button>
-                {!userQuery.data.activated ? (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => {
-                      if (userQuery.data?.email) {
-                        setEmailConfirmAction({
-                          type: "resend-activation",
-                          email: userQuery.data.email,
-                        });
-                      }
-                    }}
-                    disabled={
-                      resendActivationMutation.isPending ||
-                      !userQuery.data.email
-                    }
-                  >
-                    {resendActivationMutation.isPending
-                      ? "Sending..."
-                      : "Resend Activation"}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => {
-                    if (userQuery.data?.email) {
-                      setEmailConfirmAction({
-                        type: "resend-password-reset",
-                        email: userQuery.data.email,
-                      });
-                    }
-                  }}
-                  disabled={
-                    resendPasswordResetMutation.isPending ||
-                    !userQuery.data.email
-                  }
-                >
-                  {resendPasswordResetMutation.isPending
-                    ? "Sending..."
-                    : "Resend Password Reset"}
-                </button>
-              </div>
+          {activeTab === "permissions" ? <AdminUserPermissionsTab /> : null}
 
-              {!userQuery.data.email ? (
-                <p className="dash-loading" style={{ marginTop: 10 }}>
-                  No email address is available for this user.
-                </p>
-              ) : null}
-            </div>
+          {activeTab === "subscription" && userQuery.data ? (
+            <AdminUserSubscriptionTab user={userQuery.data} />
+          ) : null}
 
-            {emailModal && userQuery.data.email ? (
-              <div className="admin-modal-overlay">
-                <div className="admin-modal" role="dialog" aria-modal="true">
-                  <div className="admin-modal-header">
-                    <h3>Send Email</h3>
-                    <button
-                      type="button"
-                      className="admin-modal-close"
-                      onClick={resetEmailComposer}
-                    >
-                      ✕
-                    </button>
-                  </div>
+          {activeTab === "cards" ? (
+            <AdminUserCardsTab cards={cardsQuery.data?.cards ?? []} />
+          ) : null}
 
-                  <div className="admin-modal-body">
-                    <div className="admin-modal-section">
-                      <label htmlFor="admin-email-recipient">To</label>
-                      <input
-                        id="admin-email-recipient"
-                        type="text"
-                        value={userQuery.data.email}
-                        readOnly
-                      />
-                    </div>
-
-                    <div className="admin-modal-section">
-                      <label htmlFor="admin-email-subject">Subject</label>
-                      <input
-                        id="admin-email-subject"
-                        type="text"
-                        value={emailSubject}
-                        onChange={(event) =>
-                          setEmailSubject(event.target.value)
-                        }
-                        placeholder="An Email from Legendary Profiles"
-                      />
-                    </div>
-
-                    <div
-                      className="admin-modal-section"
-                      style={{ marginTop: 12 }}
-                    >
-                      <label htmlFor="admin-email-title">Title</label>
-                      <input
-                        id="admin-email-title"
-                        type="text"
-                        value={emailTitle}
-                        onChange={(event) => setEmailTitle(event.target.value)}
-                        placeholder="Email Title Goes Here"
-                      />
-                    </div>
-
-                    <div
-                      className="admin-modal-section"
-                      style={{ marginTop: 12 }}
-                    >
-                      <label htmlFor="admin-email-html-body-editor">
-                        Message
-                      </label>
-                      <div
-                        className="admin-wysiwyg-toolbar"
-                        role="toolbar"
-                        aria-label="Email formatting toolbar"
-                      >
-                        <button
-                          type="button"
-                          className="btn-secondary btn-xs"
-                          onClick={() => applyEmailFormat("bold")}
-                        >
-                          B
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-xs"
-                          onClick={() => applyEmailFormat("italic")}
-                        >
-                          I
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-xs"
-                          onClick={() => applyEmailFormat("underline")}
-                        >
-                          U
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-xs"
-                          onClick={() =>
-                            applyEmailFormat("insertUnorderedList")
-                          }
-                        >
-                          List
-                        </button>
-                      </div>
-                      <div
-                        id="admin-email-html-body-editor"
-                        ref={emailEditorRef}
-                        className="admin-wysiwyg-editor"
-                        contentEditable
-                        suppressContentEditableWarning
-                        data-placeholder="Type your message here..."
-                        onInput={syncEmailHtmlBody}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="admin-modal-footer">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={resetEmailComposer}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => {
-                        sendEmailMutation.mutate({
-                          toAddress: userQuery.data.email as string,
-                          subject: emailSubject.trim(),
-                          title: emailTitle.trim(),
-                          htmlBody: emailHtmlBody,
-                        });
-                      }}
-                      disabled={
-                        sendEmailMutation.isPending ||
-                        !emailSubject.trim() ||
-                        !emailTitle.trim() ||
-                        !emailHtmlBody.replace(/<[^>]+>/g, "").trim()
-                      }
-                    >
-                      {sendEmailMutation.isPending ? "Sending..." : "Send"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {emailConfirmAction ? (
-              <div className="admin-modal-overlay">
-                <div
-                  className="admin-modal admin-modal--small"
-                  role="dialog"
-                  aria-modal="true"
-                >
-                  <div className="admin-modal-header">
-                    <h3>Confirm Email Action</h3>
-                    <button
-                      type="button"
-                      className="admin-modal-close"
-                      onClick={() => setEmailConfirmAction(null)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="admin-modal-body">
-                    {emailConfirmAction.type === "resend-activation" ? (
-                      <p style={{ margin: 0 }}>
-                        Resend activation email to{" "}
-                        <strong>{emailConfirmAction.email}</strong>?
-                      </p>
-                    ) : null}
-
-                    {emailConfirmAction.type === "resend-password-reset" ? (
-                      <p style={{ margin: 0 }}>
-                        Resend password reset email to{" "}
-                        <strong>{emailConfirmAction.email}</strong>?
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="admin-modal-footer">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => setEmailConfirmAction(null)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => {
-                        if (emailConfirmAction.type === "resend-activation") {
-                          resendActivationMutation.mutate(
-                            emailConfirmAction.email,
-                          );
-                          return;
-                        }
-
-                        resendPasswordResetMutation.mutate(
-                          emailConfirmAction.email,
-                        );
-                      }}
-                      disabled={
-                        sendEmailMutation.isPending ||
-                        resendActivationMutation.isPending ||
-                        resendPasswordResetMutation.isPending
-                      }
-                    >
-                      {sendEmailMutation.isPending ||
-                      resendActivationMutation.isPending ||
-                      resendPasswordResetMutation.isPending
-                        ? "Sending..."
-                        : "Confirm"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {activeTab === "permissions" ? (
-          <div className="admin-stack admin-tab-panel">
-            <div className="admin-inline-form admin-inline-form--spaced">
-              <input
-                list="permission-suggestions"
-                value={permissionInput}
-                onChange={(event) => setPermissionInput(event.target.value)}
-                placeholder="Permission e.g. ADMIN"
-              />
-              <datalist id="permission-suggestions">
-                {COMMON_PERMISSIONS.map((permission) => (
-                  <option key={permission} value={permission} />
-                ))}
-              </datalist>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  const trimmed = permissionInput.trim().toUpperCase();
-                  if (!trimmed) {
-                    return;
-                  }
-
-                  grantPermissionMutation.mutate(trimmed);
-                }}
-                disabled={grantPermissionMutation.isPending}
-              >
-                {grantPermissionMutation.isPending ? "Granting..." : "Grant"}
-              </button>
-            </div>
-
-            <div className="admin-table-wrap" style={{ marginTop: 16 }}>
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Permission</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {permissions.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={2}
-                        style={{
-                          color: "var(--ui-muted)",
-                          textAlign: "center",
-                        }}
-                      >
-                        No permissions assigned
-                      </td>
-                    </tr>
-                  ) : (
-                    permissions.map((permission) => {
-                      const isSelfAdminRemovalBlocked =
-                        permission.toUpperCase() === "ADMIN" &&
-                        currentUserId === userId;
-
-                      return (
-                        <tr key={permission}>
-                          <td>
-                            <strong>{permission}</strong>
-                          </td>
-                          <td>
-                            <button
-                              type="button"
-                              className="btn-secondary btn-xs"
-                              onClick={() =>
-                                revokePermissionMutation.mutate(permission)
-                              }
-                              disabled={
-                                revokePermissionMutation.isPending ||
-                                isSelfAdminRemovalBlocked
-                              }
-                              title={
-                                isSelfAdminRemovalBlocked
-                                  ? "Cannot remove your own ADMIN permission"
-                                  : undefined
-                              }
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : null}
-
-        {activeTab === "subscription" && userQuery.data ? (
-          <div className="admin-stack admin-tab-panel">
-            <div className="detail-meta-grid">
-              <div className="detail-meta-item">
-                <span>Current Plan</span>
-                <strong>
-                  {isSubscriptionActive(
-                    userQuery.data.account_subscription_until,
-                  )
-                    ? "Active subscription"
-                    : "Free plan"}
-                </strong>
-              </div>
-              <div className="detail-meta-item">
-                <span>Subscription Until</span>
-                <strong>
-                  {formatDate(userQuery.data.account_subscription_until)}
-                </strong>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => setSubscriptionModal(true)}
-              style={{ marginTop: 16 }}
-            >
-              Extend Subscription
-            </button>
-
-            {subscriptionModal ? (
-              <div className="admin-modal-overlay">
-                <div className="admin-modal">
-                  <div className="admin-modal-header">
-                    <h3>Extend Subscription</h3>
-                    <button
-                      type="button"
-                      className="admin-modal-close"
-                      onClick={() => {
-                        setSubscriptionModal(false);
-                        setSubscriptionConfirm(false);
-                        setSubscriptionDays(30);
-                        setSubscriptionCustomDate("");
-                        setSubscriptionUseCustom(false);
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <div className="admin-modal-body">
-                    {!subscriptionConfirm ? (
-                      <>
-                        <p
-                          style={{ marginBottom: 16, color: "var(--ui-muted)" }}
-                        >
-                          Choose how to extend this user's subscription:
-                        </p>
-
-                        <div className="admin-modal-section">
-                          <span
-                            className="admin-section-label"
-                            style={{ marginBottom: 10 }}
-                          >
-                            Quick Options
-                          </span>
-                          <div className="admin-inline-form">
-                            {[30, 90, 180, 365].map((days) => (
-                              <button
-                                key={days}
-                                type="button"
-                                className={`btn-secondary${
-                                  !subscriptionUseCustom &&
-                                  subscriptionDays === days
-                                    ? " is-selected"
-                                    : ""
-                                }`}
-                                onClick={() => {
-                                  setSubscriptionDays(days);
-                                  setSubscriptionUseCustom(false);
-                                }}
-                                style={{
-                                  background:
-                                    !subscriptionUseCustom &&
-                                    subscriptionDays === days
-                                      ? "rgba(91, 99, 255, 0.18)"
-                                      : undefined,
-                                }}
-                              >
-                                +{days} Days
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div
-                          className="admin-modal-section"
-                          style={{ marginTop: 14 }}
-                        >
-                          <span
-                            className="admin-section-label"
-                            style={{ marginBottom: 10 }}
-                          >
-                            Or Set Custom Date
-                          </span>
-                          <div className="admin-inline-form">
-                            <input
-                              type="date"
-                              value={subscriptionCustomDate}
-                              onChange={(e) => {
-                                setSubscriptionCustomDate(e.target.value);
-                                if (e.target.value) {
-                                  setSubscriptionUseCustom(true);
-                                }
-                              }}
-                            />
-                            {subscriptionCustomDate && (
-                              <span
-                                style={{
-                                  fontSize: "0.85rem",
-                                  color: "var(--ui-muted)",
-                                }}
-                              >
-                                {new Date(
-                                  subscriptionCustomDate,
-                                ).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{ textAlign: "center" }}>
-                        <p style={{ marginBottom: 16 }}>
-                          <strong>Confirm Subscription Extension</strong>
-                        </p>
-                        <p
-                          style={{ color: "var(--ui-muted)", marginBottom: 12 }}
-                        >
-                          {subscriptionUseCustom && subscriptionCustomDate
-                            ? `Extend subscription until: ${new Date(
-                                subscriptionCustomDate,
-                              ).toLocaleDateString()}`
-                            : `Add ${subscriptionDays} days to the subscription`}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: "0.85rem",
-                            color: "var(--ui-muted)",
-                            marginBottom: 16,
-                          }}
-                        >
-                          This action cannot be undone. The user's subscription
-                          will be extended.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="admin-modal-footer">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => {
-                        if (subscriptionConfirm) {
-                          setSubscriptionConfirm(false);
-                        } else {
-                          setSubscriptionModal(false);
-                          setSubscriptionDays(30);
-                          setSubscriptionCustomDate("");
-                          setSubscriptionUseCustom(false);
-                        }
-                      }}
-                    >
-                      {subscriptionConfirm ? "Back" : "Cancel"}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => {
-                        if (!subscriptionConfirm) {
-                          setSubscriptionConfirm(true);
-                        } else {
-                          extendSubscriptionMutation.mutate(subscriptionDays);
-                        }
-                      }}
-                      disabled={
-                        subscriptionUseCustom && !subscriptionCustomDate
-                          ? true
-                          : extendSubscriptionMutation.isPending
-                      }
-                    >
-                      {subscriptionConfirm
-                        ? extendSubscriptionMutation.isPending
-                          ? "Extending..."
-                          : "Confirm"
-                        : "Next"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {activeTab === "cards" ? (
-          cardsQuery.data?.cards?.length === 0 ? (
-            <p className="dash-loading">No cards found for this user.</p>
-          ) : (
-            <div className="admin-table-wrap admin-tab-panel">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Card</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Download</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(cardsQuery.data?.cards ?? []).map((card) => {
-                    const minted = Boolean(card.minted);
-                    const previewSrc =
-                      card.last_render ?? card.last_proof ?? null;
-
-                    return (
-                      <tr key={card.id} className="admin-card-row">
-                        <td className="admin-card-row__title-cell admin-card-row__preview-parent">
-                          <strong>{card.data?.title ?? "Untitled"}</strong>
-                          <br />
-                          <small>{card.id}</small>
-                          {previewSrc ? (
-                            <div className="admin-card-row__preview-tooltip">
-                              <img
-                                src={previewSrc}
-                                alt={card.data?.title ?? "Card preview"}
-                              />
-                            </div>
-                          ) : null}
-                        </td>
-                        <td>
-                          <span
-                            className={`admin-stage-badge admin-stage-badge--${
-                              minted ? "delivered" : "pending"
-                            }`}
-                          >
-                            {minted ? "Minted" : "Draft"}
-                          </span>
-                        </td>
-                        <td>{formatDate(card.create_time)}</td>
-                        <td>
-                          <div className="admin-icon-buttons">
-                            <button
-                              type="button"
-                              className="admin-icon-btn"
-                              onClick={() =>
-                                artifactMutation.mutate({
-                                  cardId: card.id,
-                                  type: "preview",
-                                })
-                              }
-                              disabled={artifactMutation.isPending}
-                              title="Download preview"
-                            >
-                              👁️
-                            </button>
-                            <button
-                              type="button"
-                              className="admin-icon-btn"
-                              onClick={() =>
-                                artifactMutation.mutate({
-                                  cardId: card.id,
-                                  type: "proof",
-                                })
-                              }
-                              disabled={artifactMutation.isPending}
-                              title="Download proof"
-                            >
-                              📄
-                            </button>
-                          </div>
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-secondary btn-xs"
-                            onClick={() =>
-                              setCardConfirmAction({
-                                cardId: card.id,
-                                action: minted ? "unmint" : "mint",
-                              })
-                            }
-                            disabled={cardActionMutation.isPending}
-                          >
-                            {minted ? "Unmint" : "Mint"}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {cardConfirmAction ? (
-                <div className="admin-modal-overlay">
-                  <div className="admin-modal admin-modal--small">
-                    <div className="admin-modal-header">
-                      <h3>
-                        Confirm{" "}
-                        {cardConfirmAction.action === "mint"
-                          ? "Mint"
-                          : "Unmint"}
-                      </h3>
-                      <button
-                        type="button"
-                        className="admin-modal-close"
-                        onClick={() => setCardConfirmAction(null)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-
-                    <div className="admin-modal-body">
-                      {cardConfirmAction.action === "mint" ? (
-                        <p>
-                          Minting this card will regenerate the proof artifact
-                          and mark the card as minted. This is a permanent state
-                          change.
-                        </p>
-                      ) : (
-                        <p>
-                          Unminting this card will remove the minted state,
-                          delete stored artifacts, and regenerate a fresh
-                          unminted preview. This action cannot be easily
-                          reversed.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="admin-modal-footer">
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => setCardConfirmAction(null)}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        className={
-                          cardConfirmAction.action === "mint"
-                            ? "btn-primary"
-                            : "btn-danger"
-                        }
-                        onClick={() => {
-                          cardActionMutation.mutate(cardConfirmAction);
-                        }}
-                        disabled={cardActionMutation.isPending}
-                      >
-                        {cardActionMutation.isPending
-                          ? "Processing..."
-                          : `Confirm ${cardConfirmAction.action === "mint" ? "Mint" : "Unmint"}`}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          )
-        ) : null}
-
-        {activeTab === "orders" ? (
-          <div className="admin-table-wrap admin-tab-panel">
-            {ordersQuery.isLoading ? (
-              <p className="dash-loading">Loading orders...</p>
-            ) : ordersQuery.isError ? (
-              <p className="alert-error">Failed to load orders.</p>
-            ) : !ordersQuery.data?.orders?.length ? (
-              <p className="dash-loading">No orders found for this user.</p>
-            ) : (
-              <>
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Type</th>
-                      <th>Payment</th>
-                      <th>Stage</th>
-                      <th>Created</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(ordersQuery.data.orders as AdminOrderRecord[]).map(
-                      (order) => (
-                        <tr key={order.id}>
-                          <td>
-                            <Link
-                              className="admin-copy-chip"
-                              to={`/app/admin/orders/${order.id}`}
-                              state={{ order }}
-                              title="Open order details"
-                            >
-                              {order.id.slice(0, 8)}…
-                              <span className="admin-copy-chip__icon">↗</span>
-                            </Link>
-                          </td>
-                          <td>
-                            <span className="admin-order-chip">
-                              {order.order_type?.replace(/_/g, " ") ?? "-"}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="admin-order-chip">
-                              {order.status ?? "-"}
-                            </span>
-                          </td>
-                          <td>
-                            <span
-                              className={`admin-stage-badge admin-stage-badge--${order.fulfillment_stage ?? "pending"}`}
-                            >
-                              {order.fulfillment_stage?.replace(/_/g, " ") ??
-                                "pending"}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: "0.82rem" }}>
-                            {order.create_time
-                              ? new Date(order.create_time).toLocaleString()
-                              : "-"}
-                          </td>
-                        </tr>
-                      ),
-                    )}
-                  </tbody>
-                </table>
-                {ordersQuery.data.orders.length >= 50 ? (
-                  <p
-                    style={{
-                      fontSize: "0.82rem",
-                      color: "var(--ui-muted)",
-                      marginTop: 8,
-                      textAlign: "center",
-                    }}
-                  >
-                    Showing first 50 orders.{" "}
-                    <Link to={`/app/admin/orders?userId=${userId}`}>
-                      View all in Orders page
-                    </Link>
-                  </p>
-                ) : null}
-              </>
-            )}
-          </div>
-        ) : null}
+          {activeTab === "orders" ? (
+            <AdminUserOrdersTab
+              userId={userId}
+              orders={ordersQuery.data?.orders ?? []}
+              isLoading={ordersQuery.isLoading}
+              isError={ordersQuery.isError}
+            />
+          ) : null}
+        </AdminUserDetailContextProvider>
       </section>
     </div>
   );

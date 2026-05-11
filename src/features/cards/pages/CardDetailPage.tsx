@@ -920,6 +920,12 @@ export default function CardDetailPage() {
   const canEditLinkedSections = true;
   const hasImmutableContentLock = isMintedCard;
 
+  useEffect(() => {
+    if (isMintedCard && activeTab === "general") {
+      setActiveTab("contact");
+    }
+  }, [isMintedCard, activeTab]);
+
   function handleInvalidSubmit(invalidErrors: typeof errors) {
     const targetTab: CardDetailTab = invalidErrors.contactInfo
       ? "contact"
@@ -1193,26 +1199,28 @@ export default function CardDetailPage() {
                     role="tablist"
                     aria-label="Card detail sections"
                   >
-                    <button
-                      type="button"
-                      role="tab"
-                      className={`detail-tabs__button${activeTab === "general" ? " is-active" : ""}`}
-                      aria-selected={activeTab === "general"}
-                      aria-label={
-                        generalTabHasErrors
-                          ? "Card Appearance, has validation errors"
-                          : undefined
-                      }
-                      onClick={() => setActiveTab("general")}
-                    >
-                      <span>Card Appearance</span>
-                      {generalTabHasErrors ? (
-                        <span
-                          className="detail-tabs__button-badge"
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                    </button>
+                    {!isMintedCard ? (
+                      <button
+                        type="button"
+                        role="tab"
+                        className={`detail-tabs__button${activeTab === "general" ? " is-active" : ""}`}
+                        aria-selected={activeTab === "general"}
+                        aria-label={
+                          generalTabHasErrors
+                            ? "Card Appearance, has validation errors"
+                            : undefined
+                        }
+                        onClick={() => setActiveTab("general")}
+                      >
+                        <span>Card Appearance</span>
+                        {generalTabHasErrors ? (
+                          <span
+                            className="detail-tabs__button-badge"
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       role="tab"
@@ -2019,19 +2027,6 @@ export default function CardDetailPage() {
                   alt="Card preview"
                   className="create-preview-image"
                 />
-                {!isMintedCard ? (
-                  <button
-                    type="button"
-                    className="btn-gold create-preview-mint-btn"
-                    onClick={() => {
-                      setMintAcknowledgment("");
-                      setShowMintModal(true);
-                    }}
-                    disabled={mintMutation.isPending}
-                  >
-                    {mintMutation.isPending ? "Minting..." : "Mint Card"}
-                  </button>
-                ) : null}
                 <div className="create-preview-bleed-note" role="note">
                   <center>
                     <strong>How to Interpret the Guide Lines</strong>
@@ -2060,19 +2055,6 @@ export default function CardDetailPage() {
                 </p>
               </div>
             )}
-            {!previewUrl && !isMintedCard ? (
-              <button
-                type="button"
-                className="btn-gold create-preview-mint-btn"
-                onClick={() => {
-                  setMintAcknowledgment("");
-                  setShowMintModal(true);
-                }}
-                disabled={mintMutation.isPending}
-              >
-                {mintMutation.isPending ? "Minting..." : "Mint Card"}
-              </button>
-            ) : null}
           </aside>
         </div>
       ) : null}
