@@ -2027,6 +2027,20 @@ export default function CardDetailPage() {
                   alt="Card preview"
                   className="create-preview-image"
                 />
+                <button
+                  type="button"
+                  className={
+                    isMintedCard
+                      ? "btn-secondary"
+                      : "btn-gold dash-subscribe-cta"
+                  }
+                  onClick={() =>
+                    navigate(`/app/cards/${resolvedCardId}/get-cards`)
+                  }
+                  style={{ marginTop: "1rem", width: "100%" }}
+                >
+                  {isMintedCard ? "Get Cards" : "Activate This Card"}
+                </button>
                 <div className="create-preview-bleed-note" role="note">
                   <center>
                     <strong>How to Interpret the Guide Lines</strong>
