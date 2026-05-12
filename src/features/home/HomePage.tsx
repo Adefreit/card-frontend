@@ -57,7 +57,7 @@ export default function HomePage() {
       <main className="lp-scroll">
         <section id="hero" className="lp-section">
           <div className="lp-section-content">
-            <p className="lp-kicker">Create, Collect, Compete</p>
+            <p className="lp-kicker">Create, Collect, Connect</p>
             <h1>Become the hero of your own legends.</h1>
             <p>
               Welcome to Legendary Profiles, where your business card does not

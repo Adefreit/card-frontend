@@ -359,7 +359,7 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="qr-modal-header">
-          <h3>Quick Tutorial</h3>
+          <h3>Getting Started</h3>
           <button
             type="button"
             className="qr-modal-close"
@@ -370,7 +370,9 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <p className="qr-modal-subtitle">Three easy steps to get started.</p>
+        <p className="qr-modal-subtitle">
+          Three easy steps to use Legendary Profiles.
+        </p>
 
         <div className="qr-modal-body tutorial-modal__body">
           <article className="tutorial-step">
@@ -379,9 +381,12 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <h4>
-                <Link to="/app/cards/new">Create a Draft Card</Link>
+                <Link to="/app/cards/new">Step 1: Create a Card</Link>
               </h4>
-              <p>Use our free designer to build your Legendary Profile card.</p>
+              <p>
+                Use our free card designer to create a draft card. Try different
+                layouts and styles to make it uniquely yours.
+              </p>
             </div>
           </article>
 
@@ -390,11 +395,10 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
               ⚡
             </div>
             <div>
-              <h4>Activate Your Card</h4>
+              <h4>Step 2: Activate Your Card</h4>
               <p>
-                When the design is ready, mint it or order card packs. Either
-                option locks the card appearance and activates digital and game
-                services.
+                When you are satisfied, activate your card to enable digital /
+                game services.
               </p>
             </div>
           </article>
@@ -404,11 +408,10 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
               📦
             </div>
             <div>
-              <h4>Share Your Card with Others!</h4>
+              <h4>Share Your Cards!</h4>
               <p>
-                Activated cards are yours forever! Download the proof / label
-                templates, and order cards and game packs (for an additional
-                fee).
+                Activated cards are yours forever! Download your cards and order
+                cards / game packs for an additional fee.
               </p>
             </div>
           </article>
@@ -416,7 +419,7 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
 
         <div className="qr-modal-footer">
           <button type="button" className="btn-secondary" onClick={onClose}>
-            Got It
+            Start Your Journey
           </button>
         </div>
       </div>

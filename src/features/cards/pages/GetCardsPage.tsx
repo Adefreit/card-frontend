@@ -466,8 +466,8 @@ export default function GetCardsPage() {
                     {mintMutation.isPending ? "Minting..." : "Mint This Card"}
                   </button>
                   <p className="proof-order-cta-note">
-                    Unlocks digital proofs and templates. Automatically obtained
-                    if you buy a card pack.
+                    Activates your digital card. Purchasing a game pack also
+                    mints your card for free.
                   </p>
                 </section>
               ) : null}

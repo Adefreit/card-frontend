@@ -1,4 +1,5 @@
 import { apiClient } from "../../lib/http";
+import type { CardRecord } from "../cards/api";
 
 export interface AdminHealthResponse {
   response: string;
@@ -156,11 +157,30 @@ export async function getAdminUserCards(userId: string) {
 export async function getAdminCardArtifact(
   cardId: string,
   artifactType: AdminCardArtifactType,
-) {
-  const { data } = await apiClient.get<AdminCardArtifactResponse>(
-    `/v1/admin/cards/${cardId}/artifacts/${artifactType}`,
-  );
-  return data;
+): Promise<AdminCardArtifactResponse> {
+  console.log("Trying to get artifact", { cardId, artifactType });
+
+  const { data } = await apiClient.get<CardRecord>(`/v1/cards/${cardId}`);
+
+  const url = artifactType === "proof" ? data.last_proof : data.last_render;
+  if (!url) {
+    throw new Error(`No ${artifactType} available for card ${cardId}.`);
+  }
+
+  return {
+    cardID: data.id,
+    userID: data.user_id,
+    artifactType,
+    url,
+  };
+}
+
+export async function getAdminCardProof(
+  cardId: string,
+): Promise<string | null> {
+  console.log("Getting card proof for cardId:", cardId);
+  const { data } = await apiClient.get<CardRecord>(`/v1/cards/${cardId}`);
+  return data.last_proof ?? null;
 }
 
 export async function mintAdminCard(cardId: string) {

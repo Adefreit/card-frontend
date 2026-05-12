@@ -2552,6 +2552,8 @@ button:disabled {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .qr-modal {
@@ -2560,6 +2562,9 @@ button:disabled {
   border: 1px solid var(--ui-border);
   box-shadow: 0 32px 80px rgba(31, 35, 64, 0.3);
   width: min(420px, 100%);
+  max-height: calc(100dvh - 40px);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -2614,6 +2619,8 @@ button:disabled {
 .qr-modal-body {
   padding: 20px 22px;
   text-align: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .proof-modal-body {
@@ -3686,6 +3693,8 @@ button:disabled {
   justify-content: center;
   z-index: 1000;
   padding: 24px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-modal {
@@ -3694,8 +3703,10 @@ button:disabled {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 500px;
   width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: adminModalSlideUp 0.3s ease;
 }
 
@@ -3751,6 +3762,8 @@ button:disabled {
 .admin-modal-body {
   padding: 24px;
   color: var(--ui-ink);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-modal-body p {
@@ -4376,6 +4389,8 @@ button:disabled {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-refund-modal {
@@ -4384,6 +4399,10 @@ button:disabled {
   border: 1px solid var(--ui-border);
   padding: 28px 30px;
   width: min(480px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 24px 60px rgba(15, 18, 40, 0.22);
 }
 
@@ -4430,6 +4449,53 @@ button:disabled {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .qr-modal-backdrop,
+  .admin-modal-overlay,
+  .admin-refund-modal-overlay {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .qr-modal,
+  .admin-modal,
+  .admin-refund-modal {
+    max-height: calc(100dvh - 24px);
+    width: 100%;
+  }
+
+  .qr-modal-header,
+  .admin-modal-header {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .qr-modal-subtitle,
+  .qr-modal-body,
+  .admin-modal-body,
+  .admin-refund-modal {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .qr-modal-body,
+  .admin-modal-body {
+    padding-bottom: 16px;
+  }
+
+  .admin-refund-modal {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .qr-modal-footer,
+  .qr-modal-footer--actions,
+  .admin-modal-footer,
+  .admin-refund-modal-footer {
+    flex-wrap: wrap;
+  }
 }
 
 .admin-copy-action-btn {

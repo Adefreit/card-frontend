@@ -81,10 +81,11 @@ export default function MintCardModal({
           <section className="mint-modal-hero-strip" aria-hidden="true">
             <img src={MINT_ICON} alt="" className="mint-modal-hero-icon" />
             <div>
-              <strong>Minting Creates Your Print-Ready Card</strong>
+              <strong>Minting Activates Your Legendary Profile Card</strong>
               <p>
-                You get the digital proof(s), label templates, dynamic QR
-                experience and the card becomes game-ready.
+                You will get this card's digital proof, label templates, and
+                dynamic QR experience. You will also activate the card's game
+                and digital services.
               </p>
             </div>
           </section>
@@ -98,7 +99,9 @@ export default function MintCardModal({
                 className="mint-modal-item-icon"
               />
               <div>
-                <h4>Visual Design Locks Forever After Minting</h4>
+                <h4>
+                  WARNING: This Process Will Lock the Appearance of Your Card
+                </h4>
                 <p>
                   Make sure your card looks exactly how you want it before
                   minting. You can still update your contact info and any
@@ -129,8 +132,7 @@ export default function MintCardModal({
                       ) : discountedMintPrice ? (
                         <p className="mint-modal-subscriber-note">
                           Subscriber discount: {effectiveDiscountPercent}% off.
-                          Base price: <strong>{mintPriceLabel}</strong>.
-                          Discounted price:{" "}
+                          Your price:{" "}
                           <strong>
                             {formatStripePrice(discountedMintPrice)}
                           </strong>
@@ -179,6 +181,10 @@ export default function MintCardModal({
                 rel="noopener noreferrer"
               >
                 User Content Policy
+              </a>{" "}
+              and{" "}
+              <a href="/legal/refund" target="_blank" rel="noopener noreferrer">
+                Refund Policy
               </a>
               .
             </p>
