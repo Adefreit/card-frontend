@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createCard, previewCard, getCardTemplates } from "../api";
 import {
-  convertFlavorMarkupToHtml,
   FlavorMarkupHelpModal,
   FlavorMarkupInput,
   getFlavorMarkupPlainText,
@@ -254,7 +253,7 @@ export default function CardCreatePage() {
       templateId: values.templateId,
       title: values.title,
       subtitle: values.subtitle,
-      flavorText: convertFlavorMarkupToHtml(values.flavorText),
+      flavorText: values.flavorText,
       customCss: normalizeCustomCss(values.customCss),
       ...previewImagePayload,
     });
@@ -338,7 +337,7 @@ export default function CardCreatePage() {
                 templateId: values.templateId,
                 title: values.title,
                 subtitle: values.subtitle,
-                flavorText: convertFlavorMarkupToHtml(values.flavorText),
+                flavorText: values.flavorText,
                 customCss: normalizeCustomCss(values.customCss),
                 ...imagePayload,
               });

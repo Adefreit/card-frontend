@@ -158,16 +158,40 @@ export function getFlavorMarkupPlainText(value: string) {
 
 export function FlavorMarkupHelpModal({ onClose }: { onClose: () => void }) {
   const [copiedExample, setCopiedExample] = useState<string | null>(null);
-  const examples = [
-    { id: "bold", label: "Bold", markup: "**Legendary hero**" },
-    { id: "italic", label: "Italic", markup: "*Whispers in the dark*" },
-    { id: "color", label: "Color", markup: "[color=#b42318]Danger[/color]" },
-    { id: "newline", label: "New lines", markup: "First line\nSecond line" },
-    { id: "underline", label: "Underline", markup: "__Rune-marked oath__" },
+  const inlineExamples = [
+    { id: "bold", label: "Bold", markup: "**Champion**" },
+    { id: "italic", label: "Italic", markup: "*Bearer of the dawn blade*" },
+    { id: "underline", label: "Underline", markup: "__Sworn protector__" },
     {
       id: "smallcaps",
-      label: "Small-caps",
-      markup: "[smallcaps]guild master[/smallcaps]",
+      label: "Small Caps",
+      markup: "[smallcaps]Order of the phoenix[/smallcaps]",
+    },
+    {
+      id: "color",
+      label: "Color",
+      markup: "[color=royalblue]Arcane signature[/color]",
+    },
+  ] as const;
+
+  const blockExamples = [
+    {
+      id: "horizontal-align",
+      label: "Horizontal Alignment",
+      markup:
+        "[align=left]Left aligned[/align]\n[align=center]Center aligned[/align]\n[align=right]Right aligned[/align]",
+    },
+    {
+      id: "vertical-align",
+      label: "Vertical Alignment",
+      markup:
+        "[valign=top]Top aligned block[/valign]\n[valign=middle]Middle aligned block[/valign]\n[valign=bottom]Bottom aligned block[/valign]",
+    },
+    {
+      id: "combined",
+      label: "Combined Example",
+      markup:
+        "[align=center]\n**Champion**\n*Bearer of the dawn blade*\n__Sworn protector__\n[smallcaps]Order of the phoenix[/smallcaps]\n[color=royalblue]Arcane signature[/color]\n[/align]",
     },
   ] as const;
 
@@ -190,7 +214,7 @@ export function FlavorMarkupHelpModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="qr-modal-header">
-          <h3>Flavor Text Markup</h3>
+          <h3>Text Markup</h3>
           <button
             type="button"
             className="qr-modal-close"
@@ -200,16 +224,18 @@ export function FlavorMarkupHelpModal({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </div>
-        <p className="qr-modal-subtitle">Supported formatting</p>
-        <div className="qr-modal-body markup-help-body">
+        <p className="qr-modal-subtitle">
+          Click any example card to copy its markup.
+        </p>
+        <div className="markup-help-body qr-modal-body">
           <div className="markup-help-grid">
-            {examples.map((example) => (
+            {inlineExamples.map((example) => (
               <button
                 key={example.id}
                 type="button"
                 className="markup-help-card markup-help-card--button"
                 onClick={() => copyMarkup(example.id, example.markup)}
-                title={`Click to copy ${example.label.toLowerCase()} markup`}
+                aria-label={`Copy ${example.label} example`}
               >
                 <div className="markup-help-card-header">
                   <strong>{example.label}</strong>
@@ -221,43 +247,38 @@ export function FlavorMarkupHelpModal({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            className="markup-help-card markup-help-card--wide markup-help-card--button"
-            onClick={() =>
-              copyMarkup(
-                "combined",
-                `**Champion**
-*Bearer of the dawn blade*
-__Sworn protector__
-[smallcaps]Order of the phoenix[/smallcaps]
-[color=royalblue]Arcane signature[/color]`,
-              )
-            }
-            title="Click to copy combined markup example"
-          >
-            <div className="markup-help-card-header">
-              <strong>Combined example</strong>
-              {copiedExample === "combined" ? (
-                <span className="markup-help-copied">Copied</span>
-              ) : null}
-            </div>
-            <pre>{`**Champion**
-*Bearer of the dawn blade*
-__Sworn protector__
-[smallcaps]Order of the phoenix[/smallcaps]
-[color=royalblue]Arcane signature[/color]`}</pre>
-          </button>
-        </div>
-        <div className="qr-modal-footer">
-          <button className="btn-secondary" onClick={onClose}>
-            Got it
-          </button>
+          {blockExamples.map((example) => (
+            <button
+              key={example.id}
+              type="button"
+              className="markup-help-card markup-help-card--button markup-help-card--wide"
+              onClick={() => copyMarkup(example.id, example.markup)}
+              aria-label={`Copy ${example.label} example`}
+            >
+              <div className="markup-help-card-header">
+                <strong>{example.label}</strong>
+                {copiedExample === example.id ? (
+                  <span className="markup-help-copied">Copied</span>
+                ) : null}
+              </div>
+              <pre>{example.markup}</pre>
+            </button>
+          ))}
+          <div className="markup-help-card markup-help-card--wide">
+            <strong>Wrapping Behavior</strong>
+            <pre>
+              {`- Wrapping is enabled by default.
+- Wrapping width is controlled by the text box width.
+- Per-font wrapping tuning is controlled by avgCharWidthFactor in the render font manifest in config.`}
+            </pre>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+export { FlavorMarkupHelpModal as TextMarkupHelpModal };
 
 interface FlavorMarkupInputProps {
   value: string;

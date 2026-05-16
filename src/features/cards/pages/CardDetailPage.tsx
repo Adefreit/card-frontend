@@ -18,7 +18,6 @@ import {
 } from "../api";
 import {
   convertFlavorHtmlToMarkup,
-  convertFlavorMarkupToHtml,
   FlavorMarkupHelpModal,
   FlavorMarkupInput,
   getFlavorMarkupPlainText,
@@ -844,7 +843,7 @@ export default function CardDetailPage() {
       templateId: values.templateId,
       title: values.title,
       subtitle: values.subtitle,
-      flavorText: convertFlavorMarkupToHtml(values.flavorText),
+      flavorText: values.flavorText,
       side: previewSide,
       contactInfo: normalizeContactInfo(values.contactInfo),
       customCss: normalizeCustomCss(values.customCss),
@@ -1179,9 +1178,7 @@ export default function CardDetailPage() {
                   updatePayload.templateId = values.templateId;
                   updatePayload.title = values.title;
                   updatePayload.subtitle = values.subtitle;
-                  updatePayload.flavorText = convertFlavorMarkupToHtml(
-                    values.flavorText,
-                  );
+                  updatePayload.flavorText = values.flavorText;
                   updatePayload.customCss = normalizeCustomCss(
                     values.customCss,
                   );
