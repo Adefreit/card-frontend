@@ -1,8 +1,8 @@
-import privacyMarkdown from "../../documents/privacy.md?raw";
-import refundMarkdown from "../../documents/refund.md?raw";
-import subscriptionMarkdown from "../../documents/subscription.md?raw";
-import termsMarkdown from "../../documents/terms.md?raw";
-import userContentMarkdown from "../../documents/usercontent.md?raw";
+import privacyMarkdown from "../../documents/legal/privacy.md?raw";
+import refundMarkdown from "../../documents/legal/refund.md?raw";
+import subscriptionMarkdown from "../../documents/legal/subscription.md?raw";
+import termsMarkdown from "../../documents/legal/terms.md?raw";
+import userContentMarkdown from "../../documents/legal/usercontent.md?raw";
 
 export type LegalDocumentId =
   | "privacy"

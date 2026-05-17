@@ -55,14 +55,14 @@ const STAGE_CONFIG: Partial<Record<AdminFulfillmentStage, StageConfig>> = {
   on_hold: {
     defaultNote: "",
     requiredMetaKeys: [],
-    optionalMetaKeys: ["hold_reason"],
+    optionalMetaKeys: [],
     noteRequired: true,
     hint: "A note explaining why the order is on hold is required.",
   },
   cancelled: {
     defaultNote: "",
     requiredMetaKeys: [],
-    optionalMetaKeys: ["cancel_reason"],
+    optionalMetaKeys: [],
     noteRequired: true,
     hint: "A note explaining the cancellation reason is required.",
   },

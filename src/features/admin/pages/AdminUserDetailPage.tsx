@@ -38,6 +38,9 @@ export default function AdminUserDetailPage() {
   const queryClient = useQueryClient();
   const { userId: currentUserId } = useAuth();
   const [activeTab, setActiveTab] = useState<DetailTab>("summary");
+  const [fulfillmentStageFilter, setFulfillmentStageFilter] = useState<
+    string | null
+  >(null);
   const [permissionInput, setPermissionInput] = useState("ADMIN");
   const [mutationMessage, setMutationMessage] = useState<string | null>(null);
   const [subscriptionModal, setSubscriptionModal] = useState(false);
@@ -87,8 +90,13 @@ export default function AdminUserDetailPage() {
   });
 
   const ordersQuery = useQuery({
-    queryKey: ["admin", "user", userId, "orders"],
-    queryFn: () => getAdminOrders({ userID: userId as string, pageSize: 50 }),
+    queryKey: ["admin", "user", userId, "orders", fulfillmentStageFilter],
+    queryFn: () =>
+      getAdminOrders({
+        userID: userId as string,
+        pageSize: 100,
+        fulfillmentStage: fulfillmentStageFilter ?? undefined,
+      }),
     enabled: canLoad && activeTab === "orders",
   });
 
@@ -426,6 +434,8 @@ export default function AdminUserDetailPage() {
               orders={ordersQuery.data?.orders ?? []}
               isLoading={ordersQuery.isLoading}
               isError={ordersQuery.isError}
+              fulfillmentStageFilter={fulfillmentStageFilter}
+              onFulfillmentStageFilterChange={setFulfillmentStageFilter}
             />
           ) : null}
         </AdminUserDetailContextProvider>

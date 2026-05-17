@@ -18,6 +18,8 @@ import GetCardsPage from "../features/cards/pages/GetCardsPage";
 import CardViewerPage from "../features/cards/pages/CardViewerPage";
 import AppLayout from "../features/layout/AppLayout";
 import HomePage from "../features/home/HomePage";
+import { GamesListPage, GameDetailPage } from "../features/games/pages";
+import { GamesCartProvider } from "../features/games/context";
 import ContactUsPage from "../features/home/ContactUsPage";
 import PaymentSuccessPage from "../features/transactions/pages/PaymentSuccessPage";
 import PaymentCancelPage from "../features/transactions/pages/PaymentCancelPage";
@@ -74,6 +76,14 @@ function FooterLayout() {
       </div>
       <SiteFooter />
     </div>
+  );
+}
+
+function GamesLayout() {
+  return (
+    <GamesCartProvider>
+      <Outlet />
+    </GamesCartProvider>
   );
 }
 
@@ -179,6 +189,20 @@ export const router = createBrowserRouter([
           {
             path: "cards/:cardId/get-cards",
             element: <GetCardsPage />,
+          },
+          {
+            path: "games",
+            element: <GamesLayout />,
+            children: [
+              {
+                index: true,
+                element: <GamesListPage />,
+              },
+              {
+                path: ":gameId",
+                element: <GameDetailPage />,
+              },
+            ],
           },
           {
             path: "settings",

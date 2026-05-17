@@ -134,20 +134,22 @@ function getOrderDescription(order: TransactionRecord) {
     }
 
     const itemType = getStringField(item, ["item_type", "itemType"]);
-    if (itemType !== "card_pack") {
-      continue;
-    }
 
-    const productId = getStringField(item, ["product_id", "productId"]);
-    if (productId) {
-      const match = productId.match(/card_pack_(\d+)/i);
-      if (match) {
-        const size = Number(match[1]);
-        return `Card Pack (${size.toLocaleString()} cards)`;
+    if (itemType === "card_pack") {
+      const productId = getStringField(item, ["product_id", "productId"]);
+      if (productId) {
+        const match = productId.match(/card_pack_(\d+)/i);
+        if (match) {
+          const size = Number(match[1]);
+          return `Card Pack (${size.toLocaleString()} cards)`;
+        }
       }
+      return "Card Pack Order";
     }
 
-    return "Card Pack Order";
+    if (itemType === "game_pack") {
+      return "Game Pack";
+    }
   }
 
   return "Purchase Item Order";
@@ -595,7 +597,9 @@ export default function DashboardPage() {
       .filter(
         (tx) =>
           tx.order_type === "purchase_item" &&
-          (tx.status ?? "").toLowerCase() === "paid",
+          (tx.status ?? "").toLowerCase() === "paid" &&
+          (tx.fulfillment_stage ?? "").toLowerCase() != "complete" &&
+          (tx.fulfillment_stage ?? "").toLowerCase() != "cancelled",
       )
       .slice()
       .sort((a, b) => {
@@ -970,10 +974,8 @@ export default function DashboardPage() {
 
           <div className="dash-panel">
             <div className="dash-panel-header">
-              <h3 className="dash-panel-title">Orders</h3>
-              <span className="meta-pill">
-                {purchaseItemOrders.length} orders
-              </span>
+              <h3 className="dash-panel-title">Active Orders</h3>
+              <span className="meta-pill">{purchaseItemOrders.length}</span>
             </div>
             {transactionsQuery.isLoading ? (
               <p className="dash-loading">Loading orders...</p>
@@ -986,11 +988,7 @@ export default function DashboardPage() {
             purchaseItemOrders.length === 0 ? (
               <div className="dash-orders-empty">
                 <div className="dash-orders-empty-icon">📜</div>
-                <p>No purchase orders yet.</p>
-                <p>
-                  Card pack purchases will appear here with their current
-                  payment status.
-                </p>
+                <p>No active orders found.</p>
               </div>
             ) : null}
             {!transactionsQuery.isLoading &&
@@ -1005,6 +1003,7 @@ export default function DashboardPage() {
                         {getOrderDescription(order)}
                       </span>
                       <span className="dash-quick-sub">
+                        Fulfillment: {order.fulfillment_stage ?? "undefined"} ·{" "}
                         Paid {formatOrderAmount(order)} ·{" "}
                         {formatTransactionDate(order.create_time)} · Status:{" "}
                         {formatOrderStatus(order.status)}

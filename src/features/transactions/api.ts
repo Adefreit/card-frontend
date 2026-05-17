@@ -76,6 +76,7 @@ export interface TransactionRecord {
   id: string;
   order_type?: string;
   status?: string;
+  fulfillment_stage?: string;
   create_time?: string;
   cancel_at_period_end?: boolean;
   cancellation_requested_at?: string | null;

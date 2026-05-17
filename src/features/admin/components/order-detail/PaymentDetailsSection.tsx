@@ -23,10 +23,6 @@ export function PaymentDetailsSection({
             {capitalize(order.payment_provider)}
           </span>
         </div>
-        <strong className="admin-order-payment-total">
-          {formatCents(order.total_cents)}{" "}
-          {(order.currency ?? "-").toUpperCase()}
-        </strong>
       </div>
 
       {order.provider_checkout_id ? (

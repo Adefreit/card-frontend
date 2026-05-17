@@ -24,6 +24,7 @@ export default function AppLayout() {
         </div>
         <nav>
           <Link to="/app/dashboard">Home</Link>
+          <Link to="/app/games">Games</Link>
           {isAdmin ? <Link to="/app/admin">Admin</Link> : null}
           <Link to="/app/settings">Settings</Link>
           <button

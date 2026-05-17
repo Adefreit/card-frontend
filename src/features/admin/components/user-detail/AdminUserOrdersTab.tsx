@@ -6,16 +6,51 @@ type AdminUserOrdersTabProps = {
   orders: AdminOrderRecord[];
   isLoading: boolean;
   isError: boolean;
+  fulfillmentStageFilter: string | null;
+  onFulfillmentStageFilterChange: (stage: string | null) => void;
 };
+
+const FULFILLMENT_STAGES = [
+  { value: null, label: "All Stages" },
+  { value: "pending", label: "Pending" },
+  { value: "preparing", label: "Preparing" },
+  { value: "on_hold", label: "On Hold" },
+  { value: "complete", label: "Complete" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 export default function AdminUserOrdersTab({
   userId,
   orders,
   isLoading,
   isError,
+  fulfillmentStageFilter,
+  onFulfillmentStageFilterChange,
 }: AdminUserOrdersTabProps) {
   return (
     <div className="admin-table-wrap admin-tab-panel">
+      <div className="admin-orders-filter-bar">
+        {FULFILLMENT_STAGES.map((stage) => (
+          <button
+            key={stage.value ?? "all"}
+            onClick={() => onFulfillmentStageFilterChange(stage.value)}
+            className={[
+              "admin-stage-badge",
+              stage.value
+                ? `admin-stage-badge--${stage.value}`
+                : "admin-stage-badge--all",
+              fulfillmentStageFilter === stage.value
+                ? "admin-stage-badge--selected"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            {stage.label}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <p className="dash-loading">Loading orders...</p>
       ) : isError ? (
@@ -74,7 +109,7 @@ export default function AdminUserOrdersTab({
               ))}
             </tbody>
           </table>
-          {orders.length >= 50 ? (
+          {orders.length >= 100 ? (
             <p
               style={{
                 fontSize: "0.82rem",
@@ -83,7 +118,7 @@ export default function AdminUserOrdersTab({
                 textAlign: "center",
               }}
             >
-              Showing first 50 orders.{" "}
+              Showing first 100 orders.{" "}
               <Link to={`/app/admin/orders?userId=${userId}`}>
                 View all in Orders page
               </Link>
