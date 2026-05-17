@@ -4869,7 +4869,7 @@ select:disabled {
 
 .cardviewer-shell {
   width: 100%;
-  min-height: 100svh;
+  min-height: auto;
   display: grid;
   place-items: center;
   padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
@@ -4908,7 +4908,7 @@ select:disabled {
 .cardviewer-stage {
   position: relative;
   width: min(100%, 1200px);
-  min-height: calc(100svh - 36px);
+  height: auto;
   display: grid;
   place-items: center;
 }
