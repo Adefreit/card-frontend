@@ -453,7 +453,9 @@ export default function GetCardsPage() {
             <div className="proof-modal-actions-list">
               {!isMintedCard ? (
                 <section className="proof-modal-action-section">
-                  <span className="proof-modal-section-label">Mint Card</span>
+                  <span className="proof-modal-section-label">
+                    Activation Options
+                  </span>
                   <button
                     type="button"
                     className="btn-gold proof-order-cta"

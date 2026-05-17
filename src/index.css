@@ -2743,6 +2743,19 @@ button:disabled {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow: hidden;
+}
+
+.proof-preview {
+  display: block;
+  width: min(100%, 470px);
+  aspect-ratio: 5 / 7;
+  max-height: calc(100dvh - 260px);
+  object-fit: cover;
+  object-position: center;
+  border-radius: 32px;
+  box-shadow: 0 16px 34px rgba(31, 35, 64, 0.2);
+  background: transparent;
 }
 
 .proof-loading-state {
