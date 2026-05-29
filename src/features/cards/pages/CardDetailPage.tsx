@@ -29,6 +29,7 @@ import {
   ImageInput,
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useAuth } from "../../auth/auth-context";
 import MintCardModal from "../components/MintCardModal";
 import {
@@ -2019,11 +2020,35 @@ export default function CardDetailPage() {
 
             {previewUrl ? (
               <>
-                <img
-                  src={previewUrl}
-                  alt="Card preview"
-                  className="create-preview-image"
-                />
+                <div
+                  style={{
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <img
+                    src={previewUrl}
+                    alt="Card preview"
+                    className="create-preview-image"
+                  />
+                  {previewMutation.isPending && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "rgba(255, 255, 255, 0.8)",
+                        borderRadius: "32px",
+                      }}
+                    >
+                      <LoadingSpinner label="Generating preview..." />
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   className={
@@ -2055,14 +2080,14 @@ export default function CardDetailPage() {
                   </span>
                 </div>
               </>
+            ) : previewMutation.isPending ? (
+              <LoadingSpinner label="Generating preview..." />
             ) : (
               <div className="create-preview-placeholder">
                 <p>
-                  {previewMutation.isPending
-                    ? "Generating preview.  This may take a bit..."
-                    : isMintedCard
-                      ? `No stored preview is available for the card ${previewSide}.`
-                      : `Update fields and click Refresh to render the card ${previewSide}.`}
+                  {isMintedCard
+                    ? `No stored preview is available for the card ${previewSide}.`
+                    : `Update fields and click Refresh to render the card ${previewSide}.`}
                 </p>
               </div>
             )}

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getCards } from "../api";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function CardsPage() {
   const { data, isLoading, isError } = useQuery({
@@ -30,7 +31,7 @@ export default function CardsPage() {
           <span className="meta-pill">{data?.length ?? 0} total</span>
         </div>
 
-        {isLoading ? <p>Loading cards...</p> : null}
+        {isLoading ? <LoadingSpinner label="Loading cards..." /> : null}
         {isError ? <p className="alert-error">Failed to load cards.</p> : null}
         {!isLoading && !isError && data?.length === 0 ? (
           <div className="empty-state">

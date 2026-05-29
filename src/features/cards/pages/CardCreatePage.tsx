@@ -18,6 +18,7 @@ import {
   ImageInput,
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 // #region Validation
 // Allow regular URLs, data URLs (file uploads), and blob URLs
@@ -586,16 +587,42 @@ export default function CardCreatePage() {
 
           {previewUrl ? (
             <>
-              <img
-                src={previewUrl}
-                alt="Card preview"
-                className="create-preview-image"
-              />
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <img
+                  src={previewUrl}
+                  alt="Card preview"
+                  className="create-preview-image"
+                />
+                {previewMutation.isPending && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(255, 255, 255, 0.8)",
+                      borderRadius: "32px",
+                    }}
+                  >
+                    <LoadingSpinner label="Generating preview..." />
+                  </div>
+                )}
+              </div>
               <p className="create-preview-bleed-note">
                 The green line is where the card will be cut. The red line is
                 the safe area - keep important details inside this border.
               </p>
             </>
+          ) : previewMutation.isPending ? (
+            <LoadingSpinner label="Generating preview..." />
           ) : (
             <div className="create-preview-placeholder">
               <span className="create-preview-placeholder-icon">🃏</span>

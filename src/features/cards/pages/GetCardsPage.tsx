@@ -9,6 +9,7 @@ import {
   renderCardProofPrinterFriendly,
 } from "../api";
 import MintCardModal from "../components/MintCardModal";
+import LoadingSpinner from "../components/LoadingSpinner";
 import {
   type CardPackProductId,
   createIdempotencyKey,
@@ -396,40 +397,63 @@ export default function GetCardsPage() {
 
         <div className="proof-modal-body" style={{ marginTop: 14 }}>
           <div className="proof-modal-preview-panel">
-            {(cardQuery.isLoading ||
-              (shouldRenderMintedProof && proofQuery.isLoading)) &&
-            !blobUrl ? (
-              <p className="dash-loading">
-                {isMintedCard ? "Rendering proof..." : "Loading preview..."}
-              </p>
-            ) : null}
             {blobUrl ? (
-              <img
-                className="proof-preview"
-                src={blobUrl}
-                alt={`Digital proof for ${cardTitle}`}
-                onLoad={() => {
-                  setProofImageLoaded(true);
-                }}
-                onError={() => {
-                  setProofImageLoaded(false);
-                  setBlobUrl(null);
-                }}
-              />
-            ) : null}
-
-            {!blobUrl && !cardQuery.isLoading && isMintedCard ? (
               <div
-                className="proof-loading-state"
-                role="status"
-                aria-live="polite"
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "100%",
+                  height: "100%",
+                }}
               >
-                <span className="proof-loading-spinner" aria-hidden="true" />
-                <p className="dash-loading">Proof is still being prepared...</p>
+                <img
+                  className="proof-preview"
+                  src={blobUrl}
+                  alt={`Digital proof for ${cardTitle}`}
+                  onLoad={() => {
+                    setProofImageLoaded(true);
+                  }}
+                  onError={() => {
+                    setProofImageLoaded(false);
+                    setBlobUrl(null);
+                  }}
+                />
+                {(cardQuery.isLoading ||
+                  (shouldRenderMintedProof && proofQuery.isLoading)) && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(255, 255, 255, 0.8)",
+                      borderRadius: "32px",
+                    }}
+                  >
+                    <LoadingSpinner
+                      label={
+                        isMintedCard
+                          ? "Rendering proof..."
+                          : "Loading preview..."
+                      }
+                    />
+                  </div>
+                )}
               </div>
-            ) : null}
-
-            {!blobUrl && !cardQuery.isLoading && !isMintedCard ? (
+            ) : (cardQuery.isLoading ||
+                (shouldRenderMintedProof && proofQuery.isLoading)) &&
+              !blobUrl ? (
+              <LoadingSpinner
+                label={
+                  isMintedCard ? "Rendering proof..." : "Loading preview..."
+                }
+              />
+            ) : !blobUrl && !cardQuery.isLoading && isMintedCard ? (
+              <LoadingSpinner label="Proof is still being prepared..." />
+            ) : !blobUrl && !cardQuery.isLoading && !isMintedCard ? (
               <div className="proof-modal-empty">
                 <p className="alert-error">
                   No preview is available yet for this draft.

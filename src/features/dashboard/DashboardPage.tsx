@@ -17,22 +17,6 @@ import {
 } from "../transactions/api";
 import PlanComparisonTable from "../subscription/components/PlanComparisonTable";
 
-const CARD_GRADIENTS = [
-  "linear-gradient(135deg, #1e1b4b 0%, #3730a3 100%)",
-  "linear-gradient(135deg, #0c4a6e 0%, #075985 100%)",
-  "linear-gradient(135deg, #14532d 0%, #15803d 100%)",
-  "linear-gradient(135deg, #7c2d12 0%, #c2410c 100%)",
-  "linear-gradient(135deg, #581c87 0%, #7e22ce 100%)",
-] as const;
-
-const CARD_TINT_BORDERS = [
-  "rgba(55, 48, 163, 0.34)",
-  "rgba(7, 89, 133, 0.34)",
-  "rgba(21, 128, 61, 0.34)",
-  "rgba(194, 65, 12, 0.34)",
-  "rgba(126, 34, 206, 0.34)",
-] as const;
-
 const DASHBOARD_TUTORIAL_SEEN_KEY = "lp.dashboard.tutorialSeen";
 
 function isMinted(minted?: boolean): boolean {
@@ -827,8 +811,6 @@ export default function DashboardPage() {
             {!isLoading && !isError && (cards?.length ?? 0) > 0 && (
               <div className="dash-cards-grid">
                 {filteredCards.map((card, i) => {
-                  const cardBorderTint =
-                    CARD_TINT_BORDERS[i % CARD_TINT_BORDERS.length];
                   const minted = isMinted(card.minted);
                   const previewImageUrl = card.last_proof ?? card.last_render;
 
@@ -841,9 +823,6 @@ export default function DashboardPage() {
                         >
                           <div
                             className={`dash-card-stage${minted ? " dash-card-stage--minted" : ""}`}
-                            style={{
-                              backgroundImage: `linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.82)), ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`,
-                            }}
                           >
                             <div className="dash-card-face">
                               {previewImageUrl ? (
@@ -884,7 +863,6 @@ export default function DashboardPage() {
                         </Link>
                         <div
                           className={`dash-card-actions${minted ? " dash-card-actions--premium" : " dash-card-actions--draft"}`}
-                          style={{ borderColor: cardBorderTint }}
                         >
                           <Link
                             className={`dash-action-btn dash-action-btn--proof${minted ? "" : " dash-action-btn--activate"}`}
