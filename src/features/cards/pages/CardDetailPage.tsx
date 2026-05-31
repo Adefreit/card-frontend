@@ -393,12 +393,13 @@ function normalizeContactInfo(
 
 function normalizeCustomCss(
   value: CardUpdateValues["customCss"],
-): CardCustomCss | undefined {
+): CardCustomCss {
   const nextValue = Object.fromEntries(
     Object.entries(value).map(([key, fieldValue]) => [key, fieldValue.trim()]),
   ) as CardCustomCss;
 
-  return Object.values(nextValue).some(Boolean) ? nextValue : undefined;
+  // Always return an object to ensure customCss is sent in requests
+  return nextValue;
 }
 
 function normalizePremiumUrls(
@@ -632,8 +633,8 @@ export default function CardDetailPage() {
         socialMediaAccounts: [],
       },
       customCss: {
-        bannerColor: "",
-        bannerForeground: "",
+        bannerColor: "#336699",
+        bannerForeground: "#FFFFFF",
       },
       premium: {
         urlList: [],
@@ -719,8 +720,8 @@ export default function CardDetailPage() {
         ),
       },
       customCss: {
-        bannerColor: data.data.customCss?.bannerColor || "",
-        bannerForeground: data.data.customCss?.bannerForeground || "",
+        bannerColor: data.data.customCss?.bannerColor || "#336699",
+        bannerForeground: data.data.customCss?.bannerForeground || "#FFFFFF",
       },
       premium: {
         urlList: data.data.premium?.urlList || [],
@@ -1180,11 +1181,17 @@ export default function CardDetailPage() {
                   updatePayload.title = values.title;
                   updatePayload.subtitle = values.subtitle;
                   updatePayload.flavorText = values.flavorText;
+                  // Always include customCss in the payload
                   updatePayload.customCss = normalizeCustomCss(
                     values.customCss,
                   );
 
                   Object.assign(updatePayload, imagePayload);
+                } else {
+                  // Even for minted cards, always send customCss to ensure consistency
+                  updatePayload.customCss = normalizeCustomCss(
+                    values.customCss,
+                  );
                 }
 
                 updateMutation.mutate(updatePayload);
@@ -1386,7 +1393,7 @@ export default function CardDetailPage() {
                                 <div className="detail-color-input">
                                   <input
                                     type="color"
-                                    value={bannerColorValue || "#336699"}
+                                    value={bannerColorValue}
                                     onChange={(event) =>
                                       setValue(
                                         "customCss.bannerColor",
@@ -1399,7 +1406,7 @@ export default function CardDetailPage() {
                                     aria-label="Banner color"
                                     disabled={!canEditCardAppearance}
                                   />
-                                  <span>{bannerColorValue || "#336699"}</span>
+                                  <span>{bannerColorValue}</span>
                                   <button
                                     type="button"
                                     className="btn-secondary btn-xs"
@@ -1420,7 +1427,7 @@ export default function CardDetailPage() {
                                 <div className="detail-color-input">
                                   <input
                                     type="color"
-                                    value={bannerForegroundValue || "#ffffff"}
+                                    value={bannerForegroundValue}
                                     onChange={(event) =>
                                       setValue(
                                         "customCss.bannerForeground",
@@ -1431,9 +1438,7 @@ export default function CardDetailPage() {
                                     aria-label="Banner foreground color"
                                     disabled={!canEditCardAppearance}
                                   />
-                                  <span>
-                                    {bannerForegroundValue || "#ffffff"}
-                                  </span>
+                                  <span>{bannerForegroundValue}</span>
                                   <button
                                     type="button"
                                     className="btn-secondary btn-xs"

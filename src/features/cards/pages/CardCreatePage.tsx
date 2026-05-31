@@ -75,10 +75,7 @@ function normalizeCustomCss(value: CardCreateValues["customCss"]) {
   const bannerColor = value.bannerColor.trim();
   const bannerForeground = value.bannerForeground.trim();
 
-  if (!bannerColor && !bannerForeground) {
-    return undefined;
-  }
-
+  // Always return an object to ensure customCss is sent in requests
   return {
     bannerColor: bannerColor || undefined,
     bannerForeground: bannerForeground || undefined,
@@ -169,8 +166,8 @@ export default function CardCreatePage() {
       backgroundImage: "",
       foregroundImage: "",
       customCss: {
-        bannerColor: "",
-        bannerForeground: "",
+        bannerColor: "#336699",
+        bannerForeground: "#FFFFFF",
       },
     },
   });
@@ -436,7 +433,7 @@ export default function CardCreatePage() {
                   <div className="detail-color-input">
                     <input
                       type="color"
-                      value={bannerColorValue || "#336699"}
+                      value={bannerColorValue}
                       onChange={(event) =>
                         setValue("customCss.bannerColor", event.target.value, {
                           shouldValidate: true,
@@ -444,7 +441,7 @@ export default function CardCreatePage() {
                       }
                       aria-label="Banner color"
                     />
-                    <span>{bannerColorValue || "#336699"}</span>
+                    <span>{bannerColorValue}</span>
                     <button
                       type="button"
                       className="btn-secondary btn-xs"
@@ -464,7 +461,7 @@ export default function CardCreatePage() {
                   <div className="detail-color-input">
                     <input
                       type="color"
-                      value={bannerForegroundValue || "#ffffff"}
+                      value={bannerForegroundValue}
                       onChange={(event) =>
                         setValue(
                           "customCss.bannerForeground",
@@ -476,7 +473,7 @@ export default function CardCreatePage() {
                       }
                       aria-label="Banner foreground color"
                     />
-                    <span>{bannerForegroundValue || "#ffffff"}</span>
+                    <span>{bannerForegroundValue}</span>
                     <button
                       type="button"
                       className="btn-secondary btn-xs"
