@@ -74,6 +74,11 @@ export interface CardRecord {
   last_render?: string | null;
   last_proof?: string | null;
   data: CardData;
+  xpInfo?: {
+    xp: number;
+    level: number;
+    nextLevelXP: number;
+  };
 }
 
 export interface CardCreatePayload {

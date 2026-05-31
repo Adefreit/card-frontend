@@ -2416,6 +2416,11 @@ button:disabled {
   color: #333;
 }
 
+.dash-card-xp {
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+}
+
 /* Orders empty */
 .dash-orders-empty {
   text-align: center;

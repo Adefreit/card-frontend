@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getCards } from "../cards/api";
+import { XPBar } from "../cards/components/XPBar";
 import { apiClient } from "../../lib/http";
 import { useAuth } from "../auth/auth-context";
 import {
@@ -866,6 +867,11 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </Link>
+                        {card.xpInfo && (
+                          <div className="dash-card-xp">
+                            <XPBar xpInfo={card.xpInfo} minted={minted} />
+                          </div>
+                        )}
                         <div
                           className={`dash-card-actions${minted ? " dash-card-actions--premium" : " dash-card-actions--draft"}`}
                         >

@@ -30,6 +30,7 @@ import {
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { XPBar } from "../components/XPBar";
 import { useAuth } from "../../auth/auth-context";
 import MintCardModal from "../components/MintCardModal";
 import {
@@ -2054,6 +2055,11 @@ export default function CardDetailPage() {
                     </div>
                   )}
                 </div>
+                {data.xpInfo && (
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <XPBar xpInfo={data.xpInfo} minted={isMintedCard} />
+                  </div>
+                )}
                 <button
                   type="button"
                   className={
