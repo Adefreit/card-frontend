@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -194,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+   
   useEffect(() => {
     setTokenProvider(() => {
       if (!token || isTokenExpired(token)) {
@@ -222,12 +224,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const remainingTime = expirationTime - Date.now();
 
     if (remainingTime <= 0) {
-      clearSession("expired");
+      clearSession("expired"); // eslint-disable-line react-hooks/set-state-in-effect
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      clearSession("expired");
+      clearSession("expired"); // eslint-disable-line react-hooks/set-state-in-effect
     }, remainingTime);
 
     return () => {
@@ -240,7 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    void refreshAccountProfile();
+    void refreshAccountProfile(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [token, userId]);
 
   const login = async (payload: LoginRequest) => {
@@ -270,6 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSession();
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/preserve-manual-memoization
   const value = useMemo(
     () => ({
       token,

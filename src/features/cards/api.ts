@@ -42,6 +42,8 @@ export interface CardNamedUrl {
   url: string;
 }
 
+// CardPremiumUrl is identical to CardNamedUrl but kept for semantic clarity
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CardPremiumUrl extends CardNamedUrl {}
 
 export interface CardPremiumConfig {

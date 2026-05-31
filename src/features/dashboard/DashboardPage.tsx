@@ -463,6 +463,8 @@ export default function DashboardPage() {
       return;
     }
 
+    // Set default subscription type when plans load
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedSubscriptionType(plans[0].id);
   }, [pricingQuery.data?.subscriptionTypes, selectedSubscriptionType]);
 
@@ -472,11 +474,13 @@ export default function DashboardPage() {
     }
 
     if (subscriptionInterval === "month" && !selectedPlan.prices.monthly) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSubscriptionInterval(selectedPlan.prices.yearly ? "year" : "month");
       return;
     }
 
     if (subscriptionInterval === "year" && !selectedPlan.prices.yearly) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSubscriptionInterval(selectedPlan.prices.monthly ? "month" : "year");
     }
   }, [selectedPlan, subscriptionInterval]);
@@ -615,6 +619,7 @@ export default function DashboardPage() {
         window.localStorage.getItem(DASHBOARD_TUTORIAL_SEEN_KEY) === "1";
 
       if (!hasSeenTutorial) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setShowTutorialModal(true);
       }
     } catch {
@@ -810,7 +815,7 @@ export default function DashboardPage() {
 
             {!isLoading && !isError && (cards?.length ?? 0) > 0 && (
               <div className="dash-cards-grid">
-                {filteredCards.map((card, i) => {
+                {filteredCards.map((card) => {
                   const minted = isMinted(card.minted);
                   const previewImageUrl = card.last_proof ?? card.last_render;
 

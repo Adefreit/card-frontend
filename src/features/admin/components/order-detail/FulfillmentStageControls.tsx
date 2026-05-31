@@ -5,7 +5,7 @@ import { humanizeText } from "../../utils";
 interface FulfillmentStageControlsProps {
   allowedTargets: Set<AdminFulfillmentStage>;
   isTerminalStage: boolean;
-  stageMutation: UseMutationResult<any, any, any, any>;
+  stageMutation: UseMutationResult<unknown, unknown, unknown, unknown>;
   onStageClick: (stage: AdminFulfillmentStage) => void;
 }
 

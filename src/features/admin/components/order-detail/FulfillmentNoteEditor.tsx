@@ -3,7 +3,7 @@ import type { UseMutationResult } from "@tanstack/react-query";
 interface FulfillmentNoteEditorProps {
   draftText: string;
   onDraftChange: (text: string) => void;
-  addNoteMutation: UseMutationResult<any, any, any, any>;
+  addNoteMutation: UseMutationResult<unknown, unknown, unknown, unknown>;
   isOrderLoaded: boolean;
 }
 

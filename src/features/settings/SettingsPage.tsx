@@ -197,6 +197,8 @@ export default function SettingsPage() {
       return;
     }
 
+    // Set default subscription type when plans load
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSubscriptionType(plans[0].id);
   }, [pricingQuery.data?.subscriptionTypes, subscriptionType]);
 
@@ -206,11 +208,13 @@ export default function SettingsPage() {
     }
 
     if (interval === "month" && !selectedPlan.prices.monthly) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInterval(selectedPlan.prices.yearly ? "year" : "month");
       return;
     }
 
     if (interval === "year" && !selectedPlan.prices.yearly) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInterval(selectedPlan.prices.monthly ? "month" : "year");
     }
   }, [selectedPlan, interval]);

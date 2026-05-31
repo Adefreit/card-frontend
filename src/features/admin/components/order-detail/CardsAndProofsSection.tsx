@@ -2,7 +2,7 @@ import type { UseMutationResult } from "@tanstack/react-query";
 
 interface CardsAndProofsSectionProps {
   groupedCards: Array<[string, number]>;
-  downloadProofMutation: UseMutationResult<any, any, any, any>;
+  downloadProofMutation: UseMutationResult<unknown, unknown, unknown, unknown>;
   fetchedCardId: string | null;
   fetchedProofUrl: string | null;
 }

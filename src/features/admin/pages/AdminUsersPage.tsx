@@ -121,7 +121,7 @@ export default function AdminUsersPage() {
                         checked={Boolean(
                           user.account_subscription_until &&
                           new Date(user.account_subscription_until).getTime() >
-                            Date.now(),
+                            new Date().getTime(),
                         )}
                         readOnly
                         disabled

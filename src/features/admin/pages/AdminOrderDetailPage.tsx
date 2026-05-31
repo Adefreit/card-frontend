@@ -63,20 +63,26 @@ export default function AdminOrderDetailPage() {
     retry: 1,
   });
 
-  useEffect(() => {
-    if (locationOrder) setOrderFallback(locationOrder);
-  }, [locationOrder]);
-
   const order = orderQuery.data?.order ?? orderFallback;
   const relatedUser = orderQuery.data?.user ?? null;
   const fulfillmentNotes = orderQuery.data?.fulfillmentNotes ?? [];
 
+  // Update fallback order when location order changes
   useEffect(() => {
-    if (!order) return;
+    if (locationOrder) setOrderFallback(locationOrder);
+  }, [locationOrder]);
+
+  // Calculate refund cents from order
+  const calculatedRefundCents = useMemo(() => {
+    if (!order) return 0;
     const remaining =
       (order.total_cents ?? 0) - (order.refund_total_cents ?? 0);
-    setRefundCents(Math.max(0, remaining));
+    return Math.max(0, remaining);
   }, [order]);
+
+  useEffect(() => {
+    setRefundCents(calculatedRefundCents);
+  }, [calculatedRefundCents]);
 
   const stageMutation = useMutation({
     mutationFn: ({
@@ -175,6 +181,11 @@ export default function AdminOrderDetailPage() {
     },
   });
 
+  const rawPayloadText = useMemo(
+    () => safeJsonStringify(sanitizeForDisplay(orderQuery.data)),
+    [orderQuery.data],
+  );
+
   if (!orderId) return <Navigate to="/app/admin/orders" replace />;
 
   const currentStage = (order?.fulfillment_stage ??
@@ -238,11 +249,6 @@ export default function AdminOrderDetailPage() {
         : groupedCardsFromItems.length > 0
           ? "Card Order"
           : humanizeText(order?.order_type);
-
-  const rawPayloadText = useMemo(
-    () => safeJsonStringify(sanitizeForDisplay(orderQuery.data)),
-    [orderQuery.data],
-  );
 
   function handleCopyDebugPayload() {
     void navigator.clipboard

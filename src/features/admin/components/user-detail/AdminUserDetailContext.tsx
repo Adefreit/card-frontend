@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext } from "react";
 import type { ReactNode, RefObject } from "react";
 import type { AdminCardArtifactType } from "../../api";

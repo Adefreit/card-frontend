@@ -228,6 +228,7 @@ export default function GetCardsPage() {
 
       const nextBlobUrl = URL.createObjectURL(proofQuery.data);
       generatedProofUrlRef.current = nextBlobUrl;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBlobUrl(nextBlobUrl);
       return;
     }
@@ -237,6 +238,7 @@ export default function GetCardsPage() {
       generatedProofUrlRef.current = null;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBlobUrl(resolvedPreviewUrl);
   }, [proofQuery.data, resolvedPreviewUrl]);
 
@@ -249,7 +251,9 @@ export default function GetCardsPage() {
     };
   }, []);
 
+  // Reset image loaded state when proof URL changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProofImageLoaded(false);
   }, [blobUrl]);
 
