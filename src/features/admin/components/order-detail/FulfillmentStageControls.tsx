@@ -1,11 +1,20 @@
 import type { UseMutationResult } from "@tanstack/react-query";
-import type { AdminFulfillmentStage } from "../../api";
+import type { AdminFulfillmentStage, AdminOrderRecord } from "../../api";
 import { humanizeText } from "../../utils";
 
 interface FulfillmentStageControlsProps {
   allowedTargets: Set<AdminFulfillmentStage>;
   isTerminalStage: boolean;
-  stageMutation: UseMutationResult<unknown, unknown, unknown, unknown>;
+  stageMutation: UseMutationResult<
+    AdminOrderRecord,
+    Error,
+    {
+      stage: AdminFulfillmentStage;
+      note: string;
+      metadata: Record<string, unknown>;
+    },
+    unknown
+  >;
   onStageClick: (stage: AdminFulfillmentStage) => void;
 }
 

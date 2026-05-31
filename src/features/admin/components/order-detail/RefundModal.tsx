@@ -6,7 +6,7 @@ interface RefundModalProps {
   refundCents: number;
   refundReason: string;
   remainingRefundable: number;
-  refundMutation: UseMutationResult<unknown, unknown, unknown, unknown>;
+  refundMutation: UseMutationResult<unknown, Error, void, unknown>;
   onClose: () => void;
   onRefundCentsChange: (cents: number) => void;
   onRefundReasonChange: (reason: string) => void;

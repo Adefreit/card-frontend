@@ -1,9 +1,15 @@
 import type { UseMutationResult } from "@tanstack/react-query";
+import type { AdminOrderFulfillmentNote } from "../../api";
 
 interface FulfillmentNoteEditorProps {
   draftText: string;
   onDraftChange: (text: string) => void;
-  addNoteMutation: UseMutationResult<unknown, unknown, unknown, unknown>;
+  addNoteMutation: UseMutationResult<
+    AdminOrderFulfillmentNote,
+    Error,
+    string,
+    unknown
+  >;
   isOrderLoaded: boolean;
 }
 
