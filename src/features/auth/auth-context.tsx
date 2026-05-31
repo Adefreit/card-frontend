@@ -195,7 +195,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-   
   useEffect(() => {
     setTokenProvider(() => {
       if (!token || isTokenExpired(token)) {
