@@ -142,6 +142,12 @@ const contactInfoSchema = z
 const customCssSchema = z.object({
   bannerColor: z.string(),
   bannerForeground: z.string(),
+  backgroundImageOffsetX: z.number().optional(),
+  backgroundImageOffsetY: z.number().optional(),
+  backgroundImageScale: z.number().optional(),
+  foregroundImageOffsetX: z.number().optional(),
+  foregroundImageOffsetY: z.number().optional(),
+  foregroundImageScale: z.number().optional(),
 });
 
 const premiumSchema = z.object({
@@ -190,7 +196,7 @@ const GENERAL_FIELD_LABELS: Record<string, string> = {
   title: "Title",
   subtitle: "Subtitle",
   flavorText: "Flavor Text",
-  backgroundImage: "Background Image",
+  backgroundImage: "Background",
   foregroundImage: "Foreground Image",
   "customCss.bannerColor": "Banner Color",
   "customCss.bannerForeground": "Banner Text Color",
@@ -396,7 +402,14 @@ function normalizeCustomCss(
   value: CardUpdateValues["customCss"],
 ): CardCustomCss {
   const nextValue = Object.fromEntries(
-    Object.entries(value).map(([key, fieldValue]) => [key, fieldValue.trim()]),
+    Object.entries(value).map(([key, fieldValue]) => [
+      key,
+      typeof fieldValue === "string"
+        ? fieldValue.trim()
+        : typeof fieldValue === "number"
+          ? Math.round(fieldValue * 10) / 10
+          : fieldValue,
+    ]),
   ) as CardCustomCss;
 
   // Always return an object to ensure customCss is sent in requests
@@ -636,6 +649,12 @@ export default function CardDetailPage() {
       customCss: {
         bannerColor: "#336699",
         bannerForeground: "#FFFFFF",
+        backgroundImageOffsetX: 0,
+        backgroundImageOffsetY: 0,
+        backgroundImageScale: 1,
+        foregroundImageOffsetX: 0,
+        foregroundImageOffsetY: 0,
+        foregroundImageScale: 1,
       },
       premium: {
         urlList: [],
@@ -723,6 +742,16 @@ export default function CardDetailPage() {
       customCss: {
         bannerColor: data.data.customCss?.bannerColor || "#336699",
         bannerForeground: data.data.customCss?.bannerForeground || "#FFFFFF",
+        backgroundImageOffsetX:
+          data.data.customCss?.backgroundImageOffsetX ?? 0,
+        backgroundImageOffsetY:
+          data.data.customCss?.backgroundImageOffsetY ?? 0,
+        backgroundImageScale: data.data.customCss?.backgroundImageScale ?? 1,
+        foregroundImageOffsetX:
+          data.data.customCss?.foregroundImageOffsetX ?? 0,
+        foregroundImageOffsetY:
+          data.data.customCss?.foregroundImageOffsetY ?? 0,
+        foregroundImageScale: data.data.customCss?.foregroundImageScale ?? 1,
       },
       premium: {
         urlList: data.data.premium?.urlList || [],
@@ -863,6 +892,12 @@ export default function CardDetailPage() {
   const flavorTextValue = watch("flavorText");
   const bannerColorValue = watch("customCss.bannerColor");
   const bannerForegroundValue = watch("customCss.bannerForeground");
+  const bgTransformX = watch("customCss.backgroundImageOffsetX") ?? 0;
+  const bgTransformY = watch("customCss.backgroundImageOffsetY") ?? 0;
+  const bgTransformScale = watch("customCss.backgroundImageScale") ?? 1;
+  const fgTransformX = watch("customCss.foregroundImageOffsetX") ?? 0;
+  const fgTransformY = watch("customCss.foregroundImageOffsetY") ?? 0;
+  const fgTransformScale = watch("customCss.foregroundImageScale") ?? 1;
   const totalUploadedImageBytes =
     estimateUploadedImageBytes(bgValue) + estimateUploadedImageBytes(fgValue);
   const selectedTemplateName =
@@ -1472,18 +1507,37 @@ export default function CardDetailPage() {
 
                             <div className="image-input-row">
                               <ImageInput
-                                label="Background Image"
+                                label="Background"
                                 value={bgValue}
                                 maxUploadBytes={Math.max(
                                   0,
                                   MAX_TOTAL_UPLOAD_BYTES -
                                     estimateUploadedImageBytes(fgValue),
                                 )}
-                                onChange={(url) =>
+                                onChange={(url) => {
                                   setValue("backgroundImage", url, {
                                     shouldValidate: true,
-                                  })
-                                }
+                                  });
+                                  // Reset image transforms when new image is uploaded
+                                  if (
+                                    url &&
+                                    (url.startsWith("data:") ||
+                                      url.startsWith("blob:"))
+                                  ) {
+                                    setValue(
+                                      "customCss.backgroundImageOffsetX",
+                                      0,
+                                    );
+                                    setValue(
+                                      "customCss.backgroundImageOffsetY",
+                                      0,
+                                    );
+                                    setValue(
+                                      "customCss.backgroundImageScale",
+                                      1.0,
+                                    );
+                                  }
+                                }}
                                 onClear={() =>
                                   setValue("backgroundImage", "", {
                                     shouldValidate: true,
@@ -1491,6 +1545,23 @@ export default function CardDetailPage() {
                                 }
                                 error={errors.backgroundImage?.message}
                                 disabled={hasImmutableContentLock}
+                                cardWidth={240}
+                                cardHeight={336}
+                                imageType="background"
+                                transformOffsetX={bgTransformX}
+                                transformOffsetY={bgTransformY}
+                                transformScale={bgTransformScale}
+                                onTransformChange={(x, y, s) => {
+                                  setValue(
+                                    "customCss.backgroundImageOffsetX",
+                                    x,
+                                  );
+                                  setValue(
+                                    "customCss.backgroundImageOffsetY",
+                                    y,
+                                  );
+                                  setValue("customCss.backgroundImageScale", s);
+                                }}
                               />
 
                               <ImageInput
@@ -1501,11 +1572,30 @@ export default function CardDetailPage() {
                                   MAX_TOTAL_UPLOAD_BYTES -
                                     estimateUploadedImageBytes(bgValue),
                                 )}
-                                onChange={(url) =>
+                                onChange={(url) => {
                                   setValue("foregroundImage", url, {
                                     shouldValidate: true,
-                                  })
-                                }
+                                  });
+                                  // Reset image transforms when new image is uploaded
+                                  if (
+                                    url &&
+                                    (url.startsWith("data:") ||
+                                      url.startsWith("blob:"))
+                                  ) {
+                                    setValue(
+                                      "customCss.foregroundImageOffsetX",
+                                      0,
+                                    );
+                                    setValue(
+                                      "customCss.foregroundImageOffsetY",
+                                      0,
+                                    );
+                                    setValue(
+                                      "customCss.foregroundImageScale",
+                                      1.0,
+                                    );
+                                  }
+                                }}
                                 onClear={() =>
                                   setValue("foregroundImage", "", {
                                     shouldValidate: true,
@@ -1513,6 +1603,23 @@ export default function CardDetailPage() {
                                 }
                                 error={errors.foregroundImage?.message}
                                 disabled={hasImmutableContentLock}
+                                cardWidth={100}
+                                cardHeight={100}
+                                imageType="foreground"
+                                transformOffsetX={fgTransformX}
+                                transformOffsetY={fgTransformY}
+                                transformScale={fgTransformScale}
+                                onTransformChange={(x, y, s) => {
+                                  setValue(
+                                    "customCss.foregroundImageOffsetX",
+                                    x,
+                                  );
+                                  setValue(
+                                    "customCss.foregroundImageOffsetY",
+                                    y,
+                                  );
+                                  setValue("customCss.foregroundImageScale", s);
+                                }}
                               />
                             </div>
                           </section>

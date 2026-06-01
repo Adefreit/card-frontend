@@ -35,6 +35,12 @@ export interface CardContactInfo {
 export interface CardCustomCss {
   bannerColor?: string;
   bannerForeground?: string;
+  backgroundImageOffsetX?: number;
+  backgroundImageOffsetY?: number;
+  backgroundImageScale?: number;
+  foregroundImageOffsetX?: number;
+  foregroundImageOffsetY?: number;
+  foregroundImageScale?: number;
 }
 
 export interface CardNamedUrl {

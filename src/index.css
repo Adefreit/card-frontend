@@ -5161,6 +5161,153 @@ button.admin-stage-badge.admin-stage-badge--selected {
   border: 1px solid #d5dcec;
 }
 
+.image-edit-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  margin-top: 0.75rem;
+  background: var(--ui-brand);
+  color: #ffffff;
+  border: 1px solid var(--ui-brand);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.image-edit-btn:hover {
+  background: var(--ui-brand-strong);
+  border-color: var(--ui-brand-strong);
+}
+
+.image-edit-btn:active {
+  background: #3638b8;
+  border-color: #3638b8;
+}
+
+.image-status-clear-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  background: #ff6b35;
+  color: #ffffff;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.image-status-clear-btn:hover {
+  background: #e55a25;
+}
+
+.image-status-clear-btn:active {
+  background: #d44915;
+}
+
+/* Confirmation Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 18, 50, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-dialog {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid var(--ui-border);
+  box-shadow: 0 32px 80px rgba(31, 35, 64, 0.3);
+  width: min(480px, calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.modal-title {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.modal-close-btn {
+  background: rgba(223, 228, 255, 0.5);
+  color: var(--ui-ink);
+  border: 1px solid var(--ui-border);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: #dfe4ff;
+  transform: none;
+  box-shadow: none;
+}
+
+.modal-body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+}
+
+.modal-body p {
+  margin: 0;
+  color: var(--ui-ink);
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 22px 20px;
+  border-top: 1px solid var(--ui-border);
+  justify-content: flex-end;
+}
+
+.modal-footer button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s ease;
+}
+
 .image-mode-toggle {
   display: flex;
   border: 1px solid #d2d8fa;

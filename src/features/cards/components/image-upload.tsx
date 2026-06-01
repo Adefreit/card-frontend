@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useRef, useState } from "react";
+import { ImageEditor } from "./ImageEditor";
 
 // #region Constants and types
 export const MAX_TOTAL_UPLOAD_BYTES = 3 * 1024 * 1024;
@@ -420,15 +421,30 @@ export async function buildCardPreviewImagePayloads(
 }
 // #endregion
 
+// #region Helpers
+function isNewFile(value: string): boolean {
+  if (!value) return false;
+  // New files are data URLs or blob URLs; existing/previously-uploaded files are regular URLs
+  return value.startsWith("data:") || value.startsWith("blob:");
+}
+// #endregion
+
 // #region Component
 interface ImageInputProps {
   label: string;
   value: string;
   onChange: (url: string) => void;
   onClear: () => void;
+  onTransformChange?: (offsetX: number, offsetY: number, scale: number) => void;
   maxUploadBytes: number;
   error?: string;
   disabled?: boolean;
+  transformOffsetX?: number;
+  transformOffsetY?: number;
+  transformScale?: number;
+  cardWidth?: number;
+  cardHeight?: number;
+  imageType?: "background" | "foreground";
 }
 
 export function ImageInput({
@@ -436,14 +452,27 @@ export function ImageInput({
   value,
   onChange,
   onClear,
+  onTransformChange,
   maxUploadBytes,
   error,
   disabled,
+  transformOffsetX = 0,
+  transformOffsetY = 0,
+  transformScale = 1,
+  cardWidth = 240,
+  cardHeight = 336,
+  imageType = "background",
 }: ImageInputProps) {
+  // imageType is used to identify which image is being edited (background vs foreground)
+  // This enables proper storage of transform values in customCSS per image type
+  void imageType;
+
   const [fileName, setFileName] = useState<string>("");
   const [copiedFileName, setCopiedFileName] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showImageEditor, setShowImageEditor] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleSelectedFile(file?: File | null) {
@@ -539,32 +568,66 @@ export function ImageInput({
       return;
     }
 
+    setShowClearConfirm(true);
+  }
+
+  function handleConfirmClear() {
     setFileName("");
     setCopiedFileName(false);
     setUploadError(null);
     if (fileRef.current) {
       fileRef.current.value = "";
     }
+    setShowClearConfirm(false);
     onClear();
+  }
+
+  function handleTransformSave(
+    offsetX: number,
+    offsetY: number,
+    scale: number,
+  ) {
+    setShowImageEditor(false);
+    onTransformChange?.(offsetX, offsetY, scale);
   }
 
   return (
     <div className="image-input-group">
       <div className="image-input-label-row">
         <span className="image-input-label">{label}</span>
-        <button
-          type="button"
-          className={`image-status-chip${hasFile ? " image-status-chip--uploaded" : " image-status-chip--empty"}`}
-          onClick={handleCopyFileName}
-          disabled={!hasFile || disabled}
-          title={
-            hasFile
-              ? `Click to copy file name: ${currentDisplayName}`
-              : "No file uploaded"
-          }
-        >
-          {hasFile ? (copiedFileName ? "Copied" : "File Uploaded") : "No File"}
-        </button>
+        <div style={{ position: "relative", display: "inline-block" }}>
+          <button
+            type="button"
+            className={`image-status-chip${hasFile ? " image-status-chip--uploaded" : " image-status-chip--empty"}`}
+            onClick={handleCopyFileName}
+            disabled={!hasFile || disabled}
+            title={
+              hasFile
+                ? `Click to copy file name: ${currentDisplayName}`
+                : "No file uploaded"
+            }
+          >
+            {hasFile
+              ? copiedFileName
+                ? "Copied"
+                : "File Uploaded"
+              : "No File"}
+          </button>
+          {hasFile && !disabled && (
+            <button
+              type="button"
+              className="image-status-clear-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClear();
+              }}
+              title="Clear image"
+              aria-label="Clear image"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       <div
@@ -600,20 +663,74 @@ export function ImageInput({
         )}
       </div>
 
-      <div className="image-input-actions">
+      {hasFile && !disabled && isNewFile(value) && (
         <button
           type="button"
-          className="btn-secondary btn-xs"
-          onClick={handleClear}
-          disabled={!value || disabled}
+          className="image-edit-btn"
+          onClick={() => setShowImageEditor(true)}
+          title="Edit image position and zoom"
+          aria-label="Edit image"
         >
-          Clear Image
+          ✎ Edit Position & Zoom
         </button>
-      </div>
+      )}
 
       {uploadError || error ? (
         <small className="field-error">{uploadError || error}</small>
       ) : null}
+
+      {showClearConfirm && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowClearConfirm(false)}
+        >
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Clear Image?</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setShowClearConfirm(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to remove this image?</p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowClearConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleConfirmClear}
+              >
+                Clear Image
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showImageEditor && hasFile && (
+        <ImageEditor
+          imageUrl={value}
+          onClose={() => setShowImageEditor(false)}
+          onSave={handleTransformSave}
+          initialOffsetX={transformOffsetX}
+          initialOffsetY={transformOffsetY}
+          initialScale={transformScale}
+          cardWidth={cardWidth}
+          cardHeight={cardHeight}
+        />
+      )}
     </div>
   );
 }
