@@ -1545,8 +1545,8 @@ export default function CardDetailPage() {
                                 }
                                 error={errors.backgroundImage?.message}
                                 disabled={hasImmutableContentLock}
-                                cardWidth={240}
-                                cardHeight={336}
+                                targetWidth={240}
+                                targetHeight={336}
                                 imageType="background"
                                 transformOffsetX={bgTransformX}
                                 transformOffsetY={bgTransformY}
@@ -1603,8 +1603,8 @@ export default function CardDetailPage() {
                                 }
                                 error={errors.foregroundImage?.message}
                                 disabled={hasImmutableContentLock}
-                                cardWidth={100}
-                                cardHeight={100}
+                                targetWidth={100}
+                                targetHeight={100}
                                 imageType="foreground"
                                 transformOffsetX={fgTransformX}
                                 transformOffsetY={fgTransformY}

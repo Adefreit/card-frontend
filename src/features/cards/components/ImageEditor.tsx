@@ -1,26 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./ImageEditor.css";
 
+interface CroppedImageData {
+  dataUri: string;
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+}
+
 interface ImageEditorProps {
   imageUrl: string;
+  originalImageUrl?: string;
   onClose: () => void;
-  onSave: (offsetX: number, offsetY: number, scale: number) => void;
+  onSave: (data: CroppedImageData) => void;
   initialOffsetX?: number;
   initialOffsetY?: number;
   initialScale?: number;
-  cardWidth?: number;
-  cardHeight?: number;
+  targetWidth?: number;
+  targetHeight?: number;
 }
 
 export function ImageEditor({
   imageUrl,
+  originalImageUrl,
   onClose,
   onSave,
   initialOffsetX = 0,
   initialOffsetY = 0,
   initialScale = 1,
-  cardWidth = 240,
-  cardHeight = 336,
+  targetWidth = 240,
+  targetHeight = 336,
 }: ImageEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [offsetX, setOffsetX] = useState(initialOffsetX);
@@ -45,18 +54,18 @@ export function ImageEditor({
     // From backend: scaleX = (widthInInches * dpi) / (2.44 * 100)
     // scaleY = (heightInInches * dpi) / (3.67 * 100)
     const DPI = 96;
-    const CARD_WIDTH_INCHES = 2.5;
-    const CARD_HEIGHT_INCHES = 3.5;
-    const scaleX = (CARD_WIDTH_INCHES * DPI) / (2.44 * 100);
-    const scaleY = (CARD_HEIGHT_INCHES * DPI) / (3.67 * 100);
+    const TARGET_WIDTH_INCHES = 2.5;
+    const TARGET_HEIGHT_INCHES = 3.5;
+    const scaleX = (TARGET_WIDTH_INCHES * DPI) / (2.44 * 100);
+    const scaleY = (TARGET_HEIGHT_INCHES * DPI) / (3.67 * 100);
 
-    // Calculate scale factor to fit card nicely in canvas
+    // Calculate scale factor to fit target nicely in canvas
     const displayScaleFactor = Math.min(
-      (canvas.width * 0.8) / cardWidth,
-      (canvas.height * 0.8) / cardHeight,
+      (canvas.width * 0.8) / targetWidth,
+      (canvas.height * 0.8) / targetHeight,
     );
-    const displayWidth = cardWidth * displayScaleFactor;
-    const displayHeight = cardHeight * displayScaleFactor;
+    const displayWidth = targetWidth * displayScaleFactor;
+    const displayHeight = targetHeight * displayScaleFactor;
     const cardCenterX = canvas.width / 2;
     const cardCenterY = canvas.height / 2;
     const cardLeft = cardCenterX - displayWidth / 2;
@@ -80,21 +89,21 @@ export function ImageEditor({
     ctx.translate(offsetX * scaleX, offsetY * scaleY);
 
     // Calculate image dimensions at 1.0x zoom (xMidYMid slice behavior)
-    // At scale 1.0, image should fill the card dimensions while maintaining aspect ratio
+    // At scale 1.0, image should fill the target dimensions while maintaining aspect ratio
     const imageAspect = imageRef.current.width / imageRef.current.height;
-    const cardAspect = cardWidth / cardHeight;
+    const targetAspect = targetWidth / targetHeight;
 
     let imageScaleWidth: number;
     let imageScaleHeight: number;
 
-    if (imageAspect > cardAspect) {
-      // Image is wider: scale by height to fill card
-      imageScaleHeight = cardHeight;
-      imageScaleWidth = cardHeight * imageAspect;
+    if (imageAspect > targetAspect) {
+      // Image is wider: scale by height to fill target
+      imageScaleHeight = targetHeight;
+      imageScaleWidth = targetHeight * imageAspect;
     } else {
-      // Image is taller or square: scale by width to fill card
-      imageScaleWidth = cardWidth;
-      imageScaleHeight = cardWidth / imageAspect;
+      // Image is taller or square: scale by width to fill target
+      imageScaleWidth = targetWidth;
+      imageScaleHeight = targetWidth / imageAspect;
     }
 
     // Apply user zoom to image dimensions (not as a canvas transform)
@@ -131,22 +140,31 @@ export function ImageEditor({
     ctx.fillStyle = "#ff6b35";
     ctx.font = "12px sans-serif";
     ctx.fillText("Card Area", cardLeft + 8, cardTop + 16);
-  }, [offsetX, offsetY, scale, cardWidth, cardHeight]);
+  }, [offsetX, offsetY, scale, targetWidth, targetHeight]);
 
-  // Load image
+  // Load image - use originalImageUrl if provided, otherwise use imageUrl
   useEffect(() => {
     const img = new Image();
     img.onload = () => {
       imageRef.current = img;
       drawPreview();
     };
-    img.src = imageUrl;
-  }, [imageUrl, drawPreview]);
+    img.src = originalImageUrl || imageUrl;
+  }, [imageUrl, originalImageUrl, drawPreview]);
 
   // Redraw when transform changes
   useEffect(() => {
     drawPreview();
   }, [drawPreview]);
+
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
 
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
     setIsDragging(true);
@@ -161,15 +179,15 @@ export function ImageEditor({
 
     // DPI conversion factors (match the DPI used in drawPreview)
     const DPI = 96;
-    const CARD_WIDTH_INCHES = 2.5;
-    const CARD_HEIGHT_INCHES = 3.5;
-    const scaleX = (CARD_WIDTH_INCHES * DPI) / (2.44 * 100);
-    const scaleY = (CARD_HEIGHT_INCHES * DPI) / (3.67 * 100);
+    const TARGET_WIDTH_INCHES = 2.5;
+    const TARGET_HEIGHT_INCHES = 3.5;
+    const scaleX = (TARGET_WIDTH_INCHES * DPI) / (2.44 * 100);
+    const scaleY = (TARGET_HEIGHT_INCHES * DPI) / (3.67 * 100);
 
     // Calculate display scale factor
     const displayScaleFactor = Math.min(
-      (canvas.width * 0.8) / cardWidth,
-      (canvas.height * 0.8) / cardHeight,
+      (canvas.width * 0.8) / targetWidth,
+      (canvas.height * 0.8) / targetHeight,
     );
 
     // Convert canvas pixel movement to logical units
@@ -204,14 +222,103 @@ export function ImageEditor({
   }
 
   function handleSave() {
-    onSave(offsetX, offsetY, scale);
+    const image = imageRef.current;
+    if (!image) return;
+
+    // Calculate DPI-aware scaling to use original image resolution
+    // This ensures the exported image uses the highest quality available
+    const DPI = 96;
+    const TARGET_WIDTH_INCHES = 2.5;
+    const TARGET_HEIGHT_INCHES = 3.5;
+    const scaleX = (TARGET_WIDTH_INCHES * DPI) / (2.44 * 100);
+    const scaleY = (TARGET_HEIGHT_INCHES * DPI) / (3.67 * 100);
+
+    // Calculate what target dimensions would be at full original image DPI
+    // Use the original image aspect ratio and dimensions to maximize quality
+    const imageAspect = image.width / image.height;
+    const targetAspect = targetWidth / targetHeight;
+
+    let scaledCardWidth: number;
+    let scaledCardHeight: number;
+
+    // Match the aspect ratio and use image dimensions to determine export size
+    if (imageAspect > targetAspect) {
+      // Image is wider: use image height as reference
+      scaledCardHeight = image.height;
+      scaledCardWidth = image.height * targetAspect;
+    } else {
+      // Image is taller: use image width as reference
+      scaledCardWidth = image.width;
+      scaledCardHeight = image.width / imageAspect;
+    }
+
+    // Create export canvas at the scaled dimensions
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = Math.round(scaledCardWidth);
+    exportCanvas.height = Math.round(scaledCardHeight);
+    const exportCtx = exportCanvas.getContext("2d");
+    if (!exportCtx) return;
+
+    // Draw the image at full resolution with the same transforms
+    exportCtx.save();
+    exportCtx.translate(scaledCardWidth / 2, scaledCardHeight / 2);
+
+    // Scale offsetX/offsetY from logical units to pixels for the export
+    const scalingFactor = scaledCardWidth / targetWidth;
+    exportCtx.translate(
+      offsetX * scaleX * scalingFactor,
+      offsetY * scaleY * scalingFactor,
+    );
+
+    // Calculate image dimensions at 1.0x zoom
+    let imageScaleWidth: number;
+    let imageScaleHeight: number;
+
+    if (imageAspect > targetAspect) {
+      // Image is wider: scale by height to fill target
+      imageScaleHeight = scaledCardHeight;
+      imageScaleWidth = scaledCardHeight * imageAspect;
+    } else {
+      // Image is taller or square: scale by width to fill target
+      imageScaleWidth = scaledCardWidth;
+      imageScaleHeight = scaledCardWidth / imageAspect;
+    }
+
+    // Apply user zoom to image dimensions
+    const scaledImageWidth = imageScaleWidth * scale;
+    const scaledImageHeight = imageScaleHeight * scale;
+
+    // Draw image
+    exportCtx.drawImage(
+      image,
+      -imageScaleWidth / 2,
+      -imageScaleHeight / 2,
+      scaledImageWidth,
+      scaledImageHeight,
+    );
+    exportCtx.restore();
+
+    // Convert to data URI and save with transforms
+    const croppedImageDataUri = exportCanvas.toDataURL("image/png");
+    onSave({
+      dataUri: croppedImageDataUri,
+      offsetX,
+      offsetY,
+      scale,
+    });
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      style={{ overflowY: "auto" }}
+    >
       <div
         className="modal-dialog image-editor-dialog"
         onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+        style={{ overflowY: "auto" }}
       >
         <div className="modal-header">
           <h3 className="modal-title">
@@ -241,67 +348,28 @@ export function ImageEditor({
               onWheel={handleWheel}
             />
             <div className="image-editor-hint">
-              <p>
-                <strong>Drag</strong> to reposition • <strong>Scroll</strong> to
-                zoom
-              </p>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "1rem",
+                }}
+              >
+                <p style={{ margin: 0 }}>
+                  <strong>Drag</strong> to reposition • <strong>Scroll</strong>{" "}
+                  to zoom
+                </p>
+                <button
+                  type="button"
+                  className="btn-secondary btn-xs"
+                  onClick={handleReset}
+                  title="Reset position and zoom"
+                >
+                  Reset
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div className="image-editor-controls">
-            <div className="control-group">
-              <label>
-                X Offset: <span className="value">{offsetX.toFixed(1)}</span>
-              </label>
-              <input
-                type="range"
-                min="-200"
-                max="200"
-                step="1"
-                value={offsetX}
-                onChange={(e) => setOffsetX(parseFloat(e.target.value))}
-                className="control-slider"
-              />
-            </div>
-
-            <div className="control-group">
-              <label>
-                Y Offset: <span className="value">{offsetY.toFixed(1)}</span>
-              </label>
-              <input
-                type="range"
-                min="-200"
-                max="200"
-                step="1"
-                value={offsetY}
-                onChange={(e) => setOffsetY(parseFloat(e.target.value))}
-                className="control-slider"
-              />
-            </div>
-
-            <div className="control-group">
-              <label>
-                Zoom: <span className="value">{scale.toFixed(2)}x</span>
-              </label>
-              <input
-                type="range"
-                min="0.1"
-                max="3"
-                step="0.1"
-                value={scale}
-                onChange={(e) => setScale(parseFloat(e.target.value))}
-                className="control-slider"
-              />
-            </div>
-
-            <button
-              type="button"
-              className="btn-secondary btn-sm"
-              onClick={handleReset}
-              style={{ width: "100%" }}
-            >
-              Reset
-            </button>
           </div>
         </div>
 

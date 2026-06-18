@@ -442,8 +442,8 @@ interface ImageInputProps {
   transformOffsetX?: number;
   transformOffsetY?: number;
   transformScale?: number;
-  cardWidth?: number;
-  cardHeight?: number;
+  targetWidth?: number;
+  targetHeight?: number;
   imageType?: "background" | "foreground";
 }
 
@@ -459,8 +459,8 @@ export function ImageInput({
   transformOffsetX = 0,
   transformOffsetY = 0,
   transformScale = 1,
-  cardWidth = 240,
-  cardHeight = 336,
+  targetWidth = 240,
+  targetHeight = 336,
   imageType = "background",
 }: ImageInputProps) {
   // imageType is used to identify which image is being edited (background vs foreground)
@@ -473,6 +473,7 @@ export function ImageInput({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showImageEditor, setShowImageEditor] = useState(false);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string>(value);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleSelectedFile(file?: File | null) {
@@ -490,6 +491,8 @@ export function ImageInput({
       const dataUrl = await optimizeImageForUpload(file, maxUploadBytes);
       setFileName(file.name);
       setCopiedFileName(false);
+      // Store the original uploaded image for the editor
+      setOriginalImageUrl(dataUrl);
       onChange(dataUrl);
     } catch (uploadIssue) {
       setUploadError(
@@ -582,13 +585,17 @@ export function ImageInput({
     onClear();
   }
 
-  function handleTransformSave(
-    offsetX: number,
-    offsetY: number,
-    scale: number,
-  ) {
+  function handleTransformSave(data: {
+    dataUri: string;
+    offsetX: number;
+    offsetY: number;
+    scale: number;
+  }) {
     setShowImageEditor(false);
-    onTransformChange?.(offsetX, offsetY, scale);
+    // Update the image value with the cropped version
+    onChange(data.dataUri);
+    // Save the transform values so they persist when reopening
+    onTransformChange?.(data.offsetX, data.offsetY, data.scale);
   }
 
   return (
@@ -722,13 +729,14 @@ export function ImageInput({
       {showImageEditor && hasFile && (
         <ImageEditor
           imageUrl={value}
+          originalImageUrl={originalImageUrl}
           onClose={() => setShowImageEditor(false)}
           onSave={handleTransformSave}
           initialOffsetX={transformOffsetX}
           initialOffsetY={transformOffsetY}
           initialScale={transformScale}
-          cardWidth={cardWidth}
-          cardHeight={cardHeight}
+          targetWidth={targetWidth}
+          targetHeight={targetHeight}
         />
       )}
     </div>

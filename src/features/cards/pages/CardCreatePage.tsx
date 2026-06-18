@@ -571,8 +571,8 @@ export default function CardCreatePage() {
                     setValue("backgroundImage", "", { shouldValidate: true })
                   }
                   error={errors.backgroundImage?.message}
-                  cardWidth={240}
-                  cardHeight={336}
+                  targetWidth={240}
+                  targetHeight={336}
                   imageType="background"
                   transformOffsetX={bgTransformX}
                   transformOffsetY={bgTransformY}
@@ -608,8 +608,8 @@ export default function CardCreatePage() {
                     setValue("foregroundImage", "", { shouldValidate: true })
                   }
                   error={errors.foregroundImage?.message}
-                  cardWidth={120}
-                  cardHeight={120}
+                  targetWidth={120}
+                  targetHeight={120}
                   imageType="foreground"
                   transformOffsetX={fgTransformX}
                   transformOffsetY={fgTransformY}

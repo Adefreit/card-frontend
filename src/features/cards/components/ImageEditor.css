@@ -1,5 +1,5 @@
 .image-editor-dialog {
-  width: min(1200px, calc(100vw - 40px));
+  width: min(700px, calc(100vw - 40px));
   max-height: calc(100dvh - 40px);
 }
 
