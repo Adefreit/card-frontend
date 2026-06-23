@@ -1,7 +1,7 @@
 import { apiClient } from "../../lib/http";
 import type { CardRecord } from "../cards/api";
 
-export interface AdminHealthResponse {
+export interface ApiHealthResponse {
   response: string;
   timestamp: string;
 }
@@ -89,8 +89,8 @@ function toParams(values: Record<string, unknown>) {
   return params;
 }
 
-export async function getAdminHealth() {
-  const { data } = await apiClient.get<AdminHealthResponse>("/v1/admin/health");
+export async function getApiHealth() {
+  const { data } = await apiClient.get<ApiHealthResponse>("/v1/debug");
   return data;
 }
 

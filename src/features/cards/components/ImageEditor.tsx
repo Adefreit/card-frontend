@@ -18,6 +18,7 @@ interface ImageEditorProps {
   initialScale?: number;
   targetWidth?: number;
   targetHeight?: number;
+  targetText?: string;
 }
 
 export function ImageEditor({
@@ -30,6 +31,7 @@ export function ImageEditor({
   initialScale = 1,
   targetWidth = 240,
   targetHeight = 336,
+  targetText = "Crop Area",
 }: ImageEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [offsetX, setOffsetX] = useState(initialOffsetX);
@@ -139,8 +141,8 @@ export function ImageEditor({
     // Draw label
     ctx.fillStyle = "#ff6b35";
     ctx.font = "12px sans-serif";
-    ctx.fillText("Card Area", cardLeft + 8, cardTop + 16);
-  }, [offsetX, offsetY, scale, targetWidth, targetHeight]);
+    ctx.fillText(targetText, cardLeft + 8, cardTop + 16);
+  }, [offsetX, offsetY, scale, targetWidth, targetHeight, targetText]);
 
   // Load image - use originalImageUrl if provided, otherwise use imageUrl
   useEffect(() => {
@@ -321,9 +323,7 @@ export function ImageEditor({
         style={{ overflowY: "auto" }}
       >
         <div className="modal-header">
-          <h3 className="modal-title">
-            Image Position & Zoom (Work in Progress)
-          </h3>
+          <h3 className="modal-title">Crop Image</h3>
           <button
             type="button"
             className="modal-close-btn"
@@ -357,8 +357,8 @@ export function ImageEditor({
                 }}
               >
                 <p style={{ margin: 0 }}>
-                  <strong>Drag</strong> to reposition • <strong>Scroll</strong>{" "}
-                  to zoom
+                  <strong>Pan / Zoom</strong> the image. Only the portion within
+                  the cropping area will be saved.
                 </p>
                 <button
                   type="button"

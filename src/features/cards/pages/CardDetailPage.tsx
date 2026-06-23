@@ -786,7 +786,7 @@ export default function CardDetailPage() {
     }
 
     triggerPreview(false);
-  }, [data, previewSide]);
+  }, [data, previewSide, triggerPreview]);
 
   useEffect(() => {
     return () => {
@@ -1547,7 +1547,7 @@ export default function CardDetailPage() {
                                 disabled={hasImmutableContentLock}
                                 targetWidth={240}
                                 targetHeight={336}
-                                imageType="background"
+                                targetText="Background Crop Area"
                                 transformOffsetX={bgTransformX}
                                 transformOffsetY={bgTransformY}
                                 transformScale={bgTransformScale}
@@ -1605,7 +1605,7 @@ export default function CardDetailPage() {
                                 disabled={hasImmutableContentLock}
                                 targetWidth={100}
                                 targetHeight={100}
-                                imageType="foreground"
+                                targetText="Logo Crop Area"
                                 transformOffsetX={fgTransformX}
                                 transformOffsetY={fgTransformY}
                                 transformScale={fgTransformScale}

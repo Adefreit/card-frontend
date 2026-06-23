@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getAdminHealth } from "../api";
+import { getApiHealth } from "../api";
 
 export default function AdminDashboardPage() {
   const healthQuery = useQuery({
     queryKey: ["admin", "health"],
-    queryFn: getAdminHealth,
+    queryFn: getApiHealth,
     retry: 1,
   });
 

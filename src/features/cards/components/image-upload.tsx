@@ -444,7 +444,7 @@ interface ImageInputProps {
   transformScale?: number;
   targetWidth?: number;
   targetHeight?: number;
-  imageType?: "background" | "foreground";
+  targetText?: string;
 }
 
 export function ImageInput({
@@ -461,12 +461,8 @@ export function ImageInput({
   transformScale = 1,
   targetWidth = 240,
   targetHeight = 336,
-  imageType = "background",
+  targetText = "Crop Area",
 }: ImageInputProps) {
-  // imageType is used to identify which image is being edited (background vs foreground)
-  // This enables proper storage of transform values in customCSS per image type
-  void imageType;
-
   const [fileName, setFileName] = useState<string>("");
   const [copiedFileName, setCopiedFileName] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -737,6 +733,7 @@ export function ImageInput({
           initialScale={transformScale}
           targetWidth={targetWidth}
           targetHeight={targetHeight}
+          targetText={targetText}
         />
       )}
     </div>

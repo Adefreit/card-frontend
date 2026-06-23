@@ -573,7 +573,7 @@ export default function CardCreatePage() {
                   error={errors.backgroundImage?.message}
                   targetWidth={240}
                   targetHeight={336}
-                  imageType="background"
+                  targetText="Background Crop Area"
                   transformOffsetX={bgTransformX}
                   transformOffsetY={bgTransformY}
                   transformScale={bgTransformScale}
@@ -610,7 +610,7 @@ export default function CardCreatePage() {
                   error={errors.foregroundImage?.message}
                   targetWidth={120}
                   targetHeight={120}
-                  imageType="foreground"
+                  targetText="Logo Crop Area"
                   transformOffsetX={fgTransformX}
                   transformOffsetY={fgTransformY}
                   transformScale={fgTransformScale}
