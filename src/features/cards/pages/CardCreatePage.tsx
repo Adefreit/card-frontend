@@ -314,12 +314,12 @@ export default function CardCreatePage() {
   const flavorTextValue = formValues.flavorText ?? "";
   const bannerColorValue = formValues.customCss?.bannerColor ?? "";
   const bannerForegroundValue = formValues.customCss?.bannerForeground ?? "";
-  const bgTransformX = watch("customCss.backgroundImageOffsetX") ?? 0;
-  const bgTransformY = watch("customCss.backgroundImageOffsetY") ?? 0;
-  const bgTransformScale = watch("customCss.backgroundImageScale") ?? 1;
-  const fgTransformX = watch("customCss.foregroundImageOffsetX") ?? 0;
-  const fgTransformY = watch("customCss.foregroundImageOffsetY") ?? 0;
-  const fgTransformScale = watch("customCss.foregroundImageScale") ?? 1;
+  const bgTransformX = formValues.customCss?.backgroundImageOffsetX ?? 0;
+  const bgTransformY = formValues.customCss?.backgroundImageOffsetY ?? 0;
+  const bgTransformScale = formValues.customCss?.backgroundImageScale ?? 1;
+  const fgTransformX = formValues.customCss?.foregroundImageOffsetX ?? 0;
+  const fgTransformY = formValues.customCss?.foregroundImageOffsetY ?? 0;
+  const fgTransformScale = formValues.customCss?.foregroundImageScale ?? 1;
   const totalUploadedImageBytes =
     estimateUploadedImageBytes(bgValue) + estimateUploadedImageBytes(fgValue);
   const canRunActions =
