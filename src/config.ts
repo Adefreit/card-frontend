@@ -2,6 +2,9 @@
  * Configuration Settings
  */
 export const config = {
+  UPLOADS: {
+    MAX_UPLOAD_SIZE: 3 * 1024 * 1024,
+  },
   CARDS: {
     DEFAULT_PREVIEW_DPI: 150,
     DEFAULT_PROOF_DPI: 300,

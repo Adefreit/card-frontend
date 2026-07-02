@@ -1,9 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useRef, useState } from "react";
 import { ImageEditor } from "./ImageEditor";
+import { config } from "../../../config";
+import {
+  getImageDisplayName as sharedGetImageDisplayName,
+  optimizeImageForUpload as sharedOptimizeImageForUpload,
+} from "../components/image-processing";
 
 // #region Constants and types
-export const MAX_TOTAL_UPLOAD_BYTES = 3 * 1024 * 1024;
 
 interface ParsedDataUrl {
   mimeType: string;
@@ -281,34 +285,6 @@ async function optimizeImageValueForPreview(value: string, maxBytes: number) {
 // #endregion
 
 // #region Display helpers
-function getImageDisplayName(value: string): string {
-  if (!value) {
-    return "No file uploaded";
-  }
-
-  if (value.startsWith("data:")) {
-    const parsed = parseDataUrl(value);
-    if (!parsed) {
-      return "Uploaded image";
-    }
-
-    const extension = parsed.mimeType.split("/")[1]?.toLowerCase() || "file";
-    return `uploaded-image.${extension}`;
-  }
-
-  if (value.startsWith("http://") || value.startsWith("https://")) {
-    try {
-      const url = new URL(value);
-      const name = url.pathname.split("/").filter(Boolean).pop();
-      return name ? decodeURIComponent(name) : "remote-image";
-    } catch {
-      return "remote-image";
-    }
-  }
-
-  return "Uploaded image";
-}
-
 export function estimateUploadedImageBytes(value: string) {
   const parsed = parseDataUrl(value);
   if (!parsed) {
@@ -342,14 +318,14 @@ export function getPreviewImageBudget(value: string, otherValue: string) {
   const otherUploadedBytes = estimateUploadedImageBytes(otherValue);
 
   if (otherUploadedBytes > 0) {
-    return Math.max(0, MAX_TOTAL_UPLOAD_BYTES - otherUploadedBytes);
+    return Math.max(0, config.UPLOADS.MAX_UPLOAD_SIZE - otherUploadedBytes);
   }
 
   if (value && otherValue) {
-    return Math.floor(MAX_TOTAL_UPLOAD_BYTES / 2);
+    return Math.floor(config.UPLOADS.MAX_UPLOAD_SIZE / 2);
   }
 
-  return MAX_TOTAL_UPLOAD_BYTES;
+  return config.UPLOADS.MAX_UPLOAD_SIZE;
 }
 
 export function buildImagePayload(value: string, prefix: ImagePayloadPrefix) {
@@ -484,7 +460,7 @@ export function ImageInput({
     setUploadError(null);
 
     try {
-      const dataUrl = await optimizeImageForUpload(file, maxUploadBytes);
+      const dataUrl = await sharedOptimizeImageForUpload(file, maxUploadBytes);
       setFileName(file.name);
       setCopiedFileName(false);
       // Store the original uploaded image for the editor
@@ -541,7 +517,7 @@ export function ImageInput({
     await handleSelectedFile(e.dataTransfer.files?.[0]);
   }
 
-  const currentDisplayName = fileName || getImageDisplayName(value);
+  const currentDisplayName = fileName || sharedGetImageDisplayName(value);
   const hasFile = Boolean(value);
 
   async function handleCopyFileName() {
@@ -728,6 +704,7 @@ export function ImageInput({
           originalImageUrl={originalImageUrl}
           onClose={() => setShowImageEditor(false)}
           onSave={handleTransformSave}
+          maxUploadBytes={maxUploadBytes}
           initialOffsetX={transformOffsetX}
           initialOffsetY={transformOffsetY}
           initialScale={transformScale}

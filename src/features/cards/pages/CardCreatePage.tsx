@@ -15,11 +15,11 @@ import {
   buildCardImagePayloads,
   buildCardPreviewImagePayloads,
   estimateUploadedImageBytes,
-  ImageInput,
-  MAX_TOTAL_UPLOAD_BYTES,
-} from "../components/image-upload";
+} from "../components/image-processing";
+import { ImageInput } from "../components/image-upload";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { RenderedCard } from "../../../components/RenderedCard";
+import { config } from "../../../config";
 
 // #region Validation
 // Allow regular URLs, data URLs (file uploads), and blob URLs
@@ -62,7 +62,7 @@ const cardCreateSchema = z
     (value) =>
       estimateUploadedImageBytes(value.backgroundImage) +
         estimateUploadedImageBytes(value.foregroundImage) <=
-      MAX_TOTAL_UPLOAD_BYTES,
+      config.UPLOADS.MAX_UPLOAD_SIZE,
     {
       message: "Uploaded images must total 3 MB or less.",
       path: ["foregroundImage"],
@@ -327,7 +327,7 @@ export default function CardCreatePage() {
     titleValue.trim().length > 0 &&
     subtitleValue.trim().length > 0 &&
     getFlavorMarkupPlainText(flavorTextValue).length > 0 &&
-    totalUploadedImageBytes <= MAX_TOTAL_UPLOAD_BYTES;
+    totalUploadedImageBytes <= config.UPLOADS.MAX_UPLOAD_SIZE;
 
   return (
     <div className="page-stack">
@@ -554,7 +554,7 @@ export default function CardCreatePage() {
                   value={bgValue}
                   maxUploadBytes={Math.max(
                     0,
-                    MAX_TOTAL_UPLOAD_BYTES -
+                    config.UPLOADS.MAX_UPLOAD_SIZE -
                       estimateUploadedImageBytes(fgValue),
                   )}
                   onChange={(url) => {
@@ -591,7 +591,7 @@ export default function CardCreatePage() {
                   value={fgValue}
                   maxUploadBytes={Math.max(
                     0,
-                    MAX_TOTAL_UPLOAD_BYTES -
+                    config.UPLOADS.MAX_UPLOAD_SIZE -
                       estimateUploadedImageBytes(bgValue),
                   )}
                   onChange={(url) => {

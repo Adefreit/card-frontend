@@ -31,9 +31,8 @@ import {
   buildCardImagePayloads,
   buildCardPreviewImagePayloads,
   estimateUploadedImageBytes,
-  ImageInput,
-  MAX_TOTAL_UPLOAD_BYTES,
-} from "../components/image-upload";
+} from "../components/image-processing";
+import { ImageInput } from "../components/image-upload";
 import { XPBar } from "../components/XPBar";
 import { RenderedCard } from "../../../components/RenderedCard";
 import { useAuth } from "../../auth/auth-context";
@@ -182,7 +181,7 @@ const cardUpdateSchema = z
     (value) =>
       estimateUploadedImageBytes(value.backgroundImage) +
         estimateUploadedImageBytes(value.foregroundImage) <=
-      MAX_TOTAL_UPLOAD_BYTES,
+      config.UPLOADS.MAX_UPLOAD_SIZE,
     {
       message: "Uploaded images must total 3 MB or less.",
       path: ["foregroundImage"],
@@ -927,7 +926,7 @@ export default function CardDetailPage() {
     titleValue.trim().length > 0 &&
     subtitleValue.trim().length > 0 &&
     getFlavorMarkupPlainText(flavorTextValue).length > 0 &&
-    totalUploadedImageBytes <= MAX_TOTAL_UPLOAD_BYTES;
+    totalUploadedImageBytes <= config.UPLOADS.MAX_UPLOAD_SIZE;
   const isMintedCard = Boolean(data?.minted);
   const isAccountSubscribed = useMemo(
     () =>
@@ -1536,7 +1535,7 @@ export default function CardDetailPage() {
                                 value={bgValue}
                                 maxUploadBytes={Math.max(
                                   0,
-                                  MAX_TOTAL_UPLOAD_BYTES -
+                                  config.UPLOADS.MAX_UPLOAD_SIZE -
                                     estimateUploadedImageBytes(fgValue),
                                 )}
                                 onChange={(url) => {
@@ -1594,7 +1593,7 @@ export default function CardDetailPage() {
                                 value={fgValue}
                                 maxUploadBytes={Math.max(
                                   0,
-                                  MAX_TOTAL_UPLOAD_BYTES -
+                                  config.UPLOADS.MAX_UPLOAD_SIZE -
                                     estimateUploadedImageBytes(bgValue),
                                 )}
                                 onChange={(url) => {

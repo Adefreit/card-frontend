@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./ImageEditor.css";
+import { config } from "../../../config";
+import {
+  estimateUploadedImageBytes,
+  optimizeImageValueForUpload,
+} from "../components/image-processing";
 
 interface CroppedImageData {
   dataUri: string;
@@ -13,6 +18,7 @@ interface ImageEditorProps {
   originalImageUrl?: string;
   onClose: () => void;
   onSave: (data: CroppedImageData) => void;
+  maxUploadBytes?: number;
   initialOffsetX?: number;
   initialOffsetY?: number;
   initialScale?: number;
@@ -26,6 +32,7 @@ export function ImageEditor({
   originalImageUrl,
   onClose,
   onSave,
+  maxUploadBytes = config.UPLOADS.MAX_UPLOAD_SIZE,
   initialOffsetX = 0,
   initialOffsetY = 0,
   initialScale = 1,
@@ -223,7 +230,7 @@ export function ImageEditor({
     setScale(1);
   }
 
-  function handleSave() {
+  async function handleSave() {
     const image = imageRef.current;
     if (!image) return;
 
@@ -235,24 +242,20 @@ export function ImageEditor({
     const scaleX = (TARGET_WIDTH_INCHES * DPI) / (2.44 * 100);
     const scaleY = (TARGET_HEIGHT_INCHES * DPI) / (3.67 * 100);
 
-    // Calculate what target dimensions would be at full original image DPI
-    // Use the original image aspect ratio and dimensions to maximize quality
+    // Export canvas must always follow the requested crop aspect ratio.
+    // Scale it up to preserve detail while keeping the same target shape.
     const imageAspect = image.width / image.height;
     const targetAspect = targetWidth / targetHeight;
 
-    let scaledCardWidth: number;
-    let scaledCardHeight: number;
-
-    // Match the aspect ratio and use image dimensions to determine export size
-    if (imageAspect > targetAspect) {
-      // Image is wider: use image height as reference
-      scaledCardHeight = image.height;
-      scaledCardWidth = image.height * targetAspect;
-    } else {
-      // Image is taller: use image width as reference
-      scaledCardWidth = image.width;
-      scaledCardHeight = image.width / imageAspect;
-    }
+    const exportScale = Math.max(
+      1,
+      Math.min(image.width / targetWidth, image.height / targetHeight),
+    );
+    const scaledCardWidth = Math.max(1, Math.round(targetWidth * exportScale));
+    const scaledCardHeight = Math.max(
+      1,
+      Math.round(targetHeight * exportScale),
+    );
 
     // Create export canvas at the scaled dimensions
     const exportCanvas = document.createElement("canvas");
@@ -266,35 +269,37 @@ export function ImageEditor({
     exportCtx.translate(scaledCardWidth / 2, scaledCardHeight / 2);
 
     // Scale offsetX/offsetY from logical units to pixels for the export
-    const scalingFactor = scaledCardWidth / targetWidth;
+    const scalingFactor = exportScale;
     exportCtx.translate(
       offsetX * scaleX * scalingFactor,
       offsetY * scaleY * scalingFactor,
     );
 
-    // Calculate image dimensions at 1.0x zoom
+    // Calculate image dimensions at 1.0x zoom in logical target units
     let imageScaleWidth: number;
     let imageScaleHeight: number;
 
     if (imageAspect > targetAspect) {
       // Image is wider: scale by height to fill target
-      imageScaleHeight = scaledCardHeight;
-      imageScaleWidth = scaledCardHeight * imageAspect;
+      imageScaleHeight = targetHeight;
+      imageScaleWidth = targetHeight * imageAspect;
     } else {
       // Image is taller or square: scale by width to fill target
-      imageScaleWidth = scaledCardWidth;
-      imageScaleHeight = scaledCardWidth / imageAspect;
+      imageScaleWidth = targetWidth;
+      imageScaleHeight = targetWidth / imageAspect;
     }
 
-    // Apply user zoom to image dimensions
-    const scaledImageWidth = imageScaleWidth * scale;
-    const scaledImageHeight = imageScaleHeight * scale;
+    // Convert logical dimensions to export pixels, then apply user zoom.
+    const baseImageWidthPx = imageScaleWidth * exportScale;
+    const baseImageHeightPx = imageScaleHeight * exportScale;
+    const scaledImageWidth = baseImageWidthPx * scale;
+    const scaledImageHeight = baseImageHeightPx * scale;
 
     // Draw image
     exportCtx.drawImage(
       image,
-      -imageScaleWidth / 2,
-      -imageScaleHeight / 2,
+      -baseImageWidthPx / 2,
+      -baseImageHeightPx / 2,
       scaledImageWidth,
       scaledImageHeight,
     );
@@ -302,8 +307,13 @@ export function ImageEditor({
 
     // Convert to data URI and save with transforms
     const croppedImageDataUri = exportCanvas.toDataURL("image/png");
+    const croppedImageBytes = estimateUploadedImageBytes(croppedImageDataUri);
+    const optimizedImageDataUri =
+      croppedImageBytes > maxUploadBytes
+        ? await optimizeImageValueForUpload(croppedImageDataUri, maxUploadBytes)
+        : croppedImageDataUri;
     onSave({
-      dataUri: croppedImageDataUri,
+      dataUri: optimizedImageDataUri,
       offsetX,
       offsetY,
       scale,
