@@ -3,13 +3,15 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useAuth } from "../../auth/auth-context";
+import { config } from "../../../config";
 import {
   getCard,
   renderCardProof,
   renderCardProofPrinterFriendly,
 } from "../api";
 import MintCardModal from "../components/MintCardModal";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { RenderedCard } from "../../../components/RenderedCard";
+import LoadingSpinner from "../../../components/LoadingSpinner";
 import {
   type CardPackProductId,
   createIdempotencyKey,
@@ -119,7 +121,7 @@ export default function GetCardsPage() {
     string | null
   >(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [proofImageLoaded, setProofImageLoaded] = useState(false);
+
   const [mintAcknowledgment, setMintAcknowledgment] = useState("");
   const [showMintModal, setShowMintModal] = useState(false);
   const packDropdownRef = useRef<HTMLDetailsElement | null>(null);
@@ -218,7 +220,7 @@ export default function GetCardsPage() {
   const selectedPackOption =
     packOptions.find((option) => option.quantity === selectedQuantity) ??
     packOptions[0];
-  const canDownloadProofAssets = Boolean(blobUrl) && proofImageLoaded;
+  const canDownloadProofAssets = Boolean(blobUrl);
 
   useEffect(() => {
     if (proofQuery.data) {
@@ -250,12 +252,6 @@ export default function GetCardsPage() {
       }
     };
   }, []);
-
-  // Reset image loaded state when proof URL changes
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProofImageLoaded(false);
-  }, [blobUrl]);
 
   const purchasePackMutation = useMutation({
     mutationFn: ({
@@ -404,7 +400,6 @@ export default function GetCardsPage() {
             {blobUrl ? (
               <div
                 style={{
-                  position: "relative",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -412,40 +407,18 @@ export default function GetCardsPage() {
                   height: "100%",
                 }}
               >
-                <img
-                  className="proof-preview"
-                  src={blobUrl}
-                  alt={`Digital proof for ${cardTitle}`}
-                  onLoad={() => {
-                    setProofImageLoaded(true);
-                  }}
-                  onError={() => {
-                    setProofImageLoaded(false);
-                    setBlobUrl(null);
-                  }}
+                <RenderedCard
+                  imageUrl={blobUrl}
+                  isLoading={
+                    cardQuery.isLoading ||
+                    (shouldRenderMintedProof && proofQuery.isLoading)
+                  }
+                  dpi={
+                    isMintedCard
+                      ? config.CARDS.DEFAULT_PROOF_DPI
+                      : config.CARDS.DEFAULT_PREVIEW_DPI
+                  }
                 />
-                {(cardQuery.isLoading ||
-                  (shouldRenderMintedProof && proofQuery.isLoading)) && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "rgba(255, 255, 255, 0.8)",
-                      borderRadius: "32px",
-                    }}
-                  >
-                    <LoadingSpinner
-                      label={
-                        isMintedCard
-                          ? "Rendering proof..."
-                          : "Loading preview..."
-                      }
-                    />
-                  </div>
-                )}
               </div>
             ) : (cardQuery.isLoading ||
                 (shouldRenderMintedProof && proofQuery.isLoading)) &&

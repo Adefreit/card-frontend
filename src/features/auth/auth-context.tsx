@@ -1,5 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import {
   apiClient,
@@ -146,54 +153,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storedSession.token ? getTokenPermissions(storedSession.token) : [],
   );
 
-  const clearSession = (reason?: "expired") => {
-    if (reason === "expired") {
-      authStorage.setAuthNotice("Your session expired. Please sign in again.");
-    }
+  const clearSession = useCallback(
+    (reason?: "expired") => {
+      if (reason === "expired") {
+        authStorage.setAuthNotice(
+          "Your session expired. Please sign in again.",
+        );
+      }
 
-    authStorage.clearToken();
-    authStorage.clearUserId();
-    authStorage.clearAccountSubscriptionUntil();
-    setToken(null);
-    setUserId(null);
-    setAccountSubscriptionUntil(null);
-    setUserPermissions([]);
-  };
-
-  const refreshAccountProfile = async (
-    tokenOverride?: string | null,
-    userIdOverride?: string | null,
-  ) => {
-    const activeToken = tokenOverride ?? token;
-    const activeUserId = userIdOverride ?? userId;
-    const jwtPermissions = activeToken ? getTokenPermissions(activeToken) : [];
-
-    if (!activeToken || !activeUserId) {
-      setAccountSubscriptionUntil(null);
-      setUserPermissions(jwtPermissions);
+      authStorage.clearToken();
+      authStorage.clearUserId();
       authStorage.clearAccountSubscriptionUntil();
-      return;
-    }
+      setToken(null);
+      setUserId(null);
+      setAccountSubscriptionUntil(null);
+      setUserPermissions([]);
+    },
+    [setToken, setUserId, setAccountSubscriptionUntil, setUserPermissions],
+  );
 
-    try {
-      const profile = await getCurrentUserProfile(activeUserId);
-      const nextSubscriptionUntil = profile.account_subscription_until ?? null;
-      const nextPermissions = Array.isArray(profile.permissions)
-        ? profile.permissions
-            .filter(
-              (permission): permission is string =>
-                typeof permission === "string",
-            )
-            .map((permission) => permission.toUpperCase())
-        : jwtPermissions;
+  const refreshAccountProfile = useCallback(
+    async (tokenOverride?: string | null, userIdOverride?: string | null) => {
+      const activeToken = tokenOverride ?? token;
+      const activeUserId = userIdOverride ?? userId;
+      const jwtPermissions = activeToken
+        ? getTokenPermissions(activeToken)
+        : [];
 
-      authStorage.setAccountSubscriptionUntil(nextSubscriptionUntil);
-      setAccountSubscriptionUntil(nextSubscriptionUntil);
-      setUserPermissions(nextPermissions);
-    } catch {
-      setUserPermissions(jwtPermissions);
-    }
-  };
+      if (!activeToken || !activeUserId) {
+        setAccountSubscriptionUntil(null);
+        setUserPermissions(jwtPermissions);
+        authStorage.clearAccountSubscriptionUntil();
+        return;
+      }
+
+      try {
+        const profile = await getCurrentUserProfile(activeUserId);
+        const nextSubscriptionUntil =
+          profile.account_subscription_until ?? null;
+        const nextPermissions = Array.isArray(profile.permissions)
+          ? profile.permissions
+              .filter(
+                (permission): permission is string =>
+                  typeof permission === "string",
+              )
+              .map((permission) => permission.toUpperCase())
+          : jwtPermissions;
+
+        authStorage.setAccountSubscriptionUntil(nextSubscriptionUntil);
+        setAccountSubscriptionUntil(nextSubscriptionUntil);
+        setUserPermissions(nextPermissions);
+      } catch {
+        setUserPermissions(jwtPermissions);
+      }
+    },
+    [token, userId, setAccountSubscriptionUntil, setUserPermissions],
+  );
 
   useEffect(() => {
     setTokenProvider(() => {
@@ -203,11 +218,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return token;
     });
-  }, [token]);
+  }, [token, clearSession]);
 
   useEffect(() => {
     setUnauthorizedHandler(() => clearSession("expired"));
-  }, []);
+  }, [clearSession]);
 
   useEffect(() => {
     if (!token) {
@@ -234,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [token]);
+  }, [token, clearSession]);
 
   useEffect(() => {
     if (!token || !userId) {
@@ -242,36 +257,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     void refreshAccountProfile(); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [token, userId]);
+  }, [token, userId, refreshAccountProfile]);
 
-  const login = async (payload: LoginRequest) => {
-    const { data } = await apiClient.post<LoginResponse>(
-      "/v1/users/login",
-      payload,
-    );
+  const login = useCallback(
+    async (payload: LoginRequest) => {
+      const { data } = await apiClient.post<LoginResponse>(
+        "/v1/users/login",
+        payload,
+      );
 
-    if (isTokenExpired(data.token)) {
-      clearSession("expired");
-      throw new Error("Your session expired. Please sign in again.");
-    }
+      if (isTokenExpired(data.token)) {
+        clearSession("expired");
+        throw new Error("Your session expired. Please sign in again.");
+      }
 
-    authStorage.setToken(data.token);
-    authStorage.setUserId(data.userID);
-    authStorage.setAccountSubscriptionUntil(
-      data.account_subscription_until ?? null,
-    );
-    setToken(data.token);
-    setUserId(data.userID);
-    setAccountSubscriptionUntil(data.account_subscription_until ?? null);
-    setUserPermissions(getTokenPermissions(data.token));
-    await refreshAccountProfile(data.token, data.userID);
-  };
+      authStorage.setToken(data.token);
+      authStorage.setUserId(data.userID);
+      authStorage.setAccountSubscriptionUntil(
+        data.account_subscription_until ?? null,
+      );
+      setToken(data.token);
+      setUserId(data.userID);
+      setAccountSubscriptionUntil(data.account_subscription_until ?? null);
+      setUserPermissions(getTokenPermissions(data.token));
+      await refreshAccountProfile(data.token, data.userID);
+    },
+    [
+      clearSession,
+      refreshAccountProfile,
+      setToken,
+      setUserId,
+      setAccountSubscriptionUntil,
+      setUserPermissions,
+    ],
+  );
 
-  const logout = () => {
+  const logout = useCallback(() => {
     clearSession();
-  };
+  }, [clearSession]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/preserve-manual-memoization
   const value = useMemo(
     () => ({
       token,
@@ -283,7 +307,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refreshAccountProfile,
     }),
-    [token, userId, accountSubscriptionUntil, userPermissions],
+    [
+      token,
+      userId,
+      accountSubscriptionUntil,
+      userPermissions,
+      login,
+      logout,
+      refreshAccountProfile,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

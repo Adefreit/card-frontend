@@ -326,13 +326,13 @@ export default function CardViewerPage() {
     // Reset UI state when card changes
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsFlipped(false);
-     
+
     setIsMenuOpen(false);
-     
+
     setIsContactSheetOpen(false);
-     
+
     setIsSwipeCueVisible(false);
-  }, [card?.id]);
+  }, [card]);
 
   useEffect(() => {
     if (!card || !isMintedCard || isFlipped) {

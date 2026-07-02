@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getCards } from "../cards/api";
+import { RenderedCard } from "../../components/RenderedCard";
 import { XPBar } from "../cards/components/XPBar";
 import { apiClient } from "../../lib/http";
 import { useAuth } from "../auth/auth-context";
@@ -17,6 +18,7 @@ import {
   type SubscriptionTypePricing,
 } from "../transactions/api";
 import PlanComparisonTable from "../subscription/components/PlanComparisonTable";
+import { config } from "../../config";
 
 const DASHBOARD_TUTORIAL_SEEN_KEY = "lp.dashboard.tutorialSeen";
 
@@ -831,30 +833,19 @@ export default function DashboardPage() {
                             className={`dash-card-stage${minted ? " dash-card-stage--minted" : ""}`}
                           >
                             <div className="dash-card-face">
-                              {previewImageUrl ? (
-                                <img
-                                  className="dash-card-render"
-                                  src={previewImageUrl}
-                                  alt={card.data.title}
-                                  onError={(e) => {
-                                    const target = e.currentTarget;
-                                    target.style.display = "none";
-                                    const sibling =
-                                      target.nextElementSibling as HTMLElement | null;
-                                    if (sibling) sibling.style.display = "flex";
-                                  }}
-                                />
-                              ) : null}
-                              <span
-                                className="dash-card-initial"
-                                style={
-                                  previewImageUrl
-                                    ? { display: "none" }
-                                    : undefined
+                              <RenderedCard
+                                imageUrl={previewImageUrl || null}
+                                dpi={
+                                  minted
+                                    ? config.CARDS.DEFAULT_PROOF_DPI
+                                    : config.CARDS.DEFAULT_PREVIEW_DPI
                                 }
-                              >
-                                {card.data.title?.[0]?.toUpperCase() ?? "?"}
-                              </span>
+                              />
+                              {!previewImageUrl && (
+                                <span className="dash-card-initial">
+                                  {card.data.title?.[0]?.toUpperCase() ?? "?"}
+                                </span>
+                              )}
                               {minted ? (
                                 <span className="card-tier-badge card-tier-badge--premium">
                                   ✦ Minted

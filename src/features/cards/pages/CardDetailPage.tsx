@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FieldErrors, useFieldArray, useForm } from "react-hook-form";
+import {
+  type FieldErrors,
+  useFieldArray,
+  useForm,
+  useWatch,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -29,8 +34,8 @@ import {
   ImageInput,
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
-import LoadingSpinner from "../components/LoadingSpinner";
 import { XPBar } from "../components/XPBar";
+import { RenderedCard } from "../../../components/RenderedCard";
 import { useAuth } from "../../auth/auth-context";
 import MintCardModal from "../components/MintCardModal";
 import {
@@ -40,6 +45,7 @@ import {
   getPricing,
   getTransactions,
 } from "../../transactions/api";
+import { config } from "../../../config";
 
 // #region Validation
 const imageFieldSchema = z
@@ -477,6 +483,10 @@ function mapSocialAccountsToNamedUrls(
     url,
   }));
 }
+
+function getCurrentTimeMs() {
+  return Date.now();
+}
 // #endregion
 
 // #region Dialogs
@@ -615,7 +625,6 @@ export default function CardDetailPage() {
     reset,
     getValues,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<CardUpdateValues>({
     resolver: zodResolver(cardUpdateSchema),
@@ -705,6 +714,61 @@ export default function CardDetailPage() {
     queryFn: getTransactions,
   });
 
+  const previewMutation = useMutation({
+    mutationFn: previewCard,
+    onSuccess: (imageBlob) => {
+      revokeObjectUrlIfNeeded(previewUrl);
+      const nextUrl = URL.createObjectURL(imageBlob);
+      setPreviewUrl(nextUrl);
+    },
+    onSettled: () => {
+      setIsManualPreviewing(false);
+    },
+  });
+
+  const resolvedCardId = data?.id ?? cardId ?? "";
+
+  const triggerPreview = useCallback(
+    async (isManual = true) => {
+      if (!data || !resolvedCardId) {
+        console.warn(
+          "[CardDetailPage] Preview skipped because card id is missing",
+          {
+            routeCardId: cardId,
+            loadedCardId: data?.id,
+            formCardId: getValues("id"),
+          },
+        );
+        return;
+      }
+
+      if (isManual) {
+        setIsManualPreviewing(true);
+      }
+
+      const values = getValues();
+      // Preview keeps both image slots on the shared optimized path.
+      const previewImagePayload = await buildCardPreviewImagePayloads({
+        backgroundImage: values.backgroundImage,
+        foregroundImage: values.foregroundImage,
+      });
+
+      previewMutation.mutate({
+        id: resolvedCardId,
+        templateId: values.templateId,
+        title: values.title,
+        subtitle: values.subtitle,
+        flavorText: values.flavorText,
+        side: previewSide,
+        contactInfo: normalizeContactInfo(values.contactInfo),
+        customCss: normalizeCustomCss(values.customCss),
+        premium: normalizePremiumUrls(values.premium.urlList),
+        ...previewImagePayload,
+      });
+    },
+    [data, resolvedCardId, cardId, getValues, previewSide, previewMutation],
+  );
+
   useEffect(() => {
     if (!data) {
       return;
@@ -778,6 +842,7 @@ export default function CardDetailPage() {
 
     const cachedFrontPreviewUrl = data.last_proof ?? data.last_render ?? null;
     if (previewSide === "front" && cachedFrontPreviewUrl) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPreviewUrl((previous) => {
         revokeObjectUrlIfNeeded(previous);
         return cachedFrontPreviewUrl;
@@ -832,72 +897,27 @@ export default function CardDetailPage() {
     },
   });
 
-  const previewMutation = useMutation({
-    mutationFn: previewCard,
-    onSuccess: (imageBlob) => {
-      revokeObjectUrlIfNeeded(previewUrl);
-      const nextUrl = URL.createObjectURL(imageBlob);
-      setPreviewUrl(nextUrl);
-    },
-    onSettled: () => {
-      setIsManualPreviewing(false);
-    },
-  });
-
-  const resolvedCardId = data?.id ?? cardId ?? "";
-
-  async function triggerPreview(isManual = true) {
-    if (!data || !resolvedCardId) {
-      console.warn(
-        "[CardDetailPage] Preview skipped because card id is missing",
-        {
-          routeCardId: cardId,
-          loadedCardId: data?.id,
-          formCardId: getValues("id"),
-        },
-      );
-      return;
-    }
-
-    if (isManual) {
-      setIsManualPreviewing(true);
-    }
-
-    const values = getValues();
-    // Preview keeps both image slots on the shared optimized path.
-    const previewImagePayload = await buildCardPreviewImagePayloads({
-      backgroundImage: values.backgroundImage,
-      foregroundImage: values.foregroundImage,
-    });
-
-    previewMutation.mutate({
-      id: resolvedCardId,
-      templateId: values.templateId,
-      title: values.title,
-      subtitle: values.subtitle,
-      flavorText: values.flavorText,
-      side: previewSide,
-      contactInfo: normalizeContactInfo(values.contactInfo),
-      customCss: normalizeCustomCss(values.customCss),
-      premium: normalizePremiumUrls(values.premium.urlList),
-      ...previewImagePayload,
-    });
-  }
-
-  const bgValue = watch("backgroundImage");
-  const fgValue = watch("foregroundImage");
-  const selectedTemplateId = watch("templateId");
-  const titleValue = watch("title");
-  const subtitleValue = watch("subtitle");
-  const flavorTextValue = watch("flavorText");
-  const bannerColorValue = watch("customCss.bannerColor");
-  const bannerForegroundValue = watch("customCss.bannerForeground");
-  const bgTransformX = watch("customCss.backgroundImageOffsetX") ?? 0;
-  const bgTransformY = watch("customCss.backgroundImageOffsetY") ?? 0;
-  const bgTransformScale = watch("customCss.backgroundImageScale") ?? 1;
-  const fgTransformX = watch("customCss.foregroundImageOffsetX") ?? 0;
-  const fgTransformY = watch("customCss.foregroundImageOffsetY") ?? 0;
-  const fgTransformScale = watch("customCss.foregroundImageScale") ?? 1;
+  const formValues = useWatch({ control });
+  const bgValue = formValues.backgroundImage ?? "";
+  const fgValue = formValues.foregroundImage ?? "";
+  const selectedTemplateId = formValues.templateId ?? "";
+  const titleValue = formValues.title ?? "";
+  const subtitleValue = formValues.subtitle ?? "";
+  const flavorTextValue = formValues.flavorText ?? "";
+  const bannerColorValue = formValues.customCss?.bannerColor ?? "";
+  const bannerForegroundValue = formValues.customCss?.bannerForeground ?? "";
+  const bgTransformX = (formValues.customCss?.backgroundImageOffsetX ??
+    0) as number;
+  const bgTransformY = (formValues.customCss?.backgroundImageOffsetY ??
+    0) as number;
+  const bgTransformScale = (formValues.customCss?.backgroundImageScale ??
+    1) as number;
+  const fgTransformX = (formValues.customCss?.foregroundImageOffsetX ??
+    0) as number;
+  const fgTransformY = (formValues.customCss?.foregroundImageOffsetY ??
+    0) as number;
+  const fgTransformScale = (formValues.customCss?.foregroundImageScale ??
+    1) as number;
   const totalUploadedImageBytes =
     estimateUploadedImageBytes(bgValue) + estimateUploadedImageBytes(fgValue);
   const selectedTemplateName =
@@ -909,9 +929,13 @@ export default function CardDetailPage() {
     getFlavorMarkupPlainText(flavorTextValue).length > 0 &&
     totalUploadedImageBytes <= MAX_TOTAL_UPLOAD_BYTES;
   const isMintedCard = Boolean(data?.minted);
-  const isAccountSubscribed = Boolean(
-    accountSubscriptionUntil &&
-    new Date(accountSubscriptionUntil).getTime() > Date.now(),
+  const isAccountSubscribed = useMemo(
+    () =>
+      Boolean(
+        accountSubscriptionUntil &&
+        new Date(accountSubscriptionUntil).getTime() > getCurrentTimeMs(),
+      ),
+    [accountSubscriptionUntil],
   );
   const monthlyMintAllowance = isAccountSubscribed
     ? (pricingQuery.data?.subscriptionTypes[0]?.monthlyMintLimit ?? 2)
@@ -959,6 +983,7 @@ export default function CardDetailPage() {
 
   useEffect(() => {
     if (isMintedCard && activeTab === "general") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab("contact");
     }
   }, [isMintedCard, activeTab]);
@@ -2131,84 +2156,40 @@ export default function CardDetailPage() {
               </p>
             ) : null}
 
-            {previewUrl ? (
-              <>
-                <div
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <img
-                    src={previewUrl}
-                    alt="Card preview"
-                    className="create-preview-image"
-                  />
-                  {previewMutation.isPending && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: "rgba(255, 255, 255, 0.8)",
-                        borderRadius: "32px",
-                      }}
-                    >
-                      <LoadingSpinner label="Generating preview..." />
-                    </div>
-                  )}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+              }}
+            >
+              <RenderedCard
+                imageUrl={previewUrl}
+                isLoading={previewMutation.isPending}
+                dpi={
+                  isMintedCard
+                    ? config.CARDS.DEFAULT_PROOF_DPI
+                    : config.CARDS.DEFAULT_PREVIEW_DPI
+                }
+              />
+              {data.xpInfo && (
+                <div style={{ marginTop: "0.5rem", width: "100%" }}>
+                  <XPBar xpInfo={data.xpInfo} minted={isMintedCard} />
                 </div>
-                {data.xpInfo && (
-                  <div style={{ marginTop: "0.5rem" }}>
-                    <XPBar xpInfo={data.xpInfo} minted={isMintedCard} />
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className={
-                    isMintedCard
-                      ? "btn-secondary"
-                      : "btn-gold dash-subscribe-cta"
-                  }
-                  onClick={() =>
-                    navigate(`/app/cards/${resolvedCardId}/get-cards`)
-                  }
-                  style={{ marginTop: "1rem", width: "100%" }}
-                >
-                  {isMintedCard ? "Get Cards" : "Activate This Card"}
-                </button>
-                <div className="create-preview-bleed-note" role="note">
-                  <center>
-                    <strong>How to Interpret the Guide Lines</strong>
-                  </center>
-                  <span>
-                    <b>TRIM EDGE</b> - This is where the card will be
-                    approximately cut during manufacturing. <br />
-                    <br />
-                    <b>MARGIN</b> - We automatically keep details like text and
-                    logos within so they look centered and at their best.
-                    <br />
-                    <br />
-                    These guides are only for planning purposes and will not
-                    appear on the final rendered or printed card.
-                  </span>
-                </div>
-              </>
-            ) : previewMutation.isPending ? (
-              <LoadingSpinner label="Generating preview..." />
-            ) : (
-              <div className="create-preview-placeholder">
-                <p>
-                  {isMintedCard
-                    ? `No stored preview is available for the card ${previewSide}.`
-                    : `Update fields and click Refresh to render the card ${previewSide}.`}
-                </p>
-              </div>
-            )}
+              )}
+              <button
+                type="button"
+                className={
+                  isMintedCard ? "btn-secondary" : "btn-gold dash-subscribe-cta"
+                }
+                onClick={() =>
+                  navigate(`/app/cards/${resolvedCardId}/get-cards`)
+                }
+                style={{ marginTop: "1rem", width: "100%" }}
+              >
+                {isMintedCard ? "Get Cards" : "Activate This Card"}
+              </button>
+            </div>
           </aside>
         </div>
       ) : null}

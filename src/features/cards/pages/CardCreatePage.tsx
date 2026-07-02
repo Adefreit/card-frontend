@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,7 +18,8 @@ import {
   ImageInput,
   MAX_TOTAL_UPLOAD_BYTES,
 } from "../components/image-upload";
-import LoadingSpinner from "../components/LoadingSpinner";
+import LoadingSpinner from "../../../components/LoadingSpinner";
+import { RenderedCard } from "../../../components/RenderedCard";
 
 // #region Validation
 // Allow regular URLs, data URLs (file uploads), and blob URLs
@@ -187,12 +188,12 @@ export default function CardCreatePage() {
   });
 
   const {
+    control,
     register,
     handleSubmit,
     getValues,
     setValue,
     trigger,
-    watch,
     formState: { errors },
   } = useForm<CardCreateValues>({
     resolver: zodResolver(cardCreateSchema),
@@ -301,17 +302,18 @@ export default function CardCreatePage() {
     });
   }
 
-  const bgValue = watch("backgroundImage");
-  const fgValue = watch("foregroundImage");
-  const selectedTemplateId = watch("templateId");
+  const formValues = useWatch({ control });
+  const bgValue = formValues.backgroundImage ?? "";
+  const fgValue = formValues.foregroundImage ?? "";
+  const selectedTemplateId = formValues.templateId ?? "";
   const selectedTemplateName =
     templates?.find((template) => template.id === selectedTemplateId)?.name ||
     "Template";
-  const titleValue = watch("title");
-  const subtitleValue = watch("subtitle");
-  const flavorTextValue = watch("flavorText");
-  const bannerColorValue = watch("customCss.bannerColor");
-  const bannerForegroundValue = watch("customCss.bannerForeground");
+  const titleValue = formValues.title ?? "";
+  const subtitleValue = formValues.subtitle ?? "";
+  const flavorTextValue = formValues.flavorText ?? "";
+  const bannerColorValue = formValues.customCss?.bannerColor ?? "";
+  const bannerForegroundValue = formValues.customCss?.bannerForeground ?? "";
   const bgTransformX = watch("customCss.backgroundImageOffsetX") ?? 0;
   const bgTransformY = watch("customCss.backgroundImageOffsetY") ?? 0;
   const bgTransformScale = watch("customCss.backgroundImageScale") ?? 1;
@@ -674,34 +676,11 @@ export default function CardCreatePage() {
 
           {previewUrl ? (
             <>
-              <div
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <img
-                  src={previewUrl}
-                  alt="Card preview"
-                  className="create-preview-image"
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <RenderedCard
+                  imageUrl={previewUrl}
+                  isLoading={previewMutation.isPending}
                 />
-                {previewMutation.isPending && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "rgba(255, 255, 255, 0.8)",
-                      borderRadius: "32px",
-                    }}
-                  >
-                    <LoadingSpinner label="Generating preview..." />
-                  </div>
-                )}
               </div>
               <p className="create-preview-bleed-note">
                 The green line is where the card will be cut. The red line is

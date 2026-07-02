@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getCards } from "../api";
-import LoadingSpinner from "../components/LoadingSpinner";
+import LoadingSpinner from "../../../components/LoadingSpinner";
 
 export default function CardsPage() {
   const { data, isLoading, isError } = useQuery({
