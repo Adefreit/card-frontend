@@ -14,6 +14,7 @@ import {
   getAdminUserPermissions,
   grantAdminUserPermission,
   mintAdminCard,
+  repairAdminCard,
   revokeAdminUserPermission,
   unmintAdminCard,
   type AdminCardArtifactType,
@@ -152,15 +153,13 @@ export default function AdminUserDetailPage() {
   });
 
   const cardActionMutation = useMutation({
-    mutationFn: ({
-      cardId,
-      action,
-    }: {
-      cardId: string;
-      action: "mint" | "unmint";
-    }) => {
+    mutationFn: ({ cardId, action }: CardConfirmAction) => {
       if (action === "mint") {
         return mintAdminCard(cardId);
+      }
+
+      if (action === "repair") {
+        return repairAdminCard(cardId);
       }
 
       return unmintAdminCard(cardId);

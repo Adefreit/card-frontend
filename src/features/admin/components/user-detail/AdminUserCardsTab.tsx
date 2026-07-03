@@ -24,6 +24,13 @@ export default function AdminUserCardsTab({ cards }: AdminUserCardsTabProps) {
     return <p className="dash-loading">No cards found for this user.</p>;
   }
 
+  const actionLabel =
+    cardConfirmAction?.action === "mint"
+      ? "Mint"
+      : cardConfirmAction?.action === "unmint"
+        ? "Unmint"
+        : "Repair";
+
   return (
     <div className="admin-table-wrap admin-tab-panel">
       <table className="admin-table">
@@ -76,37 +83,56 @@ export default function AdminUserCardsTab({ cards }: AdminUserCardsTabProps) {
                     <button
                       type="button"
                       className="admin-icon-btn"
+                      onClick={() =>
+                        onRequestCardAction({
+                          cardId: card.id,
+                          action: "repair",
+                        })
+                      }
+                      disabled={isCardActionPending}
+                      title="Repair card"
+                      aria-label="Repair card"
+                    >
+                      🔧
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-icon-btn"
                       onClick={() => onDownloadArtifact(card.id, "preview")}
                       disabled={isArtifactPending}
                       title="Download preview"
                     >
                       👁️
                     </button>
-                    <button
-                      type="button"
-                      className="admin-icon-btn"
-                      onClick={() => onDownloadArtifact(card.id, "proof")}
-                      disabled={isArtifactPending}
-                      title="Download proof"
-                    >
-                      📄
-                    </button>
+                    {minted ? (
+                      <button
+                        type="button"
+                        className="admin-icon-btn"
+                        onClick={() => onDownloadArtifact(card.id, "proof")}
+                        disabled={isArtifactPending}
+                        title="Download proof"
+                      >
+                        📄
+                      </button>
+                    ) : null}
                   </div>
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    className="btn-secondary btn-xs"
-                    onClick={() =>
-                      onRequestCardAction({
-                        cardId: card.id,
-                        action: minted ? "unmint" : "mint",
-                      })
-                    }
-                    disabled={isCardActionPending}
-                  >
-                    {minted ? "Unmint" : "Mint"}
-                  </button>
+                  <div className="admin-icon-buttons">
+                    <button
+                      type="button"
+                      className="btn-secondary btn-xs"
+                      onClick={() =>
+                        onRequestCardAction({
+                          cardId: card.id,
+                          action: minted ? "unmint" : "mint",
+                        })
+                      }
+                      disabled={isCardActionPending}
+                    >
+                      {minted ? "Unmint" : "Mint"}
+                    </button>
+                  </div>
                 </td>
               </tr>
             );
@@ -118,10 +144,7 @@ export default function AdminUserCardsTab({ cards }: AdminUserCardsTabProps) {
         <div className="admin-modal-overlay">
           <div className="admin-modal admin-modal--small">
             <div className="admin-modal-header">
-              <h3>
-                Confirm{" "}
-                {cardConfirmAction.action === "mint" ? "Mint" : "Unmint"}
-              </h3>
+              <h3>Confirm {actionLabel}</h3>
               <button
                 type="button"
                 className="admin-modal-close"
@@ -136,6 +159,11 @@ export default function AdminUserCardsTab({ cards }: AdminUserCardsTabProps) {
                 <p>
                   Minting this card will regenerate the proof artifact and mark
                   the card as minted. This is a permanent state change.
+                </p>
+              ) : cardConfirmAction.action === "repair" ? (
+                <p>
+                  Repairing this card will call the repair endpoint and attempt
+                  to rebuild card artifacts for the current card state.
                 </p>
               ) : (
                 <p>
@@ -159,14 +187,16 @@ export default function AdminUserCardsTab({ cards }: AdminUserCardsTabProps) {
                 className={
                   cardConfirmAction.action === "mint"
                     ? "btn-primary"
-                    : "btn-danger"
+                    : cardConfirmAction.action === "unmint"
+                      ? "btn-danger"
+                      : "btn-secondary"
                 }
                 onClick={onConfirmCardAction}
                 disabled={isCardActionPending}
               >
                 {isCardActionPending
                   ? "Processing..."
-                  : `Confirm ${cardConfirmAction.action === "mint" ? "Mint" : "Unmint"}`}
+                  : `Confirm ${actionLabel}`}
               </button>
             </div>
           </div>

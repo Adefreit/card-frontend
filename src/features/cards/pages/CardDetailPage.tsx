@@ -190,7 +190,6 @@ const cardUpdateSchema = z
 
 type CardUpdateValues = z.infer<typeof cardUpdateSchema>;
 
-type CardPreviewSide = "front" | "back";
 type CardDetailTab = "general" | "contact" | "premium";
 type CardUpdateFieldErrors = FieldErrors<CardUpdateValues>;
 // #endregion
@@ -584,7 +583,6 @@ export default function CardDetailPage() {
     null,
   );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewSide, setPreviewSide] = useState<CardPreviewSide>("front");
   const [copiedId, setCopiedId] = useState<"card" | "template" | null>(null);
   const [isManualPreviewing, setIsManualPreviewing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -758,14 +756,14 @@ export default function CardDetailPage() {
         title: values.title,
         subtitle: values.subtitle,
         flavorText: values.flavorText,
-        side: previewSide,
+        side: "front",
         contactInfo: normalizeContactInfo(values.contactInfo),
         customCss: normalizeCustomCss(values.customCss),
         premium: normalizePremiumUrls(values.premium.urlList),
         ...previewImagePayload,
       });
     },
-    [data, resolvedCardId, cardId, getValues, previewSide, previewMutation],
+    [data, resolvedCardId, cardId, getValues, previewMutation],
   );
 
   useEffect(() => {
@@ -831,7 +829,7 @@ export default function CardDetailPage() {
       return;
     }
 
-    const previewKey = `${data.id}:${previewSide}`;
+    const previewKey = `${data.id}:front`;
 
     if (autoPreviewedPreviewKeyRef.current === previewKey) {
       return;
@@ -840,7 +838,7 @@ export default function CardDetailPage() {
     autoPreviewedPreviewKeyRef.current = previewKey;
 
     const cachedFrontPreviewUrl = data.last_proof ?? data.last_render ?? null;
-    if (previewSide === "front" && cachedFrontPreviewUrl) {
+    if (cachedFrontPreviewUrl) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPreviewUrl((previous) => {
         revokeObjectUrlIfNeeded(previous);
@@ -850,7 +848,7 @@ export default function CardDetailPage() {
     }
 
     triggerPreview(false);
-  }, [data, previewSide, triggerPreview]);
+  }, [data, triggerPreview]);
 
   useEffect(() => {
     return () => {
@@ -863,7 +861,6 @@ export default function CardDetailPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["card", cardId] });
       await queryClient.invalidateQueries({ queryKey: ["cards"] });
-      navigate("/app/dashboard", { replace: true });
     },
   });
 
@@ -1096,6 +1093,76 @@ export default function CardDetailPage() {
     deleteMutation.mutate(data.id);
   }
 
+  function buildUpdatePayload(
+    values: CardUpdateValues,
+  ): CardUpdatePayload | null {
+    if (!resolvedCardId) {
+      console.error(
+        "[CardDetailPage] Save blocked because card id is missing",
+        {
+          routeCardId: cardId,
+          loadedCardId: data?.id,
+          formCardId: values.id,
+        },
+      );
+      setSubmitErrorMessage(
+        "Card ID is missing. Reload the page and try again.",
+      );
+      return null;
+    }
+
+    const contactInfo = normalizeContactInfo(values.contactInfo);
+    const premium = normalizePremiumUrls(values.premium.urlList);
+
+    console.debug("[CardDetailPage] Saving card", {
+      routeCardId: cardId,
+      loadedCardId: data?.id,
+      formCardId: values.id,
+      resolvedCardId,
+    });
+
+    const updatePayload: CardUpdatePayload = {
+      id: resolvedCardId,
+      contactInfo,
+      premium,
+    };
+
+    if (!isMintedCard) {
+      const imagePayload = buildCardImagePayloads({
+        backgroundImage: values.backgroundImage,
+        foregroundImage: values.foregroundImage,
+      });
+
+      updatePayload.templateId = values.templateId;
+      updatePayload.title = values.title;
+      updatePayload.subtitle = values.subtitle;
+      updatePayload.flavorText = values.flavorText;
+      // Always include customCss in the payload
+      updatePayload.customCss = normalizeCustomCss(values.customCss);
+
+      Object.assign(updatePayload, imagePayload);
+    } else {
+      // Even for minted cards, always send customCss to ensure consistency
+      updatePayload.customCss = normalizeCustomCss(values.customCss);
+    }
+
+    return updatePayload;
+  }
+
+  const handleActivateCard = handleSubmit((values) => {
+    setSubmitErrorMessage(null);
+    const updatePayload = buildUpdatePayload(values);
+    if (!updatePayload) {
+      return;
+    }
+
+    updateMutation.mutate(updatePayload, {
+      onSuccess: () => {
+        navigate(`/app/cards/${resolvedCardId}/get-cards`);
+      },
+    });
+  }, handleInvalidSubmit);
+
   return (
     <div className="page-stack">
       {showUpgradeModal && (
@@ -1199,62 +1266,16 @@ export default function CardDetailPage() {
               className="stack"
               onSubmit={handleSubmit((values) => {
                 setSubmitErrorMessage(null);
-
-                if (!resolvedCardId) {
-                  console.error(
-                    "[CardDetailPage] Save blocked because card id is missing",
-                    {
-                      routeCardId: cardId,
-                      loadedCardId: data?.id,
-                      formCardId: values.id,
-                    },
-                  );
-                  setSubmitErrorMessage(
-                    "Card ID is missing. Reload the page and try again.",
-                  );
+                const updatePayload = buildUpdatePayload(values);
+                if (!updatePayload) {
                   return;
                 }
 
-                const contactInfo = normalizeContactInfo(values.contactInfo);
-                const premium = normalizePremiumUrls(values.premium.urlList);
-
-                console.debug("[CardDetailPage] Saving card", {
-                  routeCardId: cardId,
-                  loadedCardId: data?.id,
-                  formCardId: values.id,
-                  resolvedCardId,
+                updateMutation.mutate(updatePayload, {
+                  onSuccess: () => {
+                    navigate("/app/dashboard", { replace: true });
+                  },
                 });
-
-                const updatePayload: CardUpdatePayload = {
-                  id: resolvedCardId,
-                  contactInfo,
-                  premium,
-                };
-
-                if (!isMintedCard) {
-                  const imagePayload = buildCardImagePayloads({
-                    backgroundImage: values.backgroundImage,
-                    foregroundImage: values.foregroundImage,
-                  });
-
-                  updatePayload.templateId = values.templateId;
-                  updatePayload.title = values.title;
-                  updatePayload.subtitle = values.subtitle;
-                  updatePayload.flavorText = values.flavorText;
-                  // Always include customCss in the payload
-                  updatePayload.customCss = normalizeCustomCss(
-                    values.customCss,
-                  );
-
-                  Object.assign(updatePayload, imagePayload);
-                } else {
-                  // Even for minted cards, always send customCss to ensure consistency
-                  updatePayload.customCss = normalizeCustomCss(
-                    values.customCss,
-                  );
-                }
-
-                updateMutation.mutate(updatePayload);
               }, handleInvalidSubmit)}
             >
               <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
@@ -2112,30 +2133,8 @@ export default function CardDetailPage() {
 
           <aside className="create-preview-panel">
             <div className="create-preview-header">
-              <h3>{previewSide === "front" ? "Card Front" : "Card Back"}</h3>
+              <h3>Preview</h3>
               <div className="create-preview-controls">
-                <div
-                  className="preview-side-toggle"
-                  role="tablist"
-                  aria-label="Preview side"
-                >
-                  <button
-                    type="button"
-                    className={`preview-side-toggle__button${previewSide === "front" ? " is-active" : ""}`}
-                    onClick={() => setPreviewSide("front")}
-                    aria-pressed={previewSide === "front"}
-                  >
-                    Front
-                  </button>
-                  <button
-                    type="button"
-                    className={`preview-side-toggle__button${previewSide === "back" ? " is-active" : ""}`}
-                    onClick={() => setPreviewSide("back")}
-                    aria-pressed={previewSide === "back"}
-                  >
-                    Back
-                  </button>
-                </div>
                 {!isMintedCard ? (
                   <button
                     type="button"
@@ -2181,8 +2180,13 @@ export default function CardDetailPage() {
                 className={
                   isMintedCard ? "btn-secondary" : "btn-gold dash-subscribe-cta"
                 }
-                onClick={() =>
-                  navigate(`/app/cards/${resolvedCardId}/get-cards`)
+                onClick={
+                  isMintedCard
+                    ? () => navigate(`/app/cards/${resolvedCardId}/get-cards`)
+                    : handleActivateCard
+                }
+                disabled={
+                  updateMutation.isPending || (!isMintedCard && !canRunActions)
                 }
                 style={{ marginTop: "1rem", width: "100%" }}
               >

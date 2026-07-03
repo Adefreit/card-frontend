@@ -11,5 +11,5 @@ export type EmailConfirmAction =
 
 export type CardConfirmAction = {
   cardId: string;
-  action: "mint" | "unmint";
+  action: "mint" | "unmint" | "repair";
 };

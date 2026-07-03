@@ -197,6 +197,13 @@ export async function unmintAdminCard(cardId: string) {
   return data;
 }
 
+export async function repairAdminCard(cardId: string) {
+  const { data } = await apiClient.post<AdminCardActionResponse>(
+    `/v1/cards/repaid/${cardId}`,
+  );
+  return data;
+}
+
 export interface AdminOrderItem {
   id: string;
   create_time?: string;
