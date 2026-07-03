@@ -199,7 +199,7 @@ export async function unmintAdminCard(cardId: string) {
 
 export async function repairAdminCard(cardId: string) {
   const { data } = await apiClient.post<AdminCardActionResponse>(
-    `/v1/cards/repaid/${cardId}`,
+    `/v1/cards/repair/${cardId}`,
   );
   return data;
 }

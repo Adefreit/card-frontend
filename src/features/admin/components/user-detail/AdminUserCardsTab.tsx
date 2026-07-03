@@ -162,8 +162,8 @@ export default function AdminUserCardsTab({ cards }: AdminUserCardsTabProps) {
                 </p>
               ) : cardConfirmAction.action === "repair" ? (
                 <p>
-                  Repairing this card will call the repair endpoint and attempt
-                  to rebuild card artifacts for the current card state.
+                  Repairing this card will rebuild both the preview and proof
+                  images. This process may take a while.
                 </p>
               ) : (
                 <p>
