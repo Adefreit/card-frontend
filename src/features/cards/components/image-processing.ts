@@ -1,5 +1,6 @@
 import { config } from "../../../config";
 
+// #region Types
 export interface ParsedDataUrl {
   mimeType: string;
   base64: string;
@@ -11,7 +12,12 @@ export interface ImagePayloadValues {
 }
 
 export type ImagePayloadPrefix = "background" | "foreground";
+// #endregion
 
+// #region MIME and Data URL Helpers
+/**
+ * Tries to infer image MIME type from well-known base64 signatures.
+ */
 function inferMimeTypeFromBase64(value: string): string | null {
   if (!value) {
     return null;
@@ -36,6 +42,9 @@ function inferMimeTypeFromBase64(value: string): string | null {
   return null;
 }
 
+/**
+ * Keeps MIME metadata aligned with the actual encoded bytes when possible.
+ */
 function normalizeParsedDataUrl(parsed: ParsedDataUrl): ParsedDataUrl {
   const inferredMimeType = inferMimeTypeFromBase64(parsed.base64);
 
@@ -54,6 +63,9 @@ function normalizeParsedDataUrl(parsed: ParsedDataUrl): ParsedDataUrl {
   };
 }
 
+/**
+ * Parses a base64 data URL into MIME type and raw base64 payload.
+ */
 export function parseDataUrl(value: string): ParsedDataUrl | null {
   const match = /^data:([^;,]+);base64,(.+)$/s.exec(value);
   if (!match) {
@@ -65,12 +77,27 @@ export function parseDataUrl(value: string): ParsedDataUrl | null {
     base64: match[2],
   };
 }
+// #endregion
 
+// #region Utility Helpers
+/**
+ * Estimates byte length for a base64 payload by accounting for trailing padding.
+ */
 function base64ToByteLength(value: string) {
   const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
   return Math.floor((value.length * 3) / 4) - padding;
 }
 
+/**
+ * Extracts a file extension from a MIME type, with a safe fallback.
+ */
+function getExtensionFromMimeType(mimeType: string, fallback = "img") {
+  return mimeType.split("/")[1]?.toLowerCase() || fallback;
+}
+
+/**
+ * Normalizes parsed data URL values into the base64 payload shape expected by APIs.
+ */
 function toBase64Payload(parsed: ParsedDataUrl, prefix: ImagePayloadPrefix) {
   const normalized = normalizeParsedDataUrl(parsed);
 
@@ -80,10 +107,17 @@ function toBase64Payload(parsed: ParsedDataUrl, prefix: ImagePayloadPrefix) {
   };
 }
 
+/**
+ * Returns the preferred output MIME type order for optimization attempts.
+ * PNG is prioritized to preserve alpha transparency.
+ */
 function getPreferredMimeTypes() {
-  return ["image/jpeg"];
+  return ["image/png"];
 }
 
+/**
+ * Converts a Blob to a data URL string.
+ */
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -93,8 +127,25 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+/**
+ * Returns a valid 2D canvas context or throws a consistent processing error.
+ */
+function getCanvas2DContext(
+  canvas: HTMLCanvasElement,
+): CanvasRenderingContext2D {
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Failed to process the selected image.");
+  }
+
+  return context;
+}
+
+/**
+ * Builds a stable image file name from blob, URL, or unknown input sources.
+ */
 function getImageFileName(value: string, mimeType: string) {
-  const fallbackExtension = mimeType.split("/")[1]?.toLowerCase() || "img";
+  const fallbackExtension = getExtensionFromMimeType(mimeType);
 
   if (value.startsWith("blob:")) {
     return `preview-image.${fallbackExtension}`;
@@ -114,7 +165,12 @@ function getImageFileName(value: string, mimeType: string) {
 
   return `preview-image.${fallbackExtension}`;
 }
+// #endregion
 
+// #region Image Loading and Conversion
+/**
+ * Fetches an image URL and returns the response as a Blob.
+ */
 async function fetchImageForPreview(value: string) {
   const response = await fetch(value);
 
@@ -125,6 +181,9 @@ async function fetchImageForPreview(value: string) {
   return response.blob();
 }
 
+/**
+ * Loads an image file using an object URL and resolves when decoded.
+ */
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -144,6 +203,9 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
+/**
+ * Loads an image for canvas resizing using createImageBitmap when available.
+ */
 async function loadResizibleImage(
   file: File,
 ): Promise<{ image: CanvasImageSource; width: number; height: number }> {
@@ -171,6 +233,9 @@ async function loadResizibleImage(
   };
 }
 
+/**
+ * Encodes an HTML canvas into a Blob using target MIME type and optional quality.
+ */
 function canvasToBlob(
   canvas: HTMLCanvasElement,
   mimeType: string,
@@ -191,7 +256,12 @@ function canvasToBlob(
     );
   });
 }
+// #endregion
 
+// #region Optimization Pipeline
+/**
+ * Renders an image source to canvas and returns an encoded data URL.
+ */
 async function renderSourceToDataUrl(
   source: { image: CanvasImageSource; width: number; height: number },
   mimeType: string,
@@ -201,10 +271,7 @@ async function renderSourceToDataUrl(
   canvas.width = source.width;
   canvas.height = source.height;
 
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("Failed to process the selected image.");
-  }
+  const context = getCanvas2DContext(canvas);
 
   context.drawImage(
     source.image,
@@ -221,13 +288,10 @@ async function renderSourceToDataUrl(
   return blobToDataUrl(await canvasToBlob(canvas, mimeType, quality));
 }
 
+/**
+ * Optimizes an image for upload by scaling and re-encoding until size fits budget.
+ */
 export async function optimizeImageForUpload(file: File, maxBytes: number) {
-  if (maxBytes <= 0) {
-    throw new Error(
-      "Uploaded images must total 3 MB or less. Clear another image first.",
-    );
-  }
-
   const source = await loadResizibleImage(file);
 
   if (file.size <= maxBytes) {
@@ -262,10 +326,7 @@ export async function optimizeImageForUpload(file: File, maxBytes: number) {
     canvas.width = width;
     canvas.height = height;
 
-    const context = canvas.getContext("2d");
-    if (!context) {
-      throw new Error("Failed to process the selected image.");
-    }
+    const context = getCanvas2DContext(canvas);
 
     context.drawImage(
       source.image,
@@ -307,10 +368,13 @@ export async function optimizeImageForUpload(file: File, maxBytes: number) {
   }
 
   throw new Error(
-    "Unable to shrink the selected image enough to stay under the 3 MB total upload limit.",
+    "Unable to shrink the selected image enough to stay under upload limit.",
   );
 }
 
+/**
+ * Converts an image value into a File for optimization and upload workflows.
+ */
 async function valueToFile(value: string) {
   const parsed = parseDataUrl(value);
   if (parsed) {
@@ -319,7 +383,7 @@ async function valueToFile(value: string) {
     const blob = await response.blob();
     return new File(
       [blob],
-      `preview-image.${mimeType.split("/")[1] || "img"}`,
+      `preview-image.${getExtensionFromMimeType(mimeType)}`,
       {
         type: blob.type || mimeType,
       },
@@ -332,6 +396,9 @@ async function valueToFile(value: string) {
   });
 }
 
+/**
+ * Optimizes an image value by first resolving it to a File.
+ */
 export async function optimizeImageValueForUpload(
   value: string,
   maxBytes: number,
@@ -344,6 +411,9 @@ export async function optimizeImageValueForUpload(
   return optimizeImageForUpload(file, maxBytes);
 }
 
+/**
+ * Produces a parsed data URL for preview, optimizing remote values when needed.
+ */
 async function optimizeImageValueForPreview(value: string, maxBytes: number) {
   const parsed = parseDataUrl(value);
   if (parsed) {
@@ -360,7 +430,12 @@ async function optimizeImageValueForPreview(value: string, maxBytes: number) {
 
   return optimizedParsed;
 }
+// #endregion
 
+// #region Display, Budget, and Payload Builders
+/**
+ * Derives a user-friendly image display name from data URLs and remote URLs.
+ */
 export function getImageDisplayName(value: string): string {
   if (!value) {
     return "No file uploaded";
@@ -372,7 +447,7 @@ export function getImageDisplayName(value: string): string {
       return "Uploaded image";
     }
 
-    const extension = parsed.mimeType.split("/")[1]?.toLowerCase() || "file";
+    const extension = getExtensionFromMimeType(parsed.mimeType, "file");
     return `uploaded-image.${extension}`;
   }
 
@@ -389,6 +464,9 @@ export function getImageDisplayName(value: string): string {
   return "Uploaded image";
 }
 
+/**
+ * Estimates uploaded image size in bytes when a data URL value is provided.
+ */
 export function estimateUploadedImageBytes(value: string) {
   const parsed = parseDataUrl(value);
   if (!parsed) {
@@ -398,6 +476,9 @@ export function estimateUploadedImageBytes(value: string) {
   return base64ToByteLength(parsed.base64);
 }
 
+/**
+ * Creates either base64 payload fields or URL payload fields for a given image.
+ */
 function createImagePayload(
   value: string,
   prefix: ImagePayloadPrefix,
@@ -418,6 +499,9 @@ function createImagePayload(
   };
 }
 
+/**
+ * Calculates available preview optimization budget for one image given the other.
+ */
 export function getPreviewImageBudget(value: string, otherValue: string) {
   const otherUploadedBytes = estimateUploadedImageBytes(otherValue);
 
@@ -432,6 +516,9 @@ export function getPreviewImageBudget(value: string, otherValue: string) {
   return config.UPLOADS.MAX_UPLOAD_SIZE;
 }
 
+/**
+ * Builds payload fields for a card image value without preview optimization.
+ */
 export function buildImagePayload(value: string, prefix: ImagePayloadPrefix) {
   return createImagePayload(
     value,
@@ -441,6 +528,9 @@ export function buildImagePayload(value: string, prefix: ImagePayloadPrefix) {
   );
 }
 
+/**
+ * Builds payload fields for preview images with optimization and safe URL fallback.
+ */
 export function buildOptimizedPreviewImagePayload(
   value: string,
   prefix: ImagePayloadPrefix,
@@ -464,6 +554,9 @@ export function buildOptimizedPreviewImagePayload(
     });
 }
 
+/**
+ * Builds combined payload values for background and foreground card images.
+ */
 export function buildCardImagePayloads(values: ImagePayloadValues) {
   return {
     ...buildImagePayload(values.backgroundImage, "background"),
@@ -471,6 +564,9 @@ export function buildCardImagePayloads(values: ImagePayloadValues) {
   };
 }
 
+/**
+ * Builds optimized preview payload values for background and foreground images.
+ */
 export async function buildCardPreviewImagePayloads(
   values: ImagePayloadValues,
 ) {
@@ -496,3 +592,4 @@ export async function buildCardPreviewImagePayloads(
     )),
   };
 }
+// #endregion
