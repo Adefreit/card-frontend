@@ -251,10 +251,11 @@ export default function CardViewerPage() {
   const { id } = useParams();
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [cardRotationDeg, setCardRotationDeg] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isContactSheetOpen, setIsContactSheetOpen] = useState(false);
-  const [isSwipeCueVisible, setIsSwipeCueVisible] = useState(false);
+
+  const isFlipped = Math.abs(Math.round(cardRotationDeg / 180)) % 2 === 1;
 
   const cardQuery = useQuery({
     queryKey: ["public-card-viewer", id],
@@ -325,51 +326,52 @@ export default function CardViewerPage() {
 
     // Reset UI state when card changes
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsFlipped(false);
+    setCardRotationDeg(0);
 
     setIsMenuOpen(false);
 
     setIsContactSheetOpen(false);
-
-    setIsSwipeCueVisible(false);
   }, [card]);
 
-  useEffect(() => {
-    if (!card || !isMintedCard || isFlipped) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsSwipeCueVisible(false);
-      return undefined;
+  function flipBy(direction: "left" | "right") {
+    const delta = direction === "right" ? 180 : -180;
+    setCardRotationDeg((current) => current + delta);
+    setIsMenuOpen(false);
+  }
+
+  function flipToFront(preferredDirection: "left" | "right") {
+    if (!isFlipped) {
+      setIsMenuOpen(false);
+      return;
     }
 
-    if (typeof window !== "undefined") {
-      const prefersReducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
+    flipBy(preferredDirection);
+  }
 
-      if (prefersReducedMotion) {
-        return undefined;
-      }
+  function flipToBack(preferredDirection: "left" | "right") {
+    if (isFlipped) {
+      setIsMenuOpen(false);
+      return;
     }
 
-    setIsSwipeCueVisible(true);
+    flipBy(preferredDirection);
+  }
 
-    const timeoutId = window.setTimeout(() => {
-      setIsSwipeCueVisible(false);
-    }, 2400);
+  function handleFlipAction() {
+    if (isFlipped) {
+      flipToFront("right");
+      return;
+    }
 
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [card, isMintedCard, isFlipped]);
+    flipToBack("right");
+  }
 
-  function handleToggleFlip() {
-    setIsSwipeCueVisible(false);
-    setIsFlipped((current) => !current);
+  function handleDirectionalSwipe(direction: "left" | "right") {
+    flipBy(direction);
     setIsMenuOpen(false);
   }
 
   function handleOpenContactSheet() {
-    setIsSwipeCueVisible(false);
     setIsMenuOpen(false);
     setIsContactSheetOpen(true);
   }
@@ -380,7 +382,6 @@ export default function CardViewerPage() {
       return;
     }
 
-    setIsSwipeCueVisible(false);
     swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
   }
 
@@ -401,7 +402,7 @@ export default function CardViewerPage() {
       return;
     }
 
-    setIsFlipped((current) => !current);
+    handleDirectionalSwipe(deltaX > 0 ? "right" : "left");
   }
 
   function handleCardKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
@@ -410,7 +411,7 @@ export default function CardViewerPage() {
     }
 
     event.preventDefault();
-    handleToggleFlip();
+    handleDirectionalSwipe("right");
   }
 
   return (
@@ -441,21 +442,18 @@ export default function CardViewerPage() {
           <>
             <section className="cardviewer-stage">
               <div
-                className={`cardviewer-card-trigger${isSwipeCueVisible ? " is-swipe-cued" : ""}`}
+                className="cardviewer-card-trigger"
                 role="button"
                 tabIndex={0}
                 onKeyDown={handleCardKeyDown}
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
                 aria-pressed={isFlipped}
-                aria-label={
-                  isFlipped
-                    ? "Swipe left or right to flip card to front"
-                    : "Swipe left or right to flip card to back"
-                }
+                aria-label="Swipe left or right to flip card"
               >
                 <div
-                  className={`cardviewer-card${isFlipped ? " is-flipped" : ""}`}
+                  className="cardviewer-card"
+                  style={{ transform: `rotateY(${cardRotationDeg}deg)` }}
                 >
                   <section className="cardviewer-card__face cardviewer-card__face--front">
                     {previewUrl ? (
@@ -473,17 +471,6 @@ export default function CardViewerPage() {
                         Preview unavailable
                       </div>
                     )}
-
-                    {isSwipeCueVisible ? (
-                      <div className="cardviewer-swipe-cue" aria-hidden="true">
-                        <span className="cardviewer-swipe-cue__arrows">
-                          &larr; &rarr;
-                        </span>
-                        <span className="cardviewer-swipe-cue__text">
-                          Swipe to flip
-                        </span>
-                      </div>
-                    ) : null}
                   </section>
 
                   <section className="cardviewer-card__face cardviewer-card__face--back">
@@ -543,7 +530,7 @@ export default function CardViewerPage() {
                     type="button"
                     className="cardviewer-fab-menu__item"
                     role="menuitem"
-                    onClick={handleToggleFlip}
+                    onClick={handleFlipAction}
                   >
                     {isFlipped ? "View Front" : "Flip Card"}
                   </button>

@@ -5536,10 +5536,6 @@ select:disabled {
   cursor: grabbing;
 }
 
-.cardviewer-card-trigger.is-swipe-cued .cardviewer-card {
-  animation: cardviewerSwipeCue 1.35s ease-in-out 2;
-}
-
 .cardviewer-card {
   position: relative;
   width: 100%;
@@ -5547,10 +5543,6 @@ select:disabled {
   transform-style: preserve-3d;
   transform: rotateY(0deg);
   transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.cardviewer-card.is-flipped {
-  transform: rotateY(180deg);
 }
 
 .cardviewer-card__face {
@@ -5646,65 +5638,6 @@ select:disabled {
   color: rgba(239, 234, 223, 0.7);
   border: 1px dashed rgba(240, 180, 41, 0.28);
   background: linear-gradient(180deg, rgba(8, 13, 21, 0.82), rgba(13, 19, 30, 0.94));
-}
-
-.cardviewer-swipe-cue {
-  position: absolute;
-  left: 50%;
-  bottom: 26px;
-  transform: translateX(-50%);
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  min-width: 168px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  background: rgba(8, 13, 21, 0.74);
-  color: #f8f1e4;
-  backdrop-filter: blur(18px);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
-}
-
-.cardviewer-swipe-cue__arrows {
-  font-size: 1rem;
-  letter-spacing: 0.24em;
-  color: rgba(240, 180, 41, 0.94);
-  animation: cardviewerSwipeCueText 1.35s ease-in-out infinite;
-}
-
-.cardviewer-swipe-cue__text {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-@keyframes cardviewerSwipeCue {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  30% {
-    transform: translateX(-12px);
-  }
-
-  60% {
-    transform: translateX(12px);
-  }
-}
-
-@keyframes cardviewerSwipeCueText {
-  0%,
-  100% {
-    transform: translateX(0);
-    opacity: 0.8;
-  }
-
-  50% {
-    transform: translateX(6px);
-    opacity: 1;
-  }
 }
 
 .cardviewer-card__caption {
@@ -6085,12 +6018,6 @@ select:disabled {
     max-width: none;
   }
 
-  .cardviewer-swipe-cue {
-    bottom: 14px;
-    min-width: 152px;
-    padding-inline: 14px;
-  }
-
   .cardviewer-fab {
     width: 58px;
     height: 58px;
@@ -6137,11 +6064,6 @@ select:disabled {
 @media (prefers-reduced-motion: reduce) {
   .cardviewer-card {
     transition: none;
-  }
-
-  .cardviewer-card-trigger.is-swipe-cued .cardviewer-card,
-  .cardviewer-swipe-cue__arrows {
-    animation: none;
   }
 }
 

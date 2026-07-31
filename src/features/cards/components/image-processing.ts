@@ -66,7 +66,7 @@ function normalizeParsedDataUrl(parsed: ParsedDataUrl): ParsedDataUrl {
 /**
  * Parses a base64 data URL into MIME type and raw base64 payload.
  */
-export function parseDataUrl(value: string): ParsedDataUrl | null {
+function parseDataUrl(value: string): ParsedDataUrl | null {
   const match = /^data:([^;,]+);base64,(.+)$/s.exec(value);
   if (!match) {
     return null;
@@ -105,14 +105,6 @@ function toBase64Payload(parsed: ParsedDataUrl, prefix: ImagePayloadPrefix) {
     [`${prefix}ImageBase64`]: normalized.base64,
     [`${prefix}ImageMimeType`]: normalized.mimeType,
   };
-}
-
-/**
- * Returns the preferred output MIME type order for optimization attempts.
- * PNG is prioritized to preserve alpha transparency.
- */
-function getPreferredMimeTypes() {
-  return ["image/png"];
 }
 
 /**
@@ -314,9 +306,6 @@ export async function optimizeImageForUpload(file: File, maxBytes: number) {
   const largestSide = Math.max(source.width, source.height);
   const baseScale = largestSide > 2200 ? 2200 / largestSide : 1;
   const scaleSteps = [1, 0.85, 0.72, 0.6, 0.48, 0.36];
-  const qualitySteps = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44];
-  const mimeTypes = getPreferredMimeTypes();
-  let bestBlob: Blob | null = null;
 
   for (const scaleStep of scaleSteps) {
     const scale = Math.min(baseScale * scaleStep, 1);
@@ -340,31 +329,18 @@ export async function optimizeImageForUpload(file: File, maxBytes: number) {
       height,
     );
 
-    for (const mimeType of mimeTypes) {
-      const encodeSteps = mimeType === "image/png" ? [undefined] : qualitySteps;
+    const outputMimeType = "image/png";
+    const blob = await canvasToBlob(canvas, outputMimeType);
 
-      for (const quality of encodeSteps) {
-        const blob = await canvasToBlob(canvas, mimeType, quality);
-
-        if (!bestBlob || blob.size < bestBlob.size) {
-          bestBlob = blob;
-        }
-
-        if (blob.size <= maxBytes) {
-          console.info("[ImageUpload] Downsizing complete", {
-            fileName: file.name,
-            outputType: blob.type || mimeType,
-            outputBytes: blob.size,
-            maxAllowedBytes: maxBytes,
-          });
-          return blobToDataUrl(blob);
-        }
-      }
+    if (blob.size <= maxBytes) {
+      console.info("[ImageUpload] Downsizing complete", {
+        fileName: file.name,
+        outputType: blob.type || outputMimeType,
+        outputBytes: blob.size,
+        maxAllowedBytes: maxBytes,
+      });
+      return blobToDataUrl(blob);
     }
-  }
-
-  if (bestBlob && bestBlob.size <= maxBytes) {
-    return blobToDataUrl(bestBlob);
   }
 
   throw new Error(
@@ -502,7 +478,7 @@ function createImagePayload(
 /**
  * Calculates available preview optimization budget for one image given the other.
  */
-export function getPreviewImageBudget(value: string, otherValue: string) {
+function getPreviewImageBudget(value: string, otherValue: string) {
   const otherUploadedBytes = estimateUploadedImageBytes(otherValue);
 
   if (otherUploadedBytes > 0) {
@@ -519,7 +495,7 @@ export function getPreviewImageBudget(value: string, otherValue: string) {
 /**
  * Builds payload fields for a card image value without preview optimization.
  */
-export function buildImagePayload(value: string, prefix: ImagePayloadPrefix) {
+function buildImagePayload(value: string, prefix: ImagePayloadPrefix) {
   return createImagePayload(
     value,
     prefix,
@@ -531,7 +507,7 @@ export function buildImagePayload(value: string, prefix: ImagePayloadPrefix) {
 /**
  * Builds payload fields for preview images with optimization and safe URL fallback.
  */
-export function buildOptimizedPreviewImagePayload(
+function buildOptimizedPreviewImagePayload(
   value: string,
   prefix: ImagePayloadPrefix,
   maxBytes: number,

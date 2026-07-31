@@ -59,9 +59,7 @@ export function ImageEditor({
     ctx.fillStyle = "#f5f5f5";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // DPI conversion factors (at 96 DPI)
-    // From backend: scaleX = (widthInInches * dpi) / (2.44 * 100)
-    // scaleY = (heightInInches * dpi) / (3.67 * 100)
+    // DPI conversion factors (scaling to a DPI of 100 so that 1 pixel = 1/100 inch)
     const DPI = 96;
     const TARGET_WIDTH_INCHES = 2.5;
     const TARGET_HEIGHT_INCHES = 3.5;
