@@ -112,6 +112,7 @@ export async function getAdminUserPermissions(userId: string) {
   const { data } = await apiClient.get<AdminUserPermissionsResponse>(
     `/v1/admin/users/${userId}/permissions`,
   );
+
   return data;
 }
 

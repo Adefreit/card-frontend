@@ -682,10 +682,6 @@ export default function CardCreatePage() {
                   isLoading={previewMutation.isPending}
                 />
               </div>
-              <p className="create-preview-bleed-note">
-                The green line is where the card will be cut. The red line is
-                the safe area - keep important details inside this border.
-              </p>
             </>
           ) : previewMutation.isPending ? (
             <LoadingSpinner label="Generating preview..." />

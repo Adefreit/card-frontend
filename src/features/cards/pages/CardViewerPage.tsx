@@ -391,12 +391,11 @@ export default function CardViewerPage() {
 
     const normalizedCardRoute = `/cardviewer/${encodeURIComponent(cardId)}`;
     const cardLabel = (card?.data?.title || viewerName || "Card").trim();
-    const shortSuffix = cardId.slice(0, 6).toUpperCase();
 
     const dynamicManifest = {
       id: normalizedCardRoute,
       name: `${cardLabel} | Legendary Profiles`,
-      short_name: `Card ${shortSuffix}`,
+      short_name: `Card ${cardLabel}`,
       description:
         "Digital profile cards you can launch from your home screen.",
       start_url: normalizedCardRoute,
