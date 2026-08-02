@@ -5851,6 +5851,21 @@ select:disabled {
   gap: 18px;
 }
 
+.cardviewer-install-sheet__steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+  color: #f8f1e4;
+  line-height: 1.5;
+}
+
+.cardviewer-install-sheet__hint {
+  margin: 0;
+  color: rgba(248, 241, 228, 0.78);
+  font-size: 0.92rem;
+}
+
 .cardviewer-panel__toolbar {
   display: flex;
   align-items: start;

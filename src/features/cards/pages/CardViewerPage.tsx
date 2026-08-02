@@ -15,6 +15,14 @@ import {
   type CardNamedUrl,
 } from "../api";
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{
+    outcome: "accepted" | "dismissed";
+    platform: string;
+  }>;
+}
+
 function getViewerName(contactInfo?: CardContactInfo) {
   const fullName = [contactInfo?.firstName, contactInfo?.lastName]
     .filter(Boolean)
@@ -247,13 +255,93 @@ function ContactSheet({
   );
 }
 
+function AddToHomeSheet({
+  onClose,
+  onCopyLink,
+  didCopyLink,
+  isIos,
+}: {
+  onClose: () => void;
+  onCopyLink: () => void;
+  didCopyLink: boolean;
+  isIos: boolean;
+}) {
+  return (
+    <div className="cardviewer-sheet" onClick={onClose}>
+      <section
+        className="cardviewer-sheet__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add this card to your home screen"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="cardviewer-sheet__header">
+          <div className="cardviewer-sheet__copy">
+            <p>Add to Home Screen</p>
+          </div>
+          <button
+            type="button"
+            className="cardviewer-sheet__close"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="cardviewer-sheet__body">
+          <ol className="cardviewer-install-sheet__steps">
+            <li>
+              Open your browser menu
+              {isIos ? " or Share sheet" : ""}.
+            </li>
+            <li>
+              Tap
+              {isIos
+                ? " Add to Home Screen."
+                : " Install app or Add to Home Screen."}
+            </li>
+            <li>Name the shortcut and confirm Add.</li>
+          </ol>
+
+          <p className="cardviewer-install-sheet__hint">
+            This creates a quick-launch icon for the card you are currently
+            viewing.
+          </p>
+
+          <div className="cardviewer-panel__toolbar cardviewer-panel__toolbar--end">
+            <button
+              type="button"
+              className="cardviewer-action-button cardviewer-action-button--compact"
+              onClick={onCopyLink}
+            >
+              {didCopyLink ? "Link Copied" : "Copy Card Link"}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function CardViewerPage() {
   const { id } = useParams();
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
+  const defaultManifestHrefRef = useRef<string | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const [cardRotationDeg, setCardRotationDeg] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isContactSheetOpen, setIsContactSheetOpen] = useState(false);
+  const [isInstallSheetOpen, setIsInstallSheetOpen] = useState(false);
+  const [didCopyCardLink, setDidCopyCardLink] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [isIosDevice] = useState(() => {
+    if (typeof navigator === "undefined") {
+      return false;
+    }
+
+    return /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+  });
 
   const isFlipped = Math.abs(Math.round(cardRotationDeg / 180)) % 2 === 1;
 
@@ -283,6 +371,69 @@ export default function CardViewerPage() {
   const viewerName = getViewerName(card?.data.contactInfo);
 
   useEffect(() => {
+    if (typeof document === "undefined") {
+      return undefined;
+    }
+
+    const manifestLink = document.getElementById("app-manifest");
+    if (!(manifestLink instanceof HTMLLinkElement)) {
+      return undefined;
+    }
+
+    if (!defaultManifestHrefRef.current) {
+      defaultManifestHrefRef.current = manifestLink.href;
+    }
+
+    const cardId = id?.trim();
+    if (!cardId) {
+      return undefined;
+    }
+
+    const normalizedCardRoute = `/cardviewer/${encodeURIComponent(cardId)}`;
+    const cardLabel = (card?.data?.title || viewerName || "Card").trim();
+    const shortSuffix = cardId.slice(0, 6).toUpperCase();
+
+    const dynamicManifest = {
+      id: normalizedCardRoute,
+      name: `${cardLabel} | Legendary Profiles`,
+      short_name: `Card ${shortSuffix}`,
+      description:
+        "Digital profile cards you can launch from your home screen.",
+      start_url: normalizedCardRoute,
+      scope: "/",
+      display: "standalone",
+      background_color: "#0b121b",
+      theme_color: "#0b121b",
+      icons: [
+        {
+          src: "/pwa-192.png",
+          sizes: "192x192",
+          type: "image/png",
+        },
+        {
+          src: "/pwa-512.png",
+          sizes: "512x512",
+          type: "image/png",
+        },
+      ],
+    };
+
+    const manifestBlob = new Blob([JSON.stringify(dynamicManifest)], {
+      type: "application/manifest+json",
+    });
+    const dynamicManifestHref = URL.createObjectURL(manifestBlob);
+
+    manifestLink.href = dynamicManifestHref;
+
+    return () => {
+      URL.revokeObjectURL(dynamicManifestHref);
+      if (defaultManifestHrefRef.current) {
+        manifestLink.href = defaultManifestHrefRef.current;
+      }
+    };
+  }, [id, card?.data?.title, viewerName]);
+
+  useEffect(() => {
     if (!isMenuOpen) {
       return undefined;
     }
@@ -301,7 +452,7 @@ export default function CardViewerPage() {
   }, [isMenuOpen]);
 
   useEffect(() => {
-    if (!isMenuOpen && !isContactSheetOpen) {
+    if (!isMenuOpen && !isContactSheetOpen && !isInstallSheetOpen) {
       return undefined;
     }
 
@@ -309,6 +460,7 @@ export default function CardViewerPage() {
       if (event.key === "Escape") {
         setIsMenuOpen(false);
         setIsContactSheetOpen(false);
+        setIsInstallSheetOpen(false);
       }
     }
 
@@ -317,7 +469,52 @@ export default function CardViewerPage() {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isMenuOpen, isContactSheetOpen]);
+  }, [isMenuOpen, isContactSheetOpen, isInstallSheetOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const navigatorWithStandalone = window.navigator as Navigator & {
+      standalone?: boolean;
+    };
+    const displayModeMediaQuery = window.matchMedia(
+      "(display-mode: standalone)",
+    );
+    const isStandalone =
+      displayModeMediaQuery.matches ||
+      navigatorWithStandalone.standalone === true;
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      const installEvent = event as BeforeInstallPromptEvent;
+      installEvent.preventDefault();
+      setDeferredInstallPrompt(installEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredInstallPrompt(null);
+
+      // In standalone mode, prompt is no longer useful; keep guidance sheet available.
+      if (isStandalone) {
+        setIsInstallSheetOpen(false);
+      }
+    };
+
+    window.addEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt as EventListener,
+    );
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt as EventListener,
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
 
   useEffect(() => {
     if (!card) {
@@ -331,6 +528,10 @@ export default function CardViewerPage() {
     setIsMenuOpen(false);
 
     setIsContactSheetOpen(false);
+
+    setIsInstallSheetOpen(false);
+
+    setDidCopyCardLink(false);
   }, [card]);
 
   function flipBy(direction: "left" | "right") {
@@ -374,6 +575,42 @@ export default function CardViewerPage() {
   function handleOpenContactSheet() {
     setIsMenuOpen(false);
     setIsContactSheetOpen(true);
+  }
+
+  async function handleCopyCardLink() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setDidCopyCardLink(true);
+      window.setTimeout(() => setDidCopyCardLink(false), 1400);
+    } catch {
+      setDidCopyCardLink(false);
+    }
+  }
+
+  async function handleAddToHomeScreen() {
+    setIsMenuOpen(false);
+
+    if (!deferredInstallPrompt) {
+      setIsInstallSheetOpen(true);
+      return;
+    }
+
+    try {
+      await deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+
+      if (choice.outcome === "accepted") {
+        setDeferredInstallPrompt(null);
+      } else {
+        setIsInstallSheetOpen(true);
+      }
+    } catch {
+      setIsInstallSheetOpen(true);
+    }
   }
 
   function handleTouchStart(event: TouchEvent<HTMLElement>) {
@@ -546,6 +783,14 @@ export default function CardViewerPage() {
                     type="button"
                     className="cardviewer-fab-menu__item"
                     role="menuitem"
+                    onClick={handleAddToHomeScreen}
+                  >
+                    Add to Home Screen
+                  </button>
+                  <button
+                    type="button"
+                    className="cardviewer-fab-menu__item"
+                    role="menuitem"
                     onClick={() => vcardMutation.mutate(card.id)}
                     disabled={vcardMutation.isPending}
                   >
@@ -574,6 +819,15 @@ export default function CardViewerPage() {
                 onClose={() => setIsContactSheetOpen(false)}
                 onDownloadVcard={() => vcardMutation.mutate(card.id)}
                 isDownloadingVcard={vcardMutation.isPending}
+              />
+            ) : null}
+
+            {isInstallSheetOpen ? (
+              <AddToHomeSheet
+                onClose={() => setIsInstallSheetOpen(false)}
+                onCopyLink={handleCopyCardLink}
+                didCopyLink={didCopyCardLink}
+                isIos={isIosDevice}
               />
             ) : null}
           </>
