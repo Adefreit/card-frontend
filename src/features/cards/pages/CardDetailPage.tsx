@@ -33,7 +33,6 @@ import {
   estimateUploadedImageBytes,
 } from "../components/image-processing";
 import { ImageInput } from "../components/image-upload";
-import { XPBar } from "../components/XPBar";
 import { RenderedCard } from "../../../components/RenderedCard";
 import { useAuth } from "../../auth/auth-context";
 import MintCardModal from "../components/MintCardModal";
@@ -2164,17 +2163,10 @@ export default function CardDetailPage() {
               <RenderedCard
                 imageUrl={previewUrl}
                 isLoading={previewMutation.isPending}
-                dpi={
-                  isMintedCard
-                    ? config.CARDS.DEFAULT_PROOF_DPI
-                    : config.CARDS.DEFAULT_PREVIEW_DPI
-                }
+                xpInfo={data.xpInfo}
+                minted={isMintedCard}
+                showXPBar={Boolean(data.xpInfo)}
               />
-              {data.xpInfo && (
-                <div style={{ marginTop: "0.5rem", width: "100%" }}>
-                  <XPBar xpInfo={data.xpInfo} minted={isMintedCard} />
-                </div>
-              )}
               <button
                 type="button"
                 className={

@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getCards } from "../cards/api";
 import { RenderedCard } from "../../components/RenderedCard";
-import { XPBar } from "../cards/components/XPBar";
 import { apiClient } from "../../lib/http";
 import { useAuth } from "../auth/auth-context";
 import {
@@ -18,7 +17,6 @@ import {
   type SubscriptionTypePricing,
 } from "../transactions/api";
 import PlanComparisonTable from "../subscription/components/PlanComparisonTable";
-import { config } from "../../config";
 
 const DASHBOARD_TUTORIAL_SEEN_KEY = "lp.dashboard.tutorialSeen";
 
@@ -835,11 +833,9 @@ export default function DashboardPage() {
                             <div className="dash-card-face">
                               <RenderedCard
                                 imageUrl={previewImageUrl || null}
-                                dpi={
-                                  minted
-                                    ? config.CARDS.DEFAULT_PROOF_DPI
-                                    : config.CARDS.DEFAULT_PREVIEW_DPI
-                                }
+                                xpInfo={card.xpInfo}
+                                minted={minted}
+                                showXPBar={Boolean(card.xpInfo)}
                               />
                               {!previewImageUrl && (
                                 <span className="dash-card-initial">
@@ -858,11 +854,6 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </Link>
-                        {card.xpInfo && (
-                          <div className="dash-card-xp">
-                            <XPBar xpInfo={card.xpInfo} minted={minted} />
-                          </div>
-                        )}
                         <div
                           className={`dash-card-actions${minted ? " dash-card-actions--premium" : " dash-card-actions--draft"}`}
                         >

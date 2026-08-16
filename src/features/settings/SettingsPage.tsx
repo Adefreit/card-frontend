@@ -285,7 +285,9 @@ export default function SettingsPage() {
         </div>
 
         {userProfileQuery.isError ? (
-          <p className="alert-error">Failed to load user profile details.</p>
+          <p className="alert-error">
+            Cannot load user profile details: {userProfileQuery.error?.message}
+          </p>
         ) : null}
 
         <div className="detail-meta-grid" style={{ marginTop: 4 }}>

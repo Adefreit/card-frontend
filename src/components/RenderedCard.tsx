@@ -2,12 +2,20 @@ import { useState } from "react";
 import "./RenderedCard.css";
 import { config } from "../config";
 import LoadingSpinner from "./LoadingSpinner";
+import { XPBar } from "../features/cards/components/XPBar";
 
 interface RenderedCardProps {
   imageUrl: string | null;
   isLoading?: boolean;
   alt?: string;
   dpi?: number;
+  xpInfo?: {
+    xp: number;
+    level: number;
+    nextLevelXP: number;
+  };
+  minted?: boolean;
+  showXPBar?: boolean;
 }
 
 // Calculate dimensions in pixels (constant regardless of DPI)
@@ -16,23 +24,17 @@ const calculateCardDimensions = () => ({
   height: config.CARDS.HEIGHT_INCHES * config.CARDS.DEFAULT_PREVIEW_DPI,
 });
 
-// Determines the CSS class based on the DPI
-const calculateCardCSS = (dpi: number) => {
-  return dpi === config.CARDS.DEFAULT_PREVIEW_DPI
-    ? "rendered-card__image_150_DPI"
-    : "rendered-card__image_300_DPI";
-};
-
 export const RenderedCard: React.FC<RenderedCardProps> = ({
   imageUrl,
   isLoading = false,
   alt = "Card preview",
-  dpi = config.CARDS.DEFAULT_PREVIEW_DPI,
+  xpInfo,
+  minted = false,
+  showXPBar = false,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const dimensions = calculateCardDimensions();
-  const renderedCardCSS = calculateCardCSS(dpi);
 
   const handleImageLoad = () => {
     setImageLoaded(true);
@@ -45,37 +47,42 @@ export const RenderedCard: React.FC<RenderedCardProps> = ({
 
   const showLoading = isLoading || !imageLoaded;
   const showError = !imageUrl || imageError;
+  const shouldRenderXPBar = Boolean(showXPBar && xpInfo);
 
   return (
-    <div
-      className="rendered-card"
-      style={{
-        width: `${dimensions.width}px`,
-        height: `${dimensions.height}px`,
-      }}
-    >
-      {showError ? (
-        <div className="rendered-card__placeholder">
-          <div className="rendered-card__placeholder-text">
-            No preview available
-          </div>
-        </div>
-      ) : (
-        <>
-          <img
-            src={imageUrl}
-            alt={alt}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-            className={renderedCardCSS}
-          />
-          {showLoading && (
-            <div className="rendered-card__loading-overlay">
-              <LoadingSpinner label="Generating preview..." />
+    <div className="rendered-card-shell">
+      <div
+        className="rendered-card"
+        style={{ maxWidth: `${dimensions.width}px` }}
+      >
+        {showError ? (
+          <div className="rendered-card__placeholder">
+            <div className="rendered-card__placeholder-text">
+              No preview available
             </div>
-          )}
-        </>
-      )}
+          </div>
+        ) : (
+          <>
+            <img
+              src={imageUrl}
+              alt={alt}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              className="rendered-card__image"
+            />
+            {showLoading && (
+              <div className="rendered-card__loading-overlay">
+                <LoadingSpinner label="Generating preview..." />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      {shouldRenderXPBar && xpInfo ? (
+        <div className="rendered-card__xp">
+          <XPBar xpInfo={xpInfo} minted={minted} />
+        </div>
+      ) : null}
     </div>
   );
 };

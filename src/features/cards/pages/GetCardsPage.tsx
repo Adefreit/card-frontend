@@ -3,7 +3,6 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useAuth } from "../../auth/auth-context";
-import { config } from "../../../config";
 import {
   getCard,
   renderCardProof,
@@ -412,11 +411,6 @@ export default function GetCardsPage() {
                   isLoading={
                     cardQuery.isLoading ||
                     (shouldRenderMintedProof && proofQuery.isLoading)
-                  }
-                  dpi={
-                    isMintedCard
-                      ? config.CARDS.DEFAULT_PROOF_DPI
-                      : config.CARDS.DEFAULT_PREVIEW_DPI
                   }
                 />
               </div>
