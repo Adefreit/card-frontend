@@ -7,7 +7,6 @@ import {
 } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { appConfig } from "../../../lib/config";
 import {
   downloadPublicCardVcard,
   getCard,
@@ -327,7 +326,6 @@ function AddToHomeSheet({
 export default function CardViewerPage() {
   const { id } = useParams();
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
-  const defaultManifestHrefRef = useRef<string | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const [cardRotationDeg, setCardRotationDeg] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -381,21 +379,21 @@ export default function CardViewerPage() {
       return undefined;
     }
 
-    if (!defaultManifestHrefRef.current) {
-      defaultManifestHrefRef.current = manifestLink.href;
-    }
-
     const cardId = id?.trim();
     if (!cardId) {
       return undefined;
     }
 
-    // Must be a real URL (not a blob:) for Safari to honor start_url on Add to Home Screen
-    manifestLink.href = `${appConfig.apiBaseUrl}/v1/cards/${encodeURIComponent(cardId)}/manifest.webmanifest`;
+    // Safari resolves Add to Home Screen against the site-wide manifest's scope, not a
+    // runtime-swapped link, so remove it here to fall back to the reliable legacy
+    // apple-mobile-web-app-capable behavior, which bookmarks the current URL verbatim.
+    const manifestParent = manifestLink.parentElement;
+    const manifestNextSibling = manifestLink.nextSibling;
+    manifestLink.remove();
 
     return () => {
-      if (defaultManifestHrefRef.current) {
-        manifestLink.href = defaultManifestHrefRef.current;
+      if (manifestParent) {
+        manifestParent.insertBefore(manifestLink, manifestNextSibling);
       }
     };
   }, [id]);
