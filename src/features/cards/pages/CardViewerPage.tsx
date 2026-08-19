@@ -7,6 +7,7 @@ import {
 } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
+import { appConfig } from "../../../lib/config";
 import {
   downloadPublicCardVcard,
   getCard,
@@ -389,48 +390,15 @@ export default function CardViewerPage() {
       return undefined;
     }
 
-    const normalizedCardRoute = `/cardviewer/${encodeURIComponent(cardId)}`;
-    const cardLabel = (card?.data?.title || viewerName || "Card").trim();
-
-    const dynamicManifest = {
-      id: normalizedCardRoute,
-      name: `${cardLabel} | Legendary Profiles`,
-      short_name: `Card ${cardLabel}`,
-      description:
-        "Digital profile cards you can launch from your home screen.",
-      start_url: normalizedCardRoute,
-      scope: "/",
-      display: "standalone",
-      background_color: "#0b121b",
-      theme_color: "#0b121b",
-      icons: [
-        {
-          src: "/pwa-192.png",
-          sizes: "192x192",
-          type: "image/png",
-        },
-        {
-          src: "/pwa-512.png",
-          sizes: "512x512",
-          type: "image/png",
-        },
-      ],
-    };
-
-    const manifestBlob = new Blob([JSON.stringify(dynamicManifest)], {
-      type: "application/manifest+json",
-    });
-    const dynamicManifestHref = URL.createObjectURL(manifestBlob);
-
-    manifestLink.href = dynamicManifestHref;
+    // Must be a real URL (not a blob:) for Safari to honor start_url on Add to Home Screen
+    manifestLink.href = `${appConfig.apiBaseUrl}/v1/cards/${encodeURIComponent(cardId)}/manifest.webmanifest`;
 
     return () => {
-      URL.revokeObjectURL(dynamicManifestHref);
       if (defaultManifestHrefRef.current) {
         manifestLink.href = defaultManifestHrefRef.current;
       }
     };
-  }, [id, card?.data?.title, viewerName]);
+  }, [id]);
 
   useEffect(() => {
     if (!isMenuOpen) {

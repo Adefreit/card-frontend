@@ -1,8 +1,9 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Roboto:wght@400;500;700;900&display=swap");
+
 .game-carousel-sm {
   max-width: 320px;
   margin: 0 auto 1.5rem auto;
 }
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Roboto:wght@400;500;700;900&display=swap");
 
 :root {
   font-family: "Roboto", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
