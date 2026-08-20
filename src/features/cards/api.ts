@@ -206,9 +206,12 @@ export async function previewCard(payload: CardPreviewRequest) {
   return data;
 }
 
-export async function renderCardProof(id: string) {
+export async function renderCardProof(
+  id: string,
+  side: "front" | "back" = "front",
+) {
   const { data } = await apiClient.get<Blob>(`/v1/cards/render/proof/${id}`, {
-    params: { format: "png", side: "front" },
+    params: { format: "png", side },
     responseType: "blob",
   });
 

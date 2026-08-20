@@ -325,6 +325,13 @@ export default function GetCardsPage() {
     },
   });
 
+  const backProofMutation = useMutation({
+    mutationFn: () => renderCardProof(cardId as string, "back"),
+    onSuccess: (blob) => {
+      downloadBlobFile(blob, getDownloadFileName(cardTitle, "proof-back"));
+    },
+  });
+
   if (!cardId) {
     return <Navigate to="/app/dashboard" replace />;
   }
@@ -572,13 +579,33 @@ export default function GetCardsPage() {
                       }}
                     >
                       <span className="proof-download-link-copy">
-                        <strong>PNG Image</strong>
+                        <strong>Front of Card</strong>
                         <span>
-                          Download the current proof as a lossless image.
+                          Download the card front as a lossless image.
                         </span>
                       </span>
                       <span className="proof-download-link-meta">PNG</span>
                     </a>
+                  </section>
+                  <section className="proof-modal-action-section">
+                    <button
+                      type="button"
+                      className="proof-download-link proof-download-link--button"
+                      onClick={() => backProofMutation.mutate()}
+                      disabled={
+                        backProofMutation.isPending || !canDownloadProofAssets
+                      }
+                    >
+                      <span className="proof-download-link-copy">
+                        <strong>
+                          {backProofMutation.isPending
+                            ? "Rendering Back..."
+                            : "Back of Card"}
+                        </strong>
+                        <span>Download the card back as a lossless image.</span>
+                      </span>
+                      <span className="proof-download-link-meta">PNG</span>
+                    </button>
                   </section>
                   <section className="proof-modal-action-section">
                     <span className="proof-modal-section-label"> Labels</span>
