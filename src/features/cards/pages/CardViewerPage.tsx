@@ -14,6 +14,7 @@ import {
   type CardRecord,
   type CardNamedUrl,
 } from "../api";
+import { useDynamicManifest } from "../hooks/useDynamicManifest";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -369,34 +370,7 @@ export default function CardViewerPage() {
   const premiumLinks = getViewerPremiumLinks(card);
   const viewerName = getViewerName(card?.data.contactInfo);
 
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return undefined;
-    }
-
-    const manifestLink = document.getElementById("app-manifest");
-    if (!(manifestLink instanceof HTMLLinkElement)) {
-      return undefined;
-    }
-
-    const cardId = id?.trim();
-    if (!cardId) {
-      return undefined;
-    }
-
-    // Safari resolves Add to Home Screen against the site-wide manifest's scope, not a
-    // runtime-swapped link, so remove it here to fall back to the reliable legacy
-    // apple-mobile-web-app-capable behavior, which bookmarks the current URL verbatim.
-    const manifestParent = manifestLink.parentElement;
-    const manifestNextSibling = manifestLink.nextSibling;
-    manifestLink.remove();
-
-    return () => {
-      if (manifestParent) {
-        manifestParent.insertBefore(manifestLink, manifestNextSibling);
-      }
-    };
-  }, [id]);
+  useDynamicManifest(id);
 
   useEffect(() => {
     if (!isMenuOpen) {

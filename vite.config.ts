@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
         registerType: "autoUpdate",
         injectRegister: null,
         manifest: {
+          id: "/",
           name: "Legendary Profiles",
           short_name: "Legendary",
           description:
@@ -36,6 +37,7 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
+          navigateFallback: "/index.html",
           runtimeCaching: [
             {
               // API responses must never be served from the SW cache, always hit the network
