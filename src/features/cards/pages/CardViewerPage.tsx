@@ -14,7 +14,6 @@ import {
   type CardRecord,
   type CardNamedUrl,
 } from "../api";
-import { useDynamicManifest } from "../hooks/useDynamicManifest";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -369,8 +368,6 @@ export default function CardViewerPage() {
   const previewUrl = getViewerPreviewUrl(card);
   const premiumLinks = getViewerPremiumLinks(card);
   const viewerName = getViewerName(card?.data.contactInfo);
-
-  useDynamicManifest(id);
 
   useEffect(() => {
     if (!isMenuOpen) {
