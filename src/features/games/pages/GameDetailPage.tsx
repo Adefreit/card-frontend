@@ -82,8 +82,9 @@ function GameDetailContent({ game }: { game: GamePackProduct }) {
                 quantity: 1,
               })
             }
+            disabled
           >
-            Add to Cart
+            Coming Soon
           </button>
         </div>
       </section>

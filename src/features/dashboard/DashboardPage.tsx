@@ -271,8 +271,8 @@ function QrModal({ cardId, cardTitle, onClose }: QrModalProps) {
           <b>{cardTitle}</b>
         </p>
         <p className="qr-modal-subtitle">
-          This QR code can be scanned to access the user hub. Feel free to
-          download it and use it however you would like.
+          This QR code can be scanned to access the digital version of your
+          card. Feel free to download it and use it however you would like.
         </p>
         <div className="qr-modal-body">
           {isLoading && <p className="dash-loading">Summoning QR code…</p>}
@@ -835,7 +835,7 @@ export default function DashboardPage() {
                                 imageUrl={previewImageUrl || null}
                                 xpInfo={card.xpInfo}
                                 minted={minted}
-                                showXPBar={Boolean(card.xpInfo)}
+                                // showXPBar={Boolean(card.xpInfo)}
                               />
                               {!previewImageUrl && (
                                 <span className="dash-card-initial">

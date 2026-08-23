@@ -23,9 +23,9 @@ export default function GamesListPage() {
       </section>
       <section className="games-grid">
         <div className="games-list">
-          {games.map((game) => (
-            <GameCard key={game.id} game={game} />
-          ))}
+          {games.map((game) => {
+            return <GameCard key={game.id} game={game} />;
+          })}
         </div>
       </section>
       <GamesCart />

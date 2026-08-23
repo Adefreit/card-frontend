@@ -2165,7 +2165,7 @@ export default function CardDetailPage() {
                 isLoading={previewMutation.isPending}
                 xpInfo={data.xpInfo}
                 minted={isMintedCard}
-                showXPBar={Boolean(data.xpInfo)}
+                // showXPBar={Boolean(data.xpInfo)}
               />
               <button
                 type="button"
