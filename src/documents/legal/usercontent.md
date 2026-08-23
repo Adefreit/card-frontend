@@ -1,5 +1,6 @@
 # User‑Generated Content & Licensing Policy
-Last updated: May 2026
+
+Last updated: August 2026
 
 ## 1. Overview
 
@@ -46,8 +47,7 @@ To operate the platform, you grant Legendary Profiles a **non‑exclusive, world
 - Create thumbnails, previews, and optimized versions
 - Use anonymized versions for product improvement, testing, or marketing
 
-This license is necessary for us to provide the service.  
-You may revoke this license by deleting your content or requesting data deletion, except where retention is required for legal or operational reasons.
+This license is necessary for us to provide the service.
 
 ---
 
@@ -70,10 +70,11 @@ You may not upload or create content that includes:
 - Copyrighted material you do not own
 - AI‑generated images you do not have rights to use
 - Hate speech, harassment, or threats
-- Pornographic or sexually explicit material
 - Illegal or harmful content
 - Personal information about others without consent
 - Content intended to impersonate or mislead
+
+We retain the right to refuse service to customers.
 
 Violations may result in content removal or account suspension.
 

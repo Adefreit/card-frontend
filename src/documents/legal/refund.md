@@ -1,5 +1,6 @@
 # Refund Policy
-Last updated: May 2026
+
+Last updated: August 2026
 
 ## 1. Overview
 
@@ -16,7 +17,7 @@ Minting a card is a **non‑refundable** digital purchase.
 
 When you mint a card:
 
-- The visual design becomes permanently locked
+- **The visual design becomes permanently locked**
 - A unique QR code is generated
 - A digital proof is delivered instantly
 - The card becomes part of your account

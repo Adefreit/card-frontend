@@ -1,4 +1,5 @@
 # Terms of Service
+
 Last updated: May 2026
 
 ## 1. Acceptance of Terms
@@ -9,7 +10,7 @@ By creating an account, accessing the site, drafting a card, minting a card, or 
 
 Legendary Profiles allows users to:
 
-- Draft unlimited card designs for free
+- Draft card designs for free
 - Mint cards as paid digital goods
 - Generate QR codes and link hubs
 - Access analytics (for subscribers)
@@ -30,7 +31,7 @@ You are responsible for maintaining the confidentiality of your account.
 
 ## 4. Drafting Cards
 
-Drafting is free and unlimited. Drafts are editable until you choose to mint a card.
+Drafting is free. Card drafts are editable until you choose to mint a card.
 
 You agree not to upload or create content that violates our User Content Policy, including copyrighted, hateful, or illegal material.
 
@@ -60,7 +61,6 @@ See the Printing & Fulfillment Policy for details.
 
 Subscriptions provide access to:
 
-- Editable link hubs
 - QR analytics
 - Additional customization features
 - Optional free monthly mints (if offered)
@@ -98,7 +98,7 @@ You may not use the platform to:
 
 - Upload copyrighted material you don’t own
 - Upload harmful, hateful, or illegal content
-- Attempt to reverse engineer the platform
+- Attempt to reverse engineer the platform or access it outside of the website
 - Interfere with service operations
 - Create fraudulent or misleading identities
 

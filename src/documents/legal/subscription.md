@@ -1,5 +1,6 @@
 # Subscription Policy
-Last updated: May 2026
+
+Last updated: August 2026
 
 ## 1. Overview
 
@@ -14,7 +15,7 @@ By subscribing, you agree to this policy as part of our Terms of Service.
 Subscription features may include:
 
 - Editable link hubs for your QR code
-- Access to analytics dashboards
+- Access to analytics dashboards (coming soon)
 - Additional customization options
 - Priority feature access
 - Optional free monthly mints (if offered)
@@ -90,7 +91,6 @@ When you cancel:
 Once the subscription period ends:
 
 - Analytics access is removed
-- Link‑hub editing may be restricted
 - Free monthly mints stop
 - Previously minted cards remain accessible
 

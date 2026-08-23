@@ -1,9 +1,10 @@
 # Privacy Policy
-Last updated: May 2026
+
+Last updated: August 2026
 
 ## 1. Introduction
 
-Legendary Profiles (“we,” “us,” “our”) provides a platform where users can design trading‑card‑style profile cards, mint digital proofs, generate QR codes, access analytics, and optionally purchase printed cards.
+Legendary Profiles (“we,” “us,” “our”) provides a platform where users can design trading‑card‑style profile cards, mint digital proofs, generate QR codes, and optionally purchase printed cards.
 
 This Privacy Policy explains what information we collect, how we use it, and the rights you have regarding your data.
 
@@ -42,11 +43,11 @@ When someone scans your card’s QR code, we may collect:
 - Timestamp
 - Link clicks
 
-Analytics are aggregated and anonymized for subscribers.
+Analytics are aggregated and anonymized whenever possible.
 
 ### 2.4 Payment Information
 
-Payments are processed by third‑party providers. We do not store full credit card numbers.
+Payments are processed by third‑party providers. We do not store full credit card numbers in our databases.
 
 ---
 
@@ -78,7 +79,7 @@ By using the platform, you grant us permission to:
 - Generate QR codes and metadata
 - Use anonymized versions for product improvement or showcases
 
-You are responsible for ensuring you have rights to all uploaded content.
+You are responsible for ensuring you have rights to all uploaded content. We reserve the right to deactivate your cards, suspend your account, or refuse service altogether if you found to violate the law or our terms & conditions.
 
 ---
 
@@ -164,6 +165,7 @@ No method of transmission or storage is completely secure.
 ## 11. International Users
 
 If you access the service from outside the United States, you consent to the processing of your information in the U.S.
+International users may be subject to additional taxes and/or shipping fees.
 
 ---
 
