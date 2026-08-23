@@ -332,6 +332,13 @@ export default function GetCardsPage() {
     },
   });
 
+  const frontProofMutation = useMutation({
+    mutationFn: () => renderCardProof(cardId as string, "front"),
+    onSuccess: (blob) => {
+      downloadBlobFile(blob, getDownloadFileName(cardTitle, "proof-front"));
+    },
+  });
+
   if (!cardId) {
     return <Navigate to="/app/dashboard" replace />;
   }
@@ -565,27 +572,28 @@ export default function GetCardsPage() {
                   <br />
                   <section className="proof-modal-action-section">
                     <span className="proof-modal-section-label">
-                      Digital Proof
+                      Digital Proofs
                     </span>
-                    <a
-                      className="proof-download-link"
-                      href={blobUrl ?? "#"}
-                      download={getDownloadFileName(cardTitle, "proof")}
-                      aria-disabled={!canDownloadProofAssets}
-                      onClick={(event) => {
-                        if (!canDownloadProofAssets) {
-                          event.preventDefault();
-                        }
-                      }}
+                    <button
+                      type="button"
+                      className="proof-download-link proof-download-link--button"
+                      onClick={() => frontProofMutation.mutate()}
+                      disabled={
+                        frontProofMutation.isPending || !canDownloadProofAssets
+                      }
                     >
                       <span className="proof-download-link-copy">
-                        <strong>Front of Card</strong>
+                        <strong>
+                          {frontProofMutation.isPending
+                            ? "Rendering Front..."
+                            : "Front of Card"}
+                        </strong>
                         <span>
                           Download the card front as a lossless image.
                         </span>
                       </span>
                       <span className="proof-download-link-meta">PNG</span>
-                    </a>
+                    </button>
                   </section>
                   <section className="proof-modal-action-section">
                     <button

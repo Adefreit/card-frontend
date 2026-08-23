@@ -14,6 +14,7 @@ import {
   type CardRecord,
   type CardNamedUrl,
 } from "../api";
+import { config } from "../../../config";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -695,10 +696,16 @@ export default function CardViewerPage() {
                   role="menu"
                   aria-label="Card viewer options"
                 >
-                  <div className="cardviewer-fab-menu__title">
-                    <img src="/favicon.png" alt="" />
-                    <span>Legendary Profiles</span>
-                  </div>
+                  <a
+                    href={`${config.URLS.FRONTEND_URL}/app/dashboard`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <div className="cardviewer-fab-menu__title">
+                      <img src="/favicon.png" alt="" />
+                      <span>Legendary Profiles</span>
+                    </div>
+                  </a>
                   <button
                     type="button"
                     className="cardviewer-fab-menu__item"

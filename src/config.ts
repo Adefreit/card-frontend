@@ -11,4 +11,8 @@ export const config = {
     WIDTH_INCHES: 2.44,
     HEIGHT_INCHES: 3.67,
   },
+  URLS: {
+    API_BASE_URL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000",
+    FRONTEND_URL: import.meta.env.VITE_FRONTEND_URL ?? "http://localhost:5173",
+  },
 };
