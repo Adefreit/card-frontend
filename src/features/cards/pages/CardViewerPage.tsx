@@ -6,7 +6,7 @@ import {
   type TouchEvent,
 } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   downloadPublicCardVcard,
   getCard,
@@ -326,8 +326,11 @@ function AddToHomeSheet({
 
 export default function CardViewerPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const shouldAutoDownloadVcard = searchParams.get("vcard") !== null;
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const hasAutoDownloadedVcardRef = useRef(false);
   const [cardRotationDeg, setCardRotationDeg] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isContactSheetOpen, setIsContactSheetOpen] = useState(false);
@@ -470,6 +473,21 @@ export default function CardViewerPage() {
 
     setDidCopyCardLink(false);
   }, [card]);
+
+  useEffect(() => {
+    if (
+      !shouldAutoDownloadVcard ||
+      !card ||
+      !isMintedCard ||
+      hasAutoDownloadedVcardRef.current
+    ) {
+      return;
+    }
+
+    // Only trigger once per page load, not on every card refetch/re-render.
+    hasAutoDownloadedVcardRef.current = true;
+    vcardMutation.mutate(card.id);
+  }, [shouldAutoDownloadVcard, card, isMintedCard, vcardMutation]);
 
   function flipBy(direction: "left" | "right") {
     const delta = direction === "right" ? 180 : -180;
