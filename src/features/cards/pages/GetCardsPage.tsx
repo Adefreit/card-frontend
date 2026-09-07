@@ -318,8 +318,17 @@ export default function GetCardsPage() {
     },
   });
 
-  const printerFriendlyMutation = useMutation({
-    mutationFn: () => renderCardProofPrinterFriendly(cardId as string),
+  const printerFriendlyMutation_Avery = useMutation({
+    mutationFn: () =>
+      renderCardProofPrinterFriendly(cardId as string, "Avery-95272"),
+    onSuccess: (blob) => {
+      downloadBlobFile(blob, getPdfDownloadFileName(cardTitle));
+    },
+  });
+
+  const printerFriendlyMutation_Lanyard = useMutation({
+    mutationFn: () =>
+      renderCardProofPrinterFriendly(cardId as string, "Lanyard-1"),
     onSuccess: (blob) => {
       downloadBlobFile(blob, getPdfDownloadFileName(cardTitle));
     },
@@ -453,7 +462,12 @@ export default function GetCardsPage() {
                 Failed to load card preview data. Try again.
               </p>
             ) : null}
-            {printerFriendlyMutation.isError ? (
+            {printerFriendlyMutation_Avery.isError ? (
+              <p className="alert-error">
+                Failed to generate the printable PDF. Try again.
+              </p>
+            ) : null}
+            {printerFriendlyMutation_Lanyard.isError ? (
               <p className="alert-error">
                 Failed to generate the printable PDF. Try again.
               </p>
@@ -616,25 +630,51 @@ export default function GetCardsPage() {
                     </button>
                   </section>
                   <section className="proof-modal-action-section">
-                    <span className="proof-modal-section-label"> Labels</span>
+                    <span className="proof-modal-section-label">
+                      {" "}
+                      Printable
+                    </span>
                     <button
                       type="button"
                       className="proof-download-link proof-download-link--button"
-                      onClick={() => printerFriendlyMutation.mutate()}
+                      onClick={() => printerFriendlyMutation_Avery.mutate()}
                       disabled={
-                        printerFriendlyMutation.isPending ||
+                        printerFriendlyMutation_Avery.isPending ||
                         !canDownloadProofAssets
                       }
                     >
                       <span className="proof-download-link-copy">
                         <strong>
-                          {printerFriendlyMutation.isPending
+                          {printerFriendlyMutation_Avery.isPending
                             ? "Preparing PDF"
                             : "Avery 95272 Template"}
                         </strong>
                         <span>
-                          Download a PDF containing 6 labels formatted for Avery
-                          95272 perforated sheets.
+                          Download a PDF to print on Avery 95272 perforated
+                          sheets.
+                        </span>
+                      </span>
+                      <span className="proof-download-link-meta">PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="proof-download-link proof-download-link--button"
+                      onClick={() => printerFriendlyMutation_Lanyard.mutate()}
+                      disabled={
+                        printerFriendlyMutation_Lanyard.isPending ||
+                        !canDownloadProofAssets
+                      }
+                    >
+                      <span className="proof-download-link-copy">
+                        <strong>
+                          {printerFriendlyMutation_Lanyard.isPending
+                            ? "Preparing PDF"
+                            : "Lanyard Template (Beta)"}
+                        </strong>
+                        <span>
+                          Download a lanyard-style card for events and
+                          conferences.
                         </span>
                       </span>
                       <span className="proof-download-link-meta">PDF</span>

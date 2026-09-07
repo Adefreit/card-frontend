@@ -218,11 +218,14 @@ export async function renderCardProof(
   return data;
 }
 
-export async function renderCardProofPrinterFriendly(id: string) {
+export async function renderCardProofPrinterFriendly(
+  id: string,
+  template: string,
+) {
   const { data } = await apiClient.get<Blob>(
     `/v1/cards/render/printerfriendly/${id}`,
     {
-      params: { template: "Avery-95272" },
+      params: { template: template },
       responseType: "blob",
     },
   );
