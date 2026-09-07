@@ -818,7 +818,9 @@ export default function DashboardPage() {
               <div className="dash-cards-grid">
                 {filteredCards.map((card) => {
                   const minted = isMinted(card.minted);
-                  const previewImageUrl = card.last_proof ?? card.last_render;
+
+                  // Use last_proof if available, otherwise fallback to last_render
+                  const previewImageUrl = card.last_render; //card.last_proof ?? card.last_render;
 
                   return (
                     <article key={card.id} className="dash-card-item">
@@ -835,7 +837,7 @@ export default function DashboardPage() {
                                 imageUrl={previewImageUrl || null}
                                 xpInfo={card.xpInfo}
                                 minted={minted}
-                                // showXPBar={Boolean(card.xpInfo)}
+                                showXPBar={false}
                               />
                               {!previewImageUrl && (
                                 <span className="dash-card-initial">

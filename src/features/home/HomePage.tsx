@@ -55,23 +55,28 @@ export default function HomePage() {
       </header>
 
       <main className="lp-scroll">
+        {/* HERO */}
         <section id="hero" className="lp-section">
           <div className="lp-section-content">
             <p className="lp-kicker">Create, Collect, Connect</p>
             <h1>Become the hero of your own legends.</h1>
             <p>
-              Welcome to Legendary Profiles, where your business card does not
-              just introduce you, it <i>summons</i> you. Instead of handing
-              someone a plain card that they will probably throw away, hand them
-              something that says, "I'm Professional, but I also know how to
-              have fun."
+              Your business card shouldn't just introduce you — it should{" "}
+              <i>summon</i> you. Legendary Profiles transforms the classic
+              2.5&quot; × 3.5&quot; trading-card format into a bold,
+              unforgettable statement piece. It's everything people love about
+              collectible cards, except <b>you</b> are the rare pull.
             </p>
-            <p>
-              Each card keeps the classic 2.5&quot; x 3.5&quot; format of
-              playing cards, complete with title, subtitle, and flavor text. It
-              is everything people love about trading cards, except now you are
-              the rare collectable.
-            </p>
+            <ul className="lp-list">
+              <li>It's professional.</li>
+              <li>It's fun.</li>
+              <li>
+                <b>
+                  It's the card people will actually keep long after they meet
+                  you.
+                </b>
+              </li>
+            </ul>
             <div className="lp-cta-row">
               <Link className="btn-primary btn-lg" to="/register">
                 Become A Legend
@@ -80,94 +85,111 @@ export default function HomePage() {
           </div>
           <SectionVisual imageKey="hero" alt="Hero image placeholder" />
         </section>
+        <div className="lp-divider">
+          <span>✦</span>
+        </div>
 
-        <section id="how-it-works" className="lp-section">
+        {/* POWERS */}
+        <section id="powers" className="lp-section">
           <div className="lp-section-content">
-            <p className="lp-kicker">How it Works</p>
-            <h2>Draft it. Mint it. Make it real.</h2>
+            <p className="lp-kicker">More Than a Business Card</p>
+            <h2>Features that feel magical.</h2>
             <p>
-              Legendary Profiles is built around a simple idea: your card should
-              feel magical, but the process should feel easy. Here&apos;s how it
-              works:
+              Every Legendary Profile is packed with features that make it both
+              useful and entertaining.
             </p>
             <ul className="lp-list">
               <li>
-                <b>Draft your card for free.</b> Experiment with titles,
-                portraits, colors, and flavor text until it feels right.
+                <b>Dynamic QR Code.</b> Scan your card and watch a digital
+                version of your profile appear like a mini-summoning spell.
+                People can download your contact info on their phone or flip the
+                card to see your personalized page.
               </li>
               <li>
-                <b>Mint the card to unlock its final form.</b> You can then
-                print the card yourself or let us do it for you!
+                <b>Link Hub.</b> Every legendary profile comes with a
+                customizable digital hub where you can share your social media,
+                portfolio, and any other links.
               </li>
               <li>
-                <b>Share your awesome card with the world!</b>
+                <b>Digital Card.</b> Your card is more than just a physical
+                object. By creating a shortcut on your phone's home screen, you
+                can share it anytime, anywhere, just by tapping an icon.
+              </li>
+              <li>
+                <b>Gamification.</b> Best of all, each card includes mysterious
+                symbols and numbers that transform into playable powers for
+                icebreakers, networking quests, and party adventures. We offer
+                both free and paid versions of games (coming soon).
               </li>
             </ul>
           </div>
-          <SectionVisual
-            imageKey="how-it-works"
-            alt="QR feature image placeholder"
-          />
-        </section>
-
-        <section id="powers" className="lp-section">
-          <div className="lp-section-content">
-            <p className="lp-kicker">A card with powers</p>
-            <h2>A business card with actual powers, sort of.</h2>
-            <p>
-              Every Legendary Profile includes a dynamic QR code that works as
-              your personal digital portal. Scan it and your contact info can
-              pop into someone&apos;s phone like magic. You also get a mobile
-              page to distribute links to your portfolio, socials, calendar, or
-              anything else you want to show off.
-            </p>
-            <p>
-              All cards come with the core QR features, so you can start sharing
-              and networking right away.
-            </p>
-            <p>
-              However, if you want to go full wizard mode, a subscription
-              unlocks additional features like analytics and custom designs
-              (coming soon!).
-            </p>
-          </div>
           <SectionVisual imageKey="powers" alt="QR feature image placeholder" />
         </section>
+        <div className="lp-divider">
+          <span>✦</span>
+        </div>
 
+        {/* GAME / BUDGET */}
         <section id="game" className="lp-section">
           <div className="lp-section-content">
-            <p className="lp-kicker">It's Also a Game</p>
-            <h2>But wait. There&apos;s More!</h2>
+            <p className="lp-kicker">Budget Friendly</p>
+            <h2>No nickel-and-diming.</h2>
             <p>
-              Every card includes mysterious symbols and numbers. On their own,
-              they look fun. With Game Packs, they transform into playable
-              characters for icebreaker, networking, and party games.
+              Most companies hide the cool/useful features of their product
+              behind paywalls or mandatory subscriptions.
             </p>
             <p>
-              We view Game Packs as an ongoing adventure. We plan on releasing
-              both free and paid games regularly, and each pack will introduce
-              new mechanics and ways to play that make every card potentially
-              valuable.
+              <b>Not us.</b>
             </p>
-          </div>
-          <SectionVisual imageKey="game" alt="Game pack image placeholder" />
-        </section>
-
-        <section id="future" className="lp-section">
-          <div className="lp-section-content">
-            <p className="lp-kicker">This is Just the Beginning</p>
-            <h2>We're Just Getting Started.</h2>
             <p>
-              As we evolve our platform, we will be adding new features, such
-              as:
+              When you purchase a Legendary Profile, your <b>digital card</b> is
+              fully accessible and customizable for the lifetime of our service
+              — no subscription plans or upsells required.
+            </p>
+            <p>
+              We also want you to have full control over how you print and use
+              your cards:
             </p>
             <ul className="lp-list">
-              <li>More card designs from business formal to wildly epic.</li>
-              <li>Enhanced QR features with analytics and custom pages.</li>
-              <li>New Game Packs so card powers grow over time.</li>
+              <li>You can order printed cards through us . . .</li>
               <li>
-                Experience points for your cards so that they can level up and
-                gain rarity.
+                <b>OR</b> you can download your print-ready proofs and print
+                them yourself. We even provide a ready-to-go Avery template to
+                make it easy.
+              </li>
+            </ul>
+            <p>
+              A subscription is available for members who want to create
+              free/discounted cards every month or access our more
+              business-oriented features, but it's completely optional. Buy
+              cards <i>à la carte</i> anytime.
+            </p>
+          </div>
+          <SectionVisual
+            imageKey="game"
+            alt="Budget friendly image placeholder"
+          />
+        </section>
+        <div className="lp-divider">
+          <span>✦</span>
+        </div>
+
+        {/* FUTURE */}
+        <section id="future" className="lp-section">
+          <div className="lp-section-content">
+            <p className="lp-kicker">The Adventure Continues</p>
+            <h2>We're just getting started.</h2>
+            <p>
+              Legendary Profiles is a passion project — and we plan on rolling
+              out new features regularly. Upcoming features include:
+            </p>
+            <ul className="lp-list">
+              <li>More card designs from business-formal to wildly epic.</li>
+              <li>Enhanced QR features with analytics and custom pages.</li>
+              <li>Animated digital cards.</li>
+              <li>New Game Packs with evolving mechanics.</li>
+              <li>
+                Experience points and leveling systems for rarity progression.
               </li>
             </ul>
           </div>
@@ -176,20 +198,21 @@ export default function HomePage() {
             alt="Future roadmap image placeholder"
           />
         </section>
+        <div className="lp-divider">
+          <span>✦</span>
+        </div>
 
+        {/* FINAL CTA */}
         <section id="adventure" className="lp-section lp-section-end">
           <div className="lp-section-content">
-            <p className="lp-kicker">Join the adventure</p>
-            <h2>Claim your profile and spark a story.</h2>
+            <p className="lp-kicker">Claim Your Profile</p>
+            <h2>Let's have some fun.</h2>
             <p>
-              If you have ever wanted a business card that people keep, show
-              off, and talk about, this is your moment.
+              Your business card is more than just contact information — it's a
+              reflection of your professional journey and personality. Join our
+              community of passionate professionals, and make your business card
+              truly legendary.
             </p>
-            <ul className="lp-list">
-              <li>Become a legend.</li>
-              <li>Claim your profile.</li>
-              <li>Let your card do more than sit in a pocket.</li>
-            </ul>
             <div className="lp-cta-row">
               <Link className="btn-primary btn-lg" to="/register">
                 Create a Free Account

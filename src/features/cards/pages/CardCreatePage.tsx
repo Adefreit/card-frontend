@@ -306,9 +306,6 @@ export default function CardCreatePage() {
   const bgValue = formValues.backgroundImage ?? "";
   const fgValue = formValues.foregroundImage ?? "";
   const selectedTemplateId = formValues.templateId ?? "";
-  const selectedTemplateName =
-    templates?.find((template) => template.id === selectedTemplateId)?.name ||
-    "Template";
   const titleValue = formValues.title ?? "";
   const subtitleValue = formValues.subtitle ?? "";
   const flavorTextValue = formValues.flavorText ?? "";
@@ -424,11 +421,6 @@ export default function CardCreatePage() {
                   {errors.templateId ? (
                     <small className="field-error">
                       {errors.templateId.message}
-                    </small>
-                  ) : null}
-                  {selectedTemplateId ? (
-                    <small className="id-copy-note">
-                      Selected: {selectedTemplateName}
                     </small>
                   ) : null}
                 </label>

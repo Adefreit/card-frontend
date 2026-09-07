@@ -163,11 +163,11 @@ export function FlavorMarkupHelpModal({ onClose }: { onClose: () => void }) {
     { id: "bold", label: "Bold", markup: "**Champion**" },
     { id: "italic", label: "Italic", markup: "*Bearer of the dawn blade*" },
     { id: "underline", label: "Underline", markup: "__Sworn protector__" },
-    {
-      id: "smallcaps",
-      label: "Small Caps",
-      markup: "[smallcaps]Order of the phoenix[/smallcaps]",
-    },
+    // {
+    //   id: "smallcaps",
+    //   label: "Small Caps",
+    //   markup: "[smallcaps]Order of the phoenix[/smallcaps]",
+    // },
     {
       id: "color",
       label: "Color",
@@ -188,14 +188,19 @@ export function FlavorMarkupHelpModal({ onClose }: { onClose: () => void }) {
       markup:
         "[valign=top]Top aligned block[/valign]\n[valign=middle]Middle aligned block[/valign]\n[valign=bottom]Bottom aligned block[/valign]",
     },
-    {
-      id: "combined",
-      label: "Combined Example",
-      markup:
-        "[align=center]\n**Champion**\n*Bearer of the dawn blade*\n__Sworn protector__\n[smallcaps]Order of the phoenix[/smallcaps]\n[color=royalblue]Arcane signature[/color]\n[/align]",
-    },
+    // {
+    //   id: "combined",
+    //   label: "Combined Example",
+    //   markup:
+    //     "[align=center]\n**Champion**\n*Bearer of the dawn blade*\n__Sworn protector__\n[smallcaps]Order of the phoenix[/smallcaps]\n[color=royalblue]Arcane signature[/color]\n[/align]",
+    // },
   ] as const;
 
+  /**
+   * Copies the given markup to the clipboard and shows a temporary "Copied" message for the example card.
+   * @param id
+   * @param markup
+   */
   async function copyMarkup(id: string, markup: string) {
     try {
       await navigator.clipboard.writeText(markup);
@@ -225,10 +230,9 @@ export function FlavorMarkupHelpModal({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </div>
-        <p className="qr-modal-subtitle">
-          Click any example card to copy its markup.
-        </p>
+
         <div className="markup-help-body qr-modal-body">
+          <h3>Font Weights / Styles</h3>
           <div className="markup-help-grid">
             {inlineExamples.map((example) => (
               <button
@@ -248,31 +252,35 @@ export function FlavorMarkupHelpModal({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
-          {blockExamples.map((example) => (
-            <button
-              key={example.id}
-              type="button"
-              className="markup-help-card markup-help-card--button markup-help-card--wide"
-              onClick={() => copyMarkup(example.id, example.markup)}
-              aria-label={`Copy ${example.label} example`}
-            >
-              <div className="markup-help-card-header">
-                <strong>{example.label}</strong>
-                {copiedExample === example.id ? (
-                  <span className="markup-help-copied">Copied</span>
-                ) : null}
-              </div>
-              <pre>{example.markup}</pre>
-            </button>
-          ))}
-          <div className="markup-help-card markup-help-card--wide">
+
+          <h3>Text Alignment (Beta)</h3>
+          <div className="markup-help-grid">
+            {blockExamples.map((example) => (
+              <button
+                key={example.id}
+                type="button"
+                className="markup-help-card markup-help-card--button markup-help-card--wide"
+                onClick={() => copyMarkup(example.id, example.markup)}
+                aria-label={`Copy ${example.label} example`}
+              >
+                <div className="markup-help-card-header">
+                  <strong>{example.label}</strong>
+                  {copiedExample === example.id ? (
+                    <span className="markup-help-copied">Copied</span>
+                  ) : null}
+                </div>
+                <pre>{example.markup}</pre>
+              </button>
+            ))}
+          </div>
+
+          {/* <div className="markup-help-card markup-help-card--wide">
             <strong>Wrapping Behavior</strong>
             <pre>
-              {`- Wrapping is enabled by default.
-- Wrapping width is controlled by the text box width.
-- Per-font wrapping tuning is controlled by avgCharWidthFactor in the render font manifest in config.`}
+              {`- Text wrapping is enabled for the card description.
+- Wrapping width is controlled by the text box width.`}
             </pre>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
