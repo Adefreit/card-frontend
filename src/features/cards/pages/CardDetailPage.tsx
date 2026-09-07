@@ -915,8 +915,6 @@ export default function CardDetailPage() {
     1) as number;
   const totalUploadedImageBytes =
     estimateUploadedImageBytes(bgValue) + estimateUploadedImageBytes(fgValue);
-  const selectedTemplateName =
-    templates?.find((t) => t.id === selectedTemplateId)?.name || "Template";
   const canRunActions =
     selectedTemplateId.trim().length > 0 &&
     titleValue.trim().length > 0 &&
@@ -1401,11 +1399,6 @@ export default function CardDetailPage() {
                                 {errors.templateId ? (
                                   <small className="field-error">
                                     {errors.templateId.message}
-                                  </small>
-                                ) : null}
-                                {selectedTemplateId ? (
-                                  <small className="id-copy-note">
-                                    Selected: {selectedTemplateName}
                                   </small>
                                 ) : null}
                               </label>
@@ -2165,7 +2158,7 @@ export default function CardDetailPage() {
                 isLoading={previewMutation.isPending}
                 xpInfo={data.xpInfo}
                 minted={isMintedCard}
-                // showXPBar={Boolean(data.xpInfo)}
+                showXPBar={false}
               />
               <button
                 type="button"

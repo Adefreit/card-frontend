@@ -47,7 +47,6 @@ export const RenderedCard: React.FC<RenderedCardProps> = ({
 
   const showLoading = isLoading || !imageLoaded;
   const showError = !imageUrl || imageError;
-  const shouldRenderXPBar = Boolean(showXPBar && xpInfo);
 
   return (
     <div className="rendered-card-shell">
@@ -78,7 +77,7 @@ export const RenderedCard: React.FC<RenderedCardProps> = ({
           </>
         )}
       </div>
-      {shouldRenderXPBar && xpInfo ? (
+      {showXPBar && xpInfo ? (
         <div className="rendered-card__xp">
           <XPBar xpInfo={xpInfo} minted={minted} />
         </div>
