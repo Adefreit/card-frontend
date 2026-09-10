@@ -892,6 +892,11 @@ button:disabled {
   gap: 20px;
 }
 
+.page-stack > * {
+  /* Grid items default to min-width: auto, which lets wide children (like the scanned-cards table) stretch the whole page instead of scrolling internally. */
+  min-width: 0;
+}
+
 .content-hero {
   position: relative;
   display: flex;
@@ -3812,6 +3817,22 @@ button:disabled {
 
 .admin-table-row--clickable {
   cursor: pointer;
+}
+
+.admin-table--scanned-cards.admin-table--scanned-cards {
+  min-width: 480px;
+}
+
+@media (max-width: 620px) {
+  .admin-table--scanned-cards.admin-table--scanned-cards {
+    min-width: 0;
+  }
+
+  .admin-table--scanned-cards th,
+  .admin-table--scanned-cards td {
+    padding: 9px 8px;
+    font-size: 0.82rem;
+  }
 }
 
 

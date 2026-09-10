@@ -98,7 +98,7 @@ export default function ScannedCardsPage() {
 
         {filteredRows.length > 0 ? (
           <div className="admin-table-wrap">
-            <table className="admin-table">
+            <table className="admin-table admin-table--scanned-cards">
               <thead>
                 <tr>
                   <th>Title</th>
