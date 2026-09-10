@@ -61,20 +61,17 @@ export default function HomePage() {
             <p className="lp-kicker">Create, Collect, Connect</p>
             <h1>Become the hero of your own legends.</h1>
             <p>
-              Your business card shouldn't just introduce you — it should{" "}
-              <i>summon</i> you. Legendary Profiles transforms the classic
-              2.5&quot; × 3.5&quot; trading-card format into a bold,
-              unforgettable statement piece. It's everything people love about
-              collectible cards, except <b>you</b> are the rare pull.
+              Your card shouldn't just introduce you — it should <i>summon</i>{" "}
+              you. Legendary Profiles transforms the classic 2.5&quot; ×
+              3.5&quot; trading-card format into a bold, unforgettable statement
+              piece. It's everything people love about collectible cards, except{" "}
+              <b>you</b> are the rare pull.
             </p>
             <ul className="lp-list">
               <li>It's professional.</li>
               <li>It's fun.</li>
               <li>
-                <b>
-                  It's the card people will actually keep long after they meet
-                  you.
-                </b>
+                <b>It's a card people will actually keep.</b>
               </li>
             </ul>
             <div className="lp-cta-row">
@@ -100,26 +97,28 @@ export default function HomePage() {
             </p>
             <ul className="lp-list">
               <li>
-                <b>Dynamic QR Code.</b> Scan your card and watch a digital
-                version of your profile appear like a mini-summoning spell.
-                People can download your contact info on their phone or flip the
-                card to see your personalized page.
+                <b>Dynamic QR Code.</b> Scan your card with your phone and watch
+                a digital version of your profile appear like a mini-summoning
+                spell (try it out!). People can download your contact info on
+                their phone or flip the card to see your personalized links
+                page.
               </li>
               <li>
                 <b>Link Hub.</b> Every legendary profile comes with a
-                customizable digital hub where you can share your social media,
+                customizable page where you can share your social media,
                 portfolio, and any other links.
               </li>
               <li>
-                <b>Digital Card.</b> Your card is more than just a physical
-                object. By creating a shortcut on your phone's home screen, you
-                can share it anytime, anywhere, just by tapping an icon.
+                <b>Digital Card.</b> Out of physical cards? By creating a
+                shortcut on your phone, you can share your digital card anytime,
+                anywhere, just by tapping an icon and letting someone scan your
+                screen.
               </li>
               <li>
                 <b>Gamification.</b> Best of all, each card includes mysterious
                 symbols and numbers that transform into playable powers for
-                icebreakers, networking quests, and party adventures. We offer
-                both free and paid versions of games (coming soon).
+                icebreakers, networking quests, and party adventures. We will
+                offer both free and paid versions of games (coming soon).
               </li>
             </ul>
           </div>
@@ -153,9 +152,8 @@ export default function HomePage() {
             <ul className="lp-list">
               <li>You can order printed cards through us . . .</li>
               <li>
-                <b>OR</b> you can download your print-ready proofs and print
-                them yourself. We even provide a ready-to-go Avery template to
-                make it easy.
+                <b>OR</b> you can download your proofs and print them yourself.
+                We even provide a ready-to-go Avery template to make it easy.
               </li>
             </ul>
             <p>
@@ -206,11 +204,11 @@ export default function HomePage() {
         <section id="adventure" className="lp-section lp-section-end">
           <div className="lp-section-content">
             <p className="lp-kicker">Claim Your Profile</p>
-            <h2>Let's have some fun.</h2>
+            <h2>What will you create?</h2>
             <p>
               Your business card is more than just contact information — it's a
               reflection of your professional journey and personality. Join our
-              community of passionate professionals, and make your business card
+              community of passionate professionals and make your next card
               truly legendary.
             </p>
             <div className="lp-cta-row">

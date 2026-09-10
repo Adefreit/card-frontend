@@ -102,7 +102,7 @@ You may not use the platform to:
 - Interfere with service operations
 - Create fraudulent or misleading identities
 
-Violations may result in account suspension.
+We reserve the right to refuse service to any user. Violations may result in account suspension.
 
 ## 11. Payments & Billing
 
