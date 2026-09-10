@@ -245,3 +245,29 @@ export async function downloadPublicCardVcard(id: string) {
 
   return data;
 }
+
+export async function recordCardScan(cardId: string) {
+  const { data } = await apiClient.post<ApiMessageResponse>(
+    "/v1/scanned-cards",
+    { card_id: cardId },
+  );
+
+  return data;
+}
+
+export interface ScannedCardRecord {
+  user_id: string;
+  card_id: string;
+  title: string;
+  subtitle: string;
+  url: string;
+  create_time?: string;
+}
+
+export async function getScannedCardsForUser(userId: string) {
+  const { data } = await apiClient.get<ScannedCardRecord[]>(
+    `/v1/scanned-cards/user/${userId}`,
+  );
+
+  return data;
+}

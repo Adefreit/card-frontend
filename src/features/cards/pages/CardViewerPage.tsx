@@ -10,10 +10,12 @@ import { useParams, useSearchParams } from "react-router-dom";
 import {
   downloadPublicCardVcard,
   getCard,
+  recordCardScan,
   type CardContactInfo,
   type CardRecord,
   type CardNamedUrl,
 } from "../api";
+import { useAuth } from "../../auth/auth-context";
 import { config } from "../../../config";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -331,11 +333,15 @@ export default function CardViewerPage() {
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const hasAutoDownloadedVcardRef = useRef(false);
+  const hasRecordedScanRef = useRef(false);
+  const scanSavedToastTimeoutRef = useRef<number | null>(null);
+  const { isAuthenticated } = useAuth();
   const [cardRotationDeg, setCardRotationDeg] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isContactSheetOpen, setIsContactSheetOpen] = useState(false);
   const [isInstallSheetOpen, setIsInstallSheetOpen] = useState(false);
   const [didCopyCardLink, setDidCopyCardLink] = useState(false);
+  const [isScanSavedToastVisible, setIsScanSavedToastVisible] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isIosDevice] = useState(() => {
@@ -364,6 +370,20 @@ export default function CardViewerPage() {
           "legendary-profile",
       );
       downloadBlob(blob, `${fileStem}.vcf`);
+    },
+  });
+
+  const scanMutation = useMutation({
+    mutationFn: recordCardScan,
+    onSuccess: () => {
+      if (scanSavedToastTimeoutRef.current !== null) {
+        window.clearTimeout(scanSavedToastTimeoutRef.current);
+      }
+
+      setIsScanSavedToastVisible(true);
+      scanSavedToastTimeoutRef.current = window.setTimeout(() => {
+        setIsScanSavedToastVisible(false);
+      }, 3000);
     },
   });
 
@@ -488,6 +508,29 @@ export default function CardViewerPage() {
     hasAutoDownloadedVcardRef.current = true;
     vcardMutation.mutate(card.id);
   }, [shouldAutoDownloadVcard, card, isMintedCard, vcardMutation]);
+
+  useEffect(() => {
+    if (
+      !isAuthenticated ||
+      !card ||
+      !isMintedCard ||
+      hasRecordedScanRef.current
+    ) {
+      return;
+    }
+
+    // Only record once per page load, not on every card refetch/re-render.
+    hasRecordedScanRef.current = true;
+    scanMutation.mutate(card.id);
+  }, [isAuthenticated, card, isMintedCard, scanMutation]);
+
+  useEffect(() => {
+    return () => {
+      if (scanSavedToastTimeoutRef.current !== null) {
+        window.clearTimeout(scanSavedToastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   function flipBy(direction: "left" | "right") {
     const delta = direction === "right" ? 180 : -180;
@@ -792,6 +835,12 @@ export default function CardViewerPage() {
               />
             ) : null}
           </>
+        ) : null}
+
+        {isScanSavedToastVisible ? (
+          <div className="cardviewer-toast" role="status" aria-live="polite">
+            Card saved
+          </div>
         ) : null}
       </main>
     </div>

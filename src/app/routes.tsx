@@ -17,6 +17,7 @@ import CardDetailPage from "../features/cards/pages/CardDetailPage";
 import CardCreatePage from "../features/cards/pages/CardCreatePage";
 import GetCardsPage from "../features/cards/pages/GetCardsPage";
 import CardViewerPage from "../features/cards/pages/CardViewerPage";
+import ScannedCardsPage from "../features/cards/pages/ScannedCardsPage";
 import AppLayout from "../features/layout/AppLayout";
 import HomePage from "../features/home/HomePage";
 import { GamesListPage, GameDetailPage } from "../features/games/pages";
@@ -190,6 +191,10 @@ export const router = createBrowserRouter([
           {
             path: "cards/:cardId/get-cards",
             element: <GetCardsPage />,
+          },
+          {
+            path: "scanned-cards",
+            element: <ScannedCardsPage />,
           },
           {
             path: "games",

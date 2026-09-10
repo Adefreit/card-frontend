@@ -933,6 +933,15 @@ export default function DashboardPage() {
                   </span>
                 </div>
               </Link>
+              <Link className="dash-quick-item" to="/app/scanned-cards">
+                <div className="dash-quick-icon">📱</div>
+                <div>
+                  <span className="dash-quick-label">Scanned Cards</span>
+                  <span className="dash-quick-sub">
+                    View cards you've scanned
+                  </span>
+                </div>
+              </Link>
               <a className="dash-quick-item dash-quick-item--locked" href="#">
                 <div className="dash-quick-icon">🔗</div>
                 <div>
