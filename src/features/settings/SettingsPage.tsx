@@ -12,7 +12,7 @@ import {
   getTransactions,
   resumeTransaction,
 } from "../transactions/api";
-import PlanComparisonTable from "../subscription/components/PlanComparisonTable";
+import PlanComparisonTable from "../../components/PlanComparisonTable";
 
 function isActiveSubscription(expiresAt?: string | null) {
   if (!expiresAt) {
@@ -420,7 +420,7 @@ export default function SettingsPage() {
 
       <section className="dash-panel">
         <div className="dash-panel-header">
-          <h2 className="dash-panel-title">Debug Information</h2>
+          <h2 className="dash-panel-title">System Information</h2>
           <span className="meta-pill">Debug</span>
         </div>
 

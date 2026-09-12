@@ -1,7 +1,7 @@
 import {
   type StripePriceSummary,
   type SubscriptionTypePricing,
-} from "../../transactions/api";
+} from "../features/transactions/api";
 
 type BillingInterval = "month" | "year";
 
@@ -44,7 +44,7 @@ function renderCell(cell: PlanCell) {
   );
 }
 
-function defaultRows(mintPriceLabel: string): PlanComparisonRow[] {
+function tableRowsData(mintPriceLabel: string): PlanComparisonRow[] {
   return [
     {
       key: "draftCards",
@@ -54,18 +54,32 @@ function defaultRows(mintPriceLabel: string): PlanComparisonRow[] {
       annual: "Up to 10",
     },
     {
-      key: "editContact",
+      key: "qrCode",
       label: "Dynamic QR Code",
       free: { included: true },
       monthly: { included: true },
       annual: { included: true },
     },
     {
-      key: "editLinks",
-      label: "Edit Contact Info / Card Details",
+      key: "newCardDesigns",
+      label: "New Card Templates",
       free: { included: true },
       monthly: { included: true },
       annual: { included: true },
+    },
+    {
+      key: "editLinks",
+      label: "Edit Contact Info / Links",
+      free: { included: true },
+      monthly: { included: true },
+      annual: { included: true },
+    },
+    {
+      key: "paidCards",
+      label: "Price Per Digital Card",
+      free: `${mintPriceLabel} / card`,
+      monthly: `30% discount`,
+      annual: `30% discount`,
     },
     {
       key: "freeCards",
@@ -75,29 +89,8 @@ function defaultRows(mintPriceLabel: string): PlanComparisonRow[] {
       annual: "2 per month",
     },
     {
-      key: "mintPricing",
-      label: "Additional Digital Cards",
-      free: `${mintPriceLabel} / card`,
-      monthly: `30% discount`,
-      annual: `30% discount`,
-    },
-    {
-      key: "cardAnalytics",
-      label: "Card Analytics",
-      free: { included: false },
-      monthly: { included: true },
-      annual: { included: true },
-    },
-    {
-      key: "newCardDesigns",
-      label: "New Card Designs",
-      free: "Limited selection",
-      monthly: { included: true },
-      annual: { included: true },
-    },
-    {
-      key: "prioritySupport",
-      label: "Priority Support",
+      key: "advancedFeatures",
+      label: "Advanced Features / Analytics",
       free: { included: false },
       monthly: { included: true },
       annual: { included: true },
@@ -141,7 +134,7 @@ export default function PlanComparisonTable({
   const canChooseMonthly = Boolean(selectedPlan?.prices.monthly);
   const canChooseYearly = Boolean(selectedPlan?.prices.yearly);
   const mintPriceLabel = mintPrice ? formatStripePrice(mintPrice) : "$10";
-  const comparisonRows = rows ?? defaultRows(mintPriceLabel);
+  const comparisonRows = rows ?? tableRowsData(mintPriceLabel);
 
   return (
     <div className="plan-compare">
@@ -193,9 +186,7 @@ export default function PlanComparisonTable({
                     : "Yearly unavailable"}
                 </span>
                 <br />
-                <span className="plan-limited-offer">
-                  Limited-time annual pricing
-                </span>
+                <span className="plan-limited-offer">Limited-time</span>
               </th>
             </tr>
           </thead>

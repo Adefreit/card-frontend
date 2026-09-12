@@ -16,7 +16,7 @@ import {
   type StripePriceSummary,
   type SubscriptionTypePricing,
 } from "../transactions/api";
-import PlanComparisonTable from "../subscription/components/PlanComparisonTable";
+import PlanComparisonTable from "../../components/PlanComparisonTable";
 
 const DASHBOARD_TUTORIAL_SEEN_KEY = "lp.dashboard.tutorialSeen";
 
