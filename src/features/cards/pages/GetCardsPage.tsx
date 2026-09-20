@@ -46,10 +46,17 @@ function getCatalogProductId(quantity: number): string {
 
 function getPurchaseTransactionErrorMessage(error: unknown): string {
   if (!isAxiosError(error)) {
+    console.error("Non-Axios error occurred:", error);
     return "Unable to start checkout right now. Please try again.";
   }
 
   if (error.response?.status !== 400) {
+    console.error(
+      "Axios error occurred with status:",
+      error.response?.status,
+      "and data:",
+      error.response?.data,
+    );
     return "Unable to start checkout right now. Please try again.";
   }
 

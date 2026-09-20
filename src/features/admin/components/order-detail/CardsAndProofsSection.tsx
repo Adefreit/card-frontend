@@ -22,7 +22,7 @@ export function CardsAndProofsSection({
     <div style={{ marginTop: 16 }}>
       <p className="admin-order-subsection-title">Cards &amp; Proofs</p>
       <div className="admin-table-wrap">
-        <table className="admin-table admin-order-items-grid-table">
+        <table className="admin-table admin-order-items-grid-table admin-cards-proofs-table">
           <thead>
             <tr>
               <th>Card</th>

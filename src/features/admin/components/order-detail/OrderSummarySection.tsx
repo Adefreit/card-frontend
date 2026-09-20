@@ -25,6 +25,10 @@ export function OrderSummarySection({
         }}
       >
         <div className="detail-meta-item">
+          <span>Ordered</span>
+          <strong>{summaryWhatWasOrdered}</strong>
+        </div>
+        <div className="detail-meta-item">
           <span>Order ID</span>
           <strong
             style={{
@@ -37,6 +41,10 @@ export function OrderSummarySection({
           </strong>
         </div>
         <div className="detail-meta-item">
+          <span>Created</span>
+          <strong>{formatDate(order.create_time)}</strong>
+        </div>
+        <div className="detail-meta-item">
           <span>Customer</span>
           <strong>
             {order.user_id ? (
@@ -47,14 +55,6 @@ export function OrderSummarySection({
               (relatedUser?.email ?? "-")
             )}
           </strong>
-        </div>
-        <div className="detail-meta-item">
-          <span>Ordered</span>
-          <strong>{summaryWhatWasOrdered}</strong>
-        </div>
-        <div className="detail-meta-item">
-          <span>Created</span>
-          <strong>{formatDate(order.create_time)}</strong>
         </div>
       </div>
     </div>

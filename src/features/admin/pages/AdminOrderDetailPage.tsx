@@ -250,11 +250,42 @@ export default function AdminOrderDetailPage() {
           ? "Card Order"
           : humanizeText(order?.order_type);
 
+  const shippingAddressLines = (() => {
+    const address = order?.shipping_address;
+    if (!address) return [];
+
+    const getValue = (key: string) => {
+      const value = address[key];
+      return typeof value === "string" && value.trim() ? value.trim() : null;
+    };
+    const cityState = [getValue("city"), getValue("state")]
+      .filter(Boolean)
+      .join(", ");
+    const cityStatePostal = [cityState, getValue("postal_code")]
+      .filter(Boolean)
+      .join(" ");
+
+    return [
+      getValue("name"),
+      getValue("line1"),
+      getValue("line2"),
+      cityStatePostal || null,
+      getValue("country"),
+    ].filter((line): line is string => Boolean(line));
+  })();
+
   function handleCopyDebugPayload() {
     void navigator.clipboard
       .writeText(rawPayloadText)
       .then(() => setMutationMessage("Raw data copied to clipboard."))
       .catch(() => setMutationMessage("Unable to copy raw data."));
+  }
+
+  function handleCopyShippingAddress() {
+    void navigator.clipboard
+      .writeText(shippingAddressLines.join("\n"))
+      .then(() => setMutationMessage("Shipping address copied to clipboard."))
+      .catch(() => setMutationMessage("Unable to copy shipping address."));
   }
 
   function handleDownloadDebugPayload() {
@@ -268,6 +299,15 @@ export default function AdminOrderDetailPage() {
     link.remove();
     URL.revokeObjectURL(url);
     setMutationMessage("Raw data downloaded.");
+  }
+
+  function isCardPackOrder(order: AdminOrderRecord | null | undefined) {
+    if (order) {
+      return order.items?.some((item) => item.item_type === "card_pack");
+    }
+
+    // If the order is not defined, it cannot be a card pack order.
+    return false;
   }
 
   return (
@@ -316,7 +356,7 @@ export default function AdminOrderDetailPage() {
 
               {order.items && order.items.length > 0 ? (
                 <div className="admin-order-section">
-                  <p className="admin-order-section-title">What Was Ordered</p>
+                  <p className="admin-order-section-title">Order Details</p>
                   <OrderItemsTable items={order.items} />
                   {groupedCardsFromItems.length > 0 ? (
                     <CardsAndProofsSection
@@ -326,6 +366,23 @@ export default function AdminOrderDetailPage() {
                       fetchedProofUrl={fetchedProofUrl}
                     />
                   ) : null}
+                  {shippingAddressLines.length > 0 ? (
+                    <div className="admin-order-shipping-row">
+                      <p className="admin-order-subsection-title">
+                        Shipping Address
+                      </p>
+                      <button
+                        type="button"
+                        className="admin-shipping-address"
+                        onClick={handleCopyShippingAddress}
+                        title="Copy shipping address"
+                      >
+                        {shippingAddressLines.map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="admin-order-section">
@@ -334,6 +391,63 @@ export default function AdminOrderDetailPage() {
                   </p>
                 </div>
               )}
+
+              {isCardPackOrder(order) ? (
+                <div className="admin-order-section">
+                  <p className="admin-order-section-title">
+                    Sundance Print Quote Details<span> </span>
+                    <a
+                      href="https://www.sundanceprintcenters.com/quote_create.php"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      (Website)
+                    </a>
+                  </p>
+                  <div className="admin-table-wrap">
+                    <table className="admin-table admin-print-quote-table">
+                      <tbody>
+                        <tr>
+                          <th scope="row">Product Name</th>
+                          <td>Proxy Cards (LP:{order.id})</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Finished Size</th>
+                          <td>2.5x3.5 inch cards</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Paper/Material Stock</th>
+                          <td>Special Order (Paper Not Listed)</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Special Order Paper</th>
+                          <td>100# (270 GSM) Linen - DS - Rounded Corners</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Sides/Pages</th>
+                          <td>2</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Lamination</th>
+                          <td>None</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Binding Option</th>
+                          <td>No</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Additional Details</th>
+                          <td>None</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Pick Up Location</th>
+                          <td>San Antonio, TX</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
 
               <PaymentDetailsSection
                 order={order}

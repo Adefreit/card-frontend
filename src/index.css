@@ -1075,7 +1075,7 @@ button:disabled {
 
 .detail-meta-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -3821,6 +3821,61 @@ button:disabled {
 
 .admin-table--scanned-cards.admin-table--scanned-cards {
   min-width: 480px;
+}
+
+.admin-print-quote-table,
+.admin-cards-proofs-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.admin-print-quote-table th {
+  width: 38%;
+}
+
+.admin-print-quote-table th,
+.admin-print-quote-table td,
+.admin-cards-proofs-table th,
+.admin-cards-proofs-table td {
+  overflow-wrap: anywhere;
+}
+
+.admin-cards-proofs-table th:nth-child(2),
+.admin-cards-proofs-table td:nth-child(2) {
+  width: 52px;
+}
+
+.admin-cards-proofs-table th:nth-child(3),
+.admin-cards-proofs-table td:nth-child(3) {
+  width: 96px;
+}
+
+.admin-shipping-address {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  padding: 12px;
+  text-align: left;
+  font: inherit;
+  line-height: 1.45;
+  color: var(--ui-text);
+  cursor: copy;
+  background: #fff;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+}
+
+.admin-order-shipping-row {
+  margin-top: 16px;
+}
+
+.admin-shipping-address:hover {
+  background: rgba(241, 245, 255, 0.6);
+}
+
+.admin-shipping-address:focus-visible {
+  outline: 2px solid rgba(91, 99, 255, 0.58);
+  outline-offset: 2px;
 }
 
 @media (max-width: 620px) {

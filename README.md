@@ -20,6 +20,7 @@ cp .env.example .env
 
 - `VITE_API_BASE_URL`: Base URL for card-api, such as `http://localhost:3000`.
 - `VITE_FRONTEND_API_KEY`: Value expected by `X-API-Key` for user routes.
+- `VITE_FRONTEND_URL`: Value used by config to keep track of where the frontend is located, such as `http://localhost:5173`
 
 4. Start dev server:
 

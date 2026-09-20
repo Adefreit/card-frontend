@@ -7,6 +7,7 @@ export default function AppLayout() {
   const isAdmin = userPermissions.some(
     (permission) => permission.toUpperCase() === "ADMIN",
   );
+  const isDevelopment = import.meta.env.VITE_DEVELOPMENT_UI === "true";
 
   return (
     <div className="app-shell">
@@ -20,7 +21,11 @@ export default function AppLayout() {
             </span>
             <span className="brand-text">Legendary Profiles</span>
           </Link>
-          <span className="brand-tag">Workspace</span>
+          {isDevelopment ? (
+            <span className="brand-tag">DEVELOPMENT MODE</span>
+          ) : (
+            <span className="brand-tag">Member Area</span>
+          )}
         </div>
         <nav>
           <Link to="/app/dashboard">Home</Link>
