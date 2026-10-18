@@ -75,3 +75,62 @@
   }
 }
 
+
+.rendered-card__flipper {
+  position: relative;
+  width: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s;
+}
+
+.rendered-card__flipper.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.rendered-card__face {
+  position: relative;
+  width: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rendered-card__face--back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+}
+
+.rendered-card--flippable {
+  cursor: pointer;
+  perspective: 1200px;
+}
+
+.rendered-card--flippable:focus-visible {
+  outline: 2px solid #4f8cff;
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.rendered-card__flip-hint {
+  position: absolute;
+  right: 6%;
+  bottom: 6%;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 999px;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 2;
+}
+
+.rendered-card--flippable:hover .rendered-card__flip-hint {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rendered-card__flipper {
+    transition: none;
+  }
+}

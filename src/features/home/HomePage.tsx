@@ -1,12 +1,9 @@
 import { Link } from "react-router-dom";
+import RenderedCard from "../../components/RenderedCard";
 
 const sectionImages = {
-  hero: "hero.jpg",
-  "how-it-works": "howitworks.jpg",
-  powers: "powers.jpg",
-  game: "game.jpg",
-  future: "future.jpg",
-  adventure: "adventure.jpg",
+  game: "homepage/game.png",
+  future: "homepage/future.jpg",
 } as const;
 
 type SectionImageKey = keyof typeof sectionImages;
@@ -80,7 +77,11 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-          <SectionVisual imageKey="hero" alt="Hero image placeholder" />
+
+          <RenderedCard
+            imageUrl="homepage/sample_back.png"
+            backImageUrl="homepage/sample_card.png"
+          />
         </section>
         <div className="lp-divider">
           <span>✦</span>
@@ -122,7 +123,11 @@ export default function HomePage() {
               </li>
             </ul>
           </div>
-          <SectionVisual imageKey="powers" alt="QR feature image placeholder" />
+
+          <RenderedCard
+            imageUrl="homepage/powers.png"
+            backImageUrl="homepage/sample_back.png"
+          />
         </section>
         <div className="lp-divider">
           <span>✦</span>
@@ -220,10 +225,8 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-          <SectionVisual
-            imageKey="adventure"
-            alt="Final call to action image placeholder"
-          />
+
+          <RenderedCard imageUrl="homepage/adventure.png" />
         </section>
       </main>
     </div>
