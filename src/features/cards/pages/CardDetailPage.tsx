@@ -371,34 +371,24 @@ function collectFieldErrors(
 // #endregion
 
 // #region Normalizers
-function trimToUndefined(value: string): string | undefined {
-  const trimmedValue = value.trim();
-  return trimmedValue ? trimmedValue : undefined;
-}
-
+// Always returns a full object (empty strings for cleared fields) so the API can clear them.
 function normalizeContactInfo(
   value: CardUpdateValues["contactInfo"],
-): CardContactInfo | undefined {
-  const nextValue: CardContactInfo = {
-    firstName: trimToUndefined(value.firstName),
-    lastName: trimToUndefined(value.lastName),
-    organization: trimToUndefined(value.organization),
-    jobTitle: trimToUndefined(value.jobTitle),
-    website: trimToUndefined(value.website),
-    birthday: trimToUndefined(value.birthday),
+): CardContactInfo {
+  return {
+    firstName: value.firstName.trim(),
+    lastName: value.lastName.trim(),
+    organization: value.organization.trim(),
+    jobTitle: value.jobTitle.trim(),
+    website: value.website.trim(),
+    birthday: value.birthday.trim(),
     address: normalizeContactAddress(value.address),
-    homePhone: trimToUndefined(value.homePhone),
-    cellPhone: trimToUndefined(value.cellPhone),
-    personalEmail: trimToUndefined(value.personalEmail),
-    workEmail: trimToUndefined(value.workEmail),
+    homePhone: value.homePhone.trim(),
+    cellPhone: value.cellPhone.trim(),
+    personalEmail: value.personalEmail.trim(),
+    workEmail: value.workEmail.trim(),
     socialAccounts: normalizeSocialAccounts(value.socialMediaAccounts),
   };
-
-  const compactValue = Object.fromEntries(
-    Object.entries(nextValue).filter(([, fieldValue]) => Boolean(fieldValue)),
-  ) as CardContactInfo;
-
-  return Object.keys(compactValue).length > 0 ? compactValue : undefined;
 }
 
 function normalizeCustomCss(
@@ -421,10 +411,8 @@ function normalizeCustomCss(
 
 function normalizePremiumUrls(
   value: CardUpdateValues["premium"]["urlList"],
-): CardPremiumConfig | undefined {
-  const nextUrlList = normalizeNamedUrls(value);
-
-  return nextUrlList.length > 0 ? { urlList: nextUrlList } : undefined;
+): CardPremiumConfig {
+  return { urlList: normalizeNamedUrls(value) };
 }
 
 function normalizeNamedUrls<T extends CardNamedUrl>(value: T[]): T[] {
@@ -441,7 +429,7 @@ function normalizeNamedUrls<T extends CardNamedUrl>(value: T[]): T[] {
 
 function normalizeSocialAccounts(
   value: CardUpdateValues["contactInfo"]["socialMediaAccounts"],
-): Record<string, string> | undefined {
+): Record<string, string> {
   const nextValue = normalizeNamedUrls(value).reduce<Record<string, string>>(
     (accounts, item) => {
       accounts[item.name.toLowerCase()] = item.url;
@@ -450,12 +438,12 @@ function normalizeSocialAccounts(
     {},
   );
 
-  return Object.keys(nextValue).length > 0 ? nextValue : undefined;
+  return nextValue;
 }
 
 function normalizeContactAddress(
   value: CardUpdateValues["contactInfo"]["address"],
-): NonNullable<CardContactInfo["address"]> | undefined {
+): NonNullable<CardContactInfo["address"]> {
   const nextValue = {
     street1: value.street1.trim(),
     street2: value.street2.trim(),
@@ -465,7 +453,7 @@ function normalizeContactAddress(
     country: value.country.trim(),
   };
 
-  return Object.values(nextValue).some(Boolean) ? nextValue : undefined;
+  return nextValue;
 }
 
 function mapSocialAccountsToNamedUrls(
