@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 const legalLinks = [
+  { label: "Blog", href: "/blog" },
   { label: "Legal Documents", href: "/legal" },
   { label: "Contact Us", href: "/contactus" },
 ];

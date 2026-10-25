@@ -35,6 +35,8 @@ import AdminOrderDetailPage from "../features/admin/pages/AdminOrderDetailPage";
 import SiteFooter from "../features/layout/SiteFooter";
 import LegalDocumentPage from "../features/legal/pages/LegalDocumentPage";
 import LegalOverviewPage from "../features/legal/pages/LegalOverviewPage";
+import BlogListPage from "../features/blog/BlogListPage";
+import BlogPostPage from "../features/blog/BlogPostPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -123,6 +125,14 @@ export const router = createBrowserRouter([
       {
         path: "/",
         element: <HomePage />,
+      },
+      {
+        path: "/blog",
+        element: <BlogListPage />,
+      },
+      {
+        path: "/blog/:slug",
+        element: <BlogPostPage />,
       },
       {
         path: "/login",

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import MarketingNav from "../layout/MarketingNav";
 import RenderedCard from "../../components/RenderedCard";
 
 const sectionImages = {
@@ -34,22 +35,7 @@ function SectionVisual({ imageKey, alt }: SectionVisualProps) {
 export default function HomePage() {
   return (
     <div className="marketing-page lp-page">
-      <header className="lp-nav">
-        <div className="lp-brand">
-          <span className="lp-brand-mark" aria-hidden="true">
-            <img className="lp-brand-mark__image" src="/favicon.png" alt="" />
-          </span>
-          <span>Legendary Profiles</span>
-        </div>
-        <div className="lp-nav-ctas">
-          <Link className="lp-nav-link" to="/login">
-            Sign in
-          </Link>
-          <Link className="lp-nav-link" to="/register">
-            Register
-          </Link>
-        </div>
-      </header>
+      <MarketingNav />
 
       <main className="lp-scroll">
         {/* HERO */}
@@ -195,6 +181,12 @@ export default function HomePage() {
                 Experience points and leveling systems for rarity progression.
               </li>
             </ul>
+
+            <div className="lp-cta-row">
+              <Link className="btn-primary btn-lg" to="/blog">
+                Read the Blog
+              </Link>
+            </div>
           </div>
           <SectionVisual
             imageKey="future"
@@ -226,7 +218,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <RenderedCard imageUrl="homepage/adventure.png" />
+          <RenderedCard imageUrl="homepage/card-carousel.gif" />
         </section>
       </main>
     </div>
