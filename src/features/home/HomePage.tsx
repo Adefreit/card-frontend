@@ -1,6 +1,11 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
 import MarketingNav from "../layout/MarketingNav";
 import RenderedCard from "../../components/RenderedCard";
+import PlanModal from "../../components/PlanModal";
+import { useAuth } from "../auth/auth-context";
+import { getPricing } from "../transactions/api";
 
 const sectionImages = {
   game: "homepage/game.png",
@@ -33,9 +38,52 @@ function SectionVisual({ imageKey, alt }: SectionVisualProps) {
 }
 
 export default function HomePage() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [selectedInterval, setSelectedInterval] = useState<"month" | "year">(
+    "year",
+  );
+
+  const pricingQuery = useQuery({
+    queryKey: ["pricing"],
+    queryFn: getPricing,
+    enabled: showPlanModal,
+  });
+  const plans = pricingQuery.data?.subscriptionTypes;
+
+  useEffect(() => {
+    if (plans && plans.length > 0 && !selectedPlanId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedPlanId(plans[0].id);
+    }
+  }, [plans, selectedPlanId]);
+
   return (
     <div className="marketing-page lp-page">
       <MarketingNav />
+
+      {showPlanModal ? (
+        <PlanModal
+          onClose={() => setShowPlanModal(false)}
+          plans={plans ?? []}
+          selectedPlanId={selectedPlanId}
+          onSelectPlan={setSelectedPlanId}
+          selectedInterval={selectedInterval}
+          onSelectInterval={setSelectedInterval}
+          // Purchasing requires an account, so visitors are sent to sign up
+          onStartSubscription={() =>
+            navigate(isAuthenticated ? "/app/dashboard" : "/register")
+          }
+          onResumeSubscription={() => undefined}
+          isCancellationScheduled={false}
+          isResumePending={false}
+          isStartPending={false}
+          isSubscribed={false}
+          mintPrice={pricingQuery.data?.mint ?? null}
+        />
+      ) : null}
 
       <main className="lp-scroll">
         {/* HERO */}
@@ -153,6 +201,15 @@ export default function HomePage() {
               business-oriented features, but it's completely optional. Buy
               cards <i>à la carte</i> anytime.
             </p>
+            <div className="lp-cta-row">
+              <button
+                type="button"
+                className="btn-primary btn-lg"
+                onClick={() => setShowPlanModal(true)}
+              >
+                View Our Pricing Options
+              </button>
+            </div>
           </div>
           <SectionVisual
             imageKey="game"
