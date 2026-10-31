@@ -155,7 +155,9 @@ function ContactSheet({
 }) {
   const contactInfo = card.data.contactInfo;
   const fullName = getViewerName(contactInfo);
-  const socialLinks = Object.entries(contactInfo?.socialAccounts || {});
+  const socialLinks = (contactInfo?.socialAccounts ?? []).map(
+    (item): [string, string] => [item.name, item.url],
+  );
   const contactRows = getViewerContactRows(contactInfo);
 
   return (

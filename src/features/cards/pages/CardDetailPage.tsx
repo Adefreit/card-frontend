@@ -36,6 +36,7 @@ import { ImageInput } from "../components/image-upload";
 import { RenderedCard } from "../../../components/RenderedCard";
 import { useAuth } from "../../auth/auth-context";
 import MintCardModal from "../components/MintCardModal";
+import NamedLinkListEditor from "../components/NamedLinkListEditor";
 import {
   createIdempotencyKey,
   createTransaction,
@@ -387,7 +388,7 @@ function normalizeContactInfo(
     cellPhone: value.cellPhone.trim(),
     personalEmail: value.personalEmail.trim(),
     workEmail: value.workEmail.trim(),
-    socialAccounts: normalizeSocialAccounts(value.socialMediaAccounts),
+    socialAccounts: normalizeNamedUrls(value.socialMediaAccounts),
   };
 }
 
@@ -427,20 +428,6 @@ function normalizeNamedUrls<T extends CardNamedUrl>(value: T[]): T[] {
     .filter((item) => item.name && item.url);
 }
 
-function normalizeSocialAccounts(
-  value: CardUpdateValues["contactInfo"]["socialMediaAccounts"],
-): Record<string, string> {
-  const nextValue = normalizeNamedUrls(value).reduce<Record<string, string>>(
-    (accounts, item) => {
-      accounts[item.name.toLowerCase()] = item.url;
-      return accounts;
-    },
-    {},
-  );
-
-  return nextValue;
-}
-
 function normalizeContactAddress(
   value: CardUpdateValues["contactInfo"]["address"],
 ): NonNullable<CardContactInfo["address"]> {
@@ -454,19 +441,6 @@ function normalizeContactAddress(
   };
 
   return nextValue;
-}
-
-function mapSocialAccountsToNamedUrls(
-  value?: CardContactInfo["socialAccounts"],
-): CardNamedUrl[] {
-  if (!value) {
-    return [];
-  }
-
-  return Object.entries(value).map(([name, url]) => ({
-    name,
-    url,
-  }));
 }
 
 function getCurrentTimeMs() {
@@ -661,6 +635,7 @@ export default function CardDetailPage() {
     fields: socialMediaFields,
     append: appendSocialMedia,
     remove: removeSocialMedia,
+    move: moveSocialMedia,
   } = useFieldArray({
     control,
     name: "contactInfo.socialMediaAccounts",
@@ -670,6 +645,7 @@ export default function CardDetailPage() {
     fields: premiumUrlFields,
     append: appendPremiumUrl,
     remove: removePremiumUrl,
+    move: movePremiumUrl,
   } = useFieldArray({
     control,
     name: "premium.urlList",
@@ -783,9 +759,7 @@ export default function CardDetailPage() {
         cellPhone: data.data.contactInfo?.cellPhone || "",
         personalEmail: data.data.contactInfo?.personalEmail || "",
         workEmail: data.data.contactInfo?.workEmail || "",
-        socialMediaAccounts: mapSocialAccountsToNamedUrls(
-          data.data.contactInfo?.socialAccounts,
-        ),
+        socialMediaAccounts: data.data.contactInfo?.socialAccounts ?? [],
       },
       customCss: {
         bannerColor: data.data.customCss?.bannerColor || "#336699",
@@ -1857,74 +1831,27 @@ export default function CardDetailPage() {
                                   </button>
                                 </div>
 
-                                {socialMediaFields.length > 0 ? (
-                                  <div className="detail-link-list detail-link-list--nested">
-                                    {socialMediaFields.map((field, index) => (
-                                      <div
-                                        key={field.id}
-                                        className="detail-link-row"
-                                      >
-                                        <label>
-                                          <span>Platform</span>
-                                          <input
-                                            placeholder="Instagram"
-                                            {...register(
-                                              `contactInfo.socialMediaAccounts.${index}.name`,
-                                            )}
-                                          />
-                                          {errors.contactInfo
-                                            ?.socialMediaAccounts?.[index]
-                                            ?.name ? (
-                                            <small className="field-error">
-                                              {
-                                                errors.contactInfo
-                                                  .socialMediaAccounts[index]
-                                                  ?.name?.message
-                                              }
-                                            </small>
-                                          ) : null}
-                                        </label>
-
-                                        <label>
-                                          <span>Profile URL</span>
-                                          <input
-                                            placeholder="https://instagram.com/legend"
-                                            {...register(
-                                              `contactInfo.socialMediaAccounts.${index}.url`,
-                                            )}
-                                          />
-                                          {errors.contactInfo
-                                            ?.socialMediaAccounts?.[index]
-                                            ?.url ? (
-                                            <small className="field-error">
-                                              {
-                                                errors.contactInfo
-                                                  .socialMediaAccounts[index]
-                                                  ?.url?.message
-                                              }
-                                            </small>
-                                          ) : null}
-                                        </label>
-
-                                        <div className="detail-link-row__actions">
-                                          <button
-                                            type="button"
-                                            className="btn-secondary btn-xs"
-                                            onClick={() =>
-                                              removeSocialMedia(index)
-                                            }
-                                          >
-                                            Remove
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="detail-config-empty-state">
-                                    No social accounts added yet.
-                                  </div>
-                                )}
+                                <NamedLinkListEditor
+                                  nested
+                                  fields={socialMediaFields}
+                                  nameHeading="Platform"
+                                  urlHeading="Profile URL"
+                                  namePlaceholder="Instagram"
+                                  urlPlaceholder="https://instagram.com/legend"
+                                  emptyMessage="No social accounts added yet."
+                                  registerField={(index, field) =>
+                                    register(
+                                      `contactInfo.socialMediaAccounts.${index}.${field}`,
+                                    )
+                                  }
+                                  getError={(index, field) =>
+                                    errors.contactInfo?.socialMediaAccounts?.[
+                                      index
+                                    ]?.[field]?.message
+                                  }
+                                  onMove={moveSocialMedia}
+                                  onRemove={removeSocialMedia}
+                                />
                               </section>
                             </div>
                           </>
@@ -1973,67 +1900,23 @@ export default function CardDetailPage() {
                               </button>
                             </div>
 
-                            {premiumUrlFields.length > 0 ? (
-                              <div className="detail-link-list">
-                                {premiumUrlFields.map((field, index) => (
-                                  <div
-                                    key={field.id}
-                                    className="detail-link-row"
-                                  >
-                                    <label>
-                                      <span>Link Name</span>
-                                      <input
-                                        placeholder="Portfolio"
-                                        {...register(
-                                          `premium.urlList.${index}.name`,
-                                        )}
-                                      />
-                                      {errors.premium?.urlList?.[index]
-                                        ?.name ? (
-                                        <small className="field-error">
-                                          {
-                                            errors.premium.urlList[index]?.name
-                                              ?.message
-                                          }
-                                        </small>
-                                      ) : null}
-                                    </label>
-
-                                    <label>
-                                      <span>URL</span>
-                                      <input
-                                        placeholder="https://example.com"
-                                        {...register(
-                                          `premium.urlList.${index}.url`,
-                                        )}
-                                      />
-                                      {errors.premium?.urlList?.[index]?.url ? (
-                                        <small className="field-error">
-                                          {
-                                            errors.premium.urlList[index]?.url
-                                              ?.message
-                                          }
-                                        </small>
-                                      ) : null}
-                                    </label>
-
-                                    <div className="detail-link-row__actions">
-                                      <button
-                                        type="button"
-                                        className="btn-secondary btn-xs"
-                                        onClick={() => removePremiumUrl(index)}
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="detail-config-empty-state">
-                                No custom links added yet.
-                              </div>
-                            )}
+                            <NamedLinkListEditor
+                              fields={premiumUrlFields}
+                              nameHeading="Link Name"
+                              urlHeading="URL"
+                              namePlaceholder="My Portfolio"
+                              urlPlaceholder="https://example.com"
+                              emptyMessage="No custom links added yet."
+                              registerField={(index, field) =>
+                                register(`premium.urlList.${index}.${field}`)
+                              }
+                              getError={(index, field) =>
+                                errors.premium?.urlList?.[index]?.[field]
+                                  ?.message
+                              }
+                              onMove={movePremiumUrl}
+                              onRemove={removePremiumUrl}
+                            />
                           </>
                         ) : (
                           <>

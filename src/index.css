@@ -1348,26 +1348,72 @@ button:disabled {
   gap: 16px;
 }
 
-.detail-link-list {
+.link-editor {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
-.detail-link-list--nested {
+.link-editor--nested {
   margin-top: 10px;
 }
 
-.detail-link-row {
+.link-editor__head,
+.link-editor__row {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) auto;
-  gap: 12px;
-  align-items: end;
+  grid-template-columns: 20px minmax(0, 0.8fr) minmax(0, 1.2fr) auto;
+  gap: 10px;
+  align-items: start;
 }
 
-.detail-link-row__actions {
+.link-editor__head {
+  color: var(--ui-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.link-editor__row {
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+
+.link-editor__row.is-dragging {
+  opacity: 0.45;
+}
+
+.link-editor__row.is-drop-target {
+  border-color: var(--ui-brand);
+  background: rgba(91, 99, 255, 0.06);
+}
+
+.link-editor__handle {
   display: flex;
   align-items: center;
-  padding-bottom: 2px;
+  justify-content: center;
+  height: 40px;
+  color: var(--ui-muted);
+  cursor: grab;
+  user-select: none;
+  letter-spacing: -2px;
+}
+
+.link-editor__handle:active {
+  cursor: grabbing;
+}
+
+.link-editor__field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.link-editor__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
 }
 
 .detail-config-empty-state {
@@ -5620,13 +5666,30 @@ select:disabled {
   }
 
   .detail-config-grid,
-  .detail-link-row,
   .detail-config-section__header--row {
     grid-template-columns: 1fr;
   }
 
-  .detail-link-row__actions {
-    padding-bottom: 0;
+  .link-editor__head {
+    display: none;
+  }
+
+  .link-editor__row {
+    grid-template-columns: 1fr auto;
+    border-color: var(--ui-border);
+  }
+
+  .link-editor__handle {
+    display: none;
+  }
+
+  .link-editor__field {
+    grid-column: 1 / -1;
+  }
+
+  .link-editor__actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
   }
 }
 

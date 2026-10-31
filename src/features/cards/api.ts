@@ -29,7 +29,7 @@ export interface CardContactInfo {
   cellPhone?: string;
   personalEmail?: string;
   workEmail?: string;
-  socialAccounts?: Record<string, string>;
+  socialAccounts?: { name: string; url: string }[];
 }
 
 export interface CardCustomCss {
